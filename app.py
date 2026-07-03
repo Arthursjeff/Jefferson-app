@@ -114,6 +114,8 @@ def render_coluna(coluna, estado, pedidos):
                     st.markdown(f"**{label}**")
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
+                    if pedido.get("nota_fiscal"):
+                        st.info(f"🧾 Nota Fiscal: {pedido.get('nota_fiscal')}")                    
 
                     st.divider()
 
