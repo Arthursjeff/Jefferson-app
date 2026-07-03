@@ -8,6 +8,7 @@ from modules.modulo_01.service import (
     obter_pedidos_por_estado,
     criar_novo_pedido,
     avancar_pedido,
+    faturar_com_nota,
     cancelar,
     historico_pedido,
     adicionar_mensagem,
@@ -164,20 +165,43 @@ def render_coluna(coluna, estado, pedidos):
 
                     c1, c2 = st.columns(2)
 
-                    with c1:
-                        if st.button("➡️ Avançar", key=f"avancar_{pedido_id}"):
-                            sucesso, mensagem = avancar_pedido(
-                                pedido=pedido,
-                                usuario=st.session_state.nome,
-                                setor_usuario=st.session_state.setor,
+                        with c1:
+                        if estado == "MONTADOS" and st.session_state.setor == "VENDAS":
+                            nota = st.text_input(
+                                "Nota Fiscal",
+                                key=f"nf_{pedido_id}",
+                                placeholder="Digite o número da NF"
                             )
 
-                            if sucesso:
-                                st.success(mensagem)
-                                st.session_state.pedido_aberto = None
-                                st.rerun()
-                            else:
-                                st.warning(mensagem)
+                            if st.button("🧾 Faturar", key=f"faturar_{pedido_id}"):
+                                sucesso, mensagem = faturar_com_nota(
+                                    pedido=pedido,
+                                    nota_fiscal=nota,
+                                    usuario=st.session_state.nome,
+                                    setor_usuario=st.session_state.setor,
+                                )
+
+                                if sucesso:
+                                    st.success(mensagem)
+                                    st.session_state.pedido_aberto = None
+                                    st.rerun()
+                                else:
+                                    st.warning(mensagem)
+
+                        else:
+                            if st.button("➡️ Avançar", key=f"avancar_{pedido_id}"):
+                                sucesso, mensagem = avancar_pedido(
+                                    pedido=pedido,
+                                    usuario=st.session_state.nome,
+                                    setor_usuario=st.session_state.setor,
+                                )
+
+                                if sucesso:
+                                    st.success(mensagem)
+                                    st.session_state.pedido_aberto = None
+                                    st.rerun()
+                                else:
+                                    st.warning(mensagem)
 
                     with c2:
                         if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
