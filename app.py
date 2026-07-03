@@ -148,6 +148,12 @@ def pagina_fila():
         coluna = linha1[idx] if idx < 3 else linha2[idx - 3]
         render_coluna(coluna, estado, pedidos_por_estado[estado])
 
+def icone_tipo_pedido(tipo_pedido):
+    if tipo_pedido == "IMPORTACAO":
+        return "✈️ "
+    if tipo_pedido == "PROGRAMADO":
+        return "📅 "
+    return ""
 
 def render_coluna(coluna, estado, pedidos):
     with coluna:
@@ -162,7 +168,8 @@ def render_coluna(coluna, estado, pedidos):
             pedido_id = pedido["id"]
             aberto = st.session_state.pedido_aberto == pedido_id
 
-            label = f"{pedido['numero_pedido']} - {pedido['cliente']}"
+            icone = icone_tipo_pedido(pedido.get("tipo_pedido"))
+            label = f"{icone}{pedido['numero_pedido']} - {pedido['cliente']}"
 
             if not aberto:
                 if st.button(label, key=f"abrir_{pedido_id}", use_container_width=True):
