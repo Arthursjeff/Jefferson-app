@@ -5,12 +5,8 @@ TABELA_PEDIDOS = "fila_pedidos"
 TABELA_MOVIMENTACOES = "fila_movimentacoes"
 
 
-def _agora():
-    return datetime.now()
-
-
 def criar_pedido(numero_pedido: str, cliente: str, usuario: str):
-    agora = _agora()
+    agora = datetime.now()
 
     dados = {
         "numero_pedido": str(numero_pedido).strip(),
@@ -23,16 +19,16 @@ def criar_pedido(numero_pedido: str, cliente: str, usuario: str):
     }
 
     response = supabase.table(TABELA_PEDIDOS).insert(dados).execute()
-
     pedido = response.data[0] if response.data else None
 
     if pedido:
         registrar_movimentacao(
             pedido_id=pedido["id"],
+            tipo_evento="CRIACAO",
             origem=None,
             destino="PEDIDO",
             usuario=usuario,
-            setor_usuario=None,
+            observacao=f"Pedido criado por {usuario}."
         )
 
     return pedido
@@ -48,26 +44,7 @@ def listar_pedidos(status: str = "ATIVO"):
     return response.data or []
 
 
-def buscar_pedido_por_id(pedido_id: int):
-    response = (
-        supabase
-        .table(TABELA_PEDIDOS)
-        .select("*")
-        .eq("id", pedido_id)
-        .single()
-        .execute()
-    )
-
-    return response.data
-
-
-def mover_pedido(
-    pedido_id: int,
-    origem: str,
-    destino: str,
-    usuario: str,
-    setor_usuario: str,
-):
+def mover_pedido(pedido_id: int, origem: str, destino: str, usuario: str):
     response = (
         supabase
         .table(TABELA_PEDIDOS)
@@ -82,10 +59,11 @@ def mover_pedido(
 
     registrar_movimentacao(
         pedido_id=pedido_id,
+        tipo_evento="MOVIMENTACAO",
         origem=origem,
         destino=destino,
         usuario=usuario,
-        setor_usuario=setor_usuario,
+        observacao=f"Pedido movido de {origem} para {destino} por {usuario}."
     )
 
     return True
@@ -103,31 +81,11 @@ def cancelar_pedido(pedido_id: int, usuario: str):
     if response.data:
         registrar_movimentacao(
             pedido_id=pedido_id,
+            tipo_evento="CANCELAMENTO",
             origem=None,
             destino="CANCELADO",
             usuario=usuario,
-            setor_usuario=None,
-        )
-
-    return bool(response.data)
-
-
-def finalizar_pedido(pedido_id: int, usuario: str):
-    response = (
-        supabase
-        .table(TABELA_PEDIDOS)
-        .update({"status": "FINALIZADO"})
-        .eq("id", pedido_id)
-        .execute()
-    )
-
-    if response.data:
-        registrar_movimentacao(
-            pedido_id=pedido_id,
-            origem=None,
-            destino="FINALIZADO",
-            usuario=usuario,
-            setor_usuario=None,
+            observacao=f"Pedido cancelado por {usuario}."
         )
 
     return bool(response.data)
@@ -135,17 +93,19 @@ def finalizar_pedido(pedido_id: int, usuario: str):
 
 def registrar_movimentacao(
     pedido_id: int,
+    tipo_evento: str,
     origem: str | None,
     destino: str,
     usuario: str,
-    setor_usuario: str | None,
+    observacao: str = "",
 ):
     dados = {
         "pedido_id": pedido_id,
+        "tipo_evento": tipo_evento,
         "origem": origem,
         "destino": destino,
         "usuario": usuario,
-        "setor_usuario": setor_usuario,
+        "observacao": observacao,
     }
 
     response = supabase.table(TABELA_MOVIMENTACOES).insert(dados).execute()
