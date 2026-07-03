@@ -10,7 +10,12 @@ from core.permissions import (
     pode_criar_pedido,
     pode_cancelar_pedido,
 )
-
+from core.mensagens import (
+    criar_mensagem,
+    listar_mensagens,
+    desativar_mensagem,
+    contar_mensagens_ativas,
+)
 
 ESTADOS_FILA = [
     "PEDIDO",
@@ -121,3 +126,36 @@ def cancelar(pedido_id: int, usuario: str, setor_usuario: str):
 
 def historico_pedido(pedido_id: int):
     return listar_movimentacoes(pedido_id)
+  
+# ======================================================
+# MENSAGENS
+# ======================================================
+
+def adicionar_mensagem(pedido_id: int, mensagem: str, usuario: str):
+    if not mensagem.strip():
+        return False, "Mensagem vazia."
+
+    criar_mensagem(
+        pedido_id=pedido_id,
+        mensagem=mensagem,
+        usuario=usuario,
+    )
+
+    return True, "Mensagem adicionada."
+
+
+def obter_mensagens(pedido_id: int):
+    return listar_mensagens(pedido_id)
+
+
+def remover_mensagem(mensagem_id: int):
+    sucesso = desativar_mensagem(mensagem_id)
+
+    if not sucesso:
+        return False, "Erro ao remover mensagem."
+
+    return True, "Mensagem removida."
+
+
+def quantidade_mensagens(pedido_id: int):
+    return contar_mensagens_ativas(pedido_id)
