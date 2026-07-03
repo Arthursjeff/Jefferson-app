@@ -124,10 +124,13 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
 
         if tipo == "PROGRAMADO":
             destino = "PROGRAMADO"
+        elif tipo == "IMPORTACAO":
+            destino = "IMPORTACAO"
+        else:
+            destino = "MONTADOS"
 
-        if tipo == "IMPORTACAO":
-            destino = "IMPORTACAO"    
-
+    if estado_atual in ["PROGRAMADO", "IMPORTACAO"]:
+        destino = "MONTADOS"
     if not pode_mover(setor_usuario, estado_atual, destino):
         return False, "Usuário sem permissão para esta movimentação."
 
