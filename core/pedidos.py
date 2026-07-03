@@ -24,10 +24,10 @@ def criar_pedido(numero_pedido: str, cliente: str, usuario: str):
     if pedido:
         registrar_movimentacao(
             pedido_id=pedido["id"],
-            tipo_evento="CRIACAO",
-            origem=None,
+            origem="",
             destino="PEDIDO",
             usuario=usuario,
+            tipo_evento="CRIACAO",
             observacao=f"Pedido criado por {usuario}."
         )
 
@@ -40,7 +40,7 @@ def listar_pedidos(status: str = "ATIVO"):
     if status:
         query = query.eq("status", status)
 
-    response = query.order("criado_data", desc=False).execute()
+    response = query.order("id", desc=False).execute()
     return response.data or []
 
 
@@ -59,10 +59,10 @@ def mover_pedido(pedido_id: int, origem: str, destino: str, usuario: str):
 
     registrar_movimentacao(
         pedido_id=pedido_id,
-        tipo_evento="MOVIMENTACAO",
         origem=origem,
         destino=destino,
         usuario=usuario,
+        tipo_evento="MOVIMENTACAO",
         observacao=f"Pedido movido de {origem} para {destino} por {usuario}."
     )
 
@@ -81,10 +81,10 @@ def cancelar_pedido(pedido_id: int, usuario: str):
     if response.data:
         registrar_movimentacao(
             pedido_id=pedido_id,
-            tipo_evento="CANCELAMENTO",
-            origem=None,
+            origem="",
             destino="CANCELADO",
             usuario=usuario,
+            tipo_evento="CANCELAMENTO",
             observacao=f"Pedido cancelado por {usuario}."
         )
 
@@ -93,18 +93,18 @@ def cancelar_pedido(pedido_id: int, usuario: str):
 
 def registrar_movimentacao(
     pedido_id: int,
-    tipo_evento: str,
-    origem: str | None,
+    origem: str,
     destino: str,
     usuario: str,
+    tipo_evento: str,
     observacao: str = "",
 ):
     dados = {
         "pedido_id": pedido_id,
-        "tipo_evento": tipo_evento,
         "origem": origem,
         "destino": destino,
         "usuario": usuario,
+        "tipo_evento": tipo_evento,
         "observacao": observacao,
     }
 
