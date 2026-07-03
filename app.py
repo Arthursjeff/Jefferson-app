@@ -31,8 +31,59 @@ def init_session():
     st.session_state.setdefault("nome", None)
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
+    st.session_state.setdefault("show_nf_modal", False)
+    st.session_state.setdefault("pedido_nf", None)
+
+def abrir_modal_nf(pedido):
+    st.session_state.show_nf_modal = True
+    st.session_state.pedido_nf = pedido
 
 
+def fechar_modal_nf():
+    st.session_state.show_nf_modal = False
+    st.session_state.pedido_nf = None
+
+
+@st.dialog("🧾 Registrar Nota Fiscal")
+def modal_nota_fiscal():
+    pedido = st.session_state.get("pedido_nf")
+
+    if not pedido:
+        st.error("Pedido não encontrado.")
+        return
+
+    st.write(f"Pedido: **{pedido.get('numero_pedido')} - {pedido.get('cliente')}**")
+
+    nota = st.text_input(
+        "Número da Nota Fiscal",
+        key=f"modal_nf_{pedido['id']}",
+        placeholder="Digite o número da NF"
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Cancelar"):
+            fechar_modal_nf()
+            st.rerun()
+
+    with c2:
+        if st.button("Confirmar", type="primary"):
+            sucesso, mensagem = faturar_com_nota(
+                pedido=pedido,
+                nota_fiscal=nota,
+                usuario=st.session_state.nome,
+                setor_usuario=st.session_state.setor,
+            )
+
+            if sucesso:
+                fechar_modal_nf()
+                st.session_state.pedido_aberto = None
+                st.success(mensagem)
+                st.rerun()
+            else:
+                st.warning(mensagem)
+                
 def tela_login():
     st.title("🔐 Login")
 
@@ -169,26 +220,9 @@ def render_coluna(coluna, estado, pedidos):
 
                     with c1:
                         if estado == "MONTADOS" and st.session_state.setor == "VENDAS":
-                            nota = st.text_input(
-                                "Nota Fiscal",
-                                key=f"nf_{pedido_id}",
-                                placeholder="Digite o número da NF"
-                            )
-
-                            if st.button("🧾 Faturar", key=f"faturar_{pedido_id}"):
-                                sucesso, mensagem = faturar_com_nota(
-                                    pedido=pedido,
-                                    nota_fiscal=nota,
-                                    usuario=st.session_state.nome,
-                                    setor_usuario=st.session_state.setor,
-                                )
-
-                                if sucesso:
-                                    st.success(mensagem)
-                                    st.session_state.pedido_aberto = None
-                                    st.rerun()
-                                else:
-                                    st.warning(mensagem)
+                            if st.button("🧾 Faturar", key=f"abrir_nf_{pedido_id}"):
+                                abrir_modal_nf(pedido)
+                                st.rerun()
 
                         else:
                             if st.button("➡️ Avançar", key=f"avancar_{pedido_id}"):
@@ -242,7 +276,8 @@ init_session()
 if not st.session_state.logado:
     tela_login()
     st.stop()
-
+if st.session_state.show_nf_modal:
+    modal_nota_fiscal()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
