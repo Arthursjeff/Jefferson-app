@@ -2,6 +2,7 @@ from core.pedidos import (
     criar_pedido,
     listar_pedidos,
     mover_pedido,
+    registrar_nota_fiscal,
     cancelar_pedido,
     listar_movimentacoes,
 )
@@ -159,3 +160,34 @@ def remover_mensagem(mensagem_id: int):
 
 def quantidade_mensagens(pedido_id: int):
     return contar_mensagens_ativas(pedido_id)
+
+def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario: str):
+    if setor_usuario != "VENDAS":
+        return False, "Somente VENDAS pode faturar pedidos."
+
+    if pedido.get("setor_atual") != "MONTADOS":
+        return False, "A Nota Fiscal só pode ser registrada em pedidos montados."
+
+    if not str(nota_fiscal).strip():
+        return False, "Informe o número da Nota Fiscal."
+
+    sucesso_nf = registrar_nota_fiscal(
+        pedido_id=pedido["id"],
+        nota_fiscal=nota_fiscal,
+        usuario=usuario,
+    )
+
+    if not sucesso_nf:
+        return False, "Erro ao registrar Nota Fiscal."
+
+    sucesso_mov = mover_pedido(
+        pedido_id=pedido["id"],
+        origem="MONTADOS",
+        destino="FATURADO",
+        usuario=usuario,
+    )
+
+    if not sucesso_mov:
+        return False, "Nota registrada, mas erro ao mover para Faturados."
+
+    return True, "Nota Fiscal registrada e pedido faturado."
