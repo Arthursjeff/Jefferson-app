@@ -11,6 +11,8 @@ from modules.modulo_01.service import (
     faturar_com_nota,
     cancelar,
     historico_pedido,
+    ESTADOS_VISIVEIS,
+    ESTADOS_OCULTOS,
     adicionar_mensagem,
     obter_mensagens,
     remover_mensagem,
@@ -141,10 +143,18 @@ def pagina_fila():
 
     pedidos_por_estado = obter_pedidos_por_estado()
 
+    with st.expander("📂 Programados / Importação"):
+        ocultas = st.columns(2)
+
+        for idx, estado in enumerate(ESTADOS_OCULTOS):
+            render_coluna(ocultas[idx], estado, pedidos_por_estado[estado])
+
+    st.divider()
+
     linha1 = st.columns(3)
     linha2 = st.columns(3)
 
-    for idx, estado in enumerate(ESTADOS_FILA):
+    for idx, estado in enumerate(ESTADOS_VISIVEIS):
         coluna = linha1[idx] if idx < 3 else linha2[idx - 3]
         render_coluna(coluna, estado, pedidos_por_estado[estado])
 
