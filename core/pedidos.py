@@ -5,7 +5,7 @@ TABELA_PEDIDOS = "fila_pedidos"
 TABELA_MOVIMENTACOES = "fila_movimentacoes"
 
 
-def criar_pedido(numero_pedido: str, cliente: str, usuario: str):
+def criar_pedido(numero_pedido: str, cliente: str, usuario: str, tipo_pedido: str, data_prevista_faturamento):
     agora = datetime.now()
 
     dados = {
@@ -14,6 +14,8 @@ def criar_pedido(numero_pedido: str, cliente: str, usuario: str):
         "criado_por": usuario,
         "criado_data": agora.date().isoformat(),
         "criado_hora": agora.time().strftime("%H:%M:%S"),
+        "tipo_pedido": tipo_pedido,
+        "data_prevista_faturamento": data_prevista_faturamento,        
         "setor_atual": "PEDIDO",
         "status": "ATIVO",
     }
