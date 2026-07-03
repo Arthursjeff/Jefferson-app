@@ -46,7 +46,6 @@ def obter_pedidos():
 
 def obter_pedidos_por_estado():
     pedidos = obter_pedidos()
-
     agrupado = {estado: [] for estado in ESTADOS_FILA}
 
     for pedido in pedidos:
@@ -97,7 +96,6 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
         origem=estado_atual,
         destino=destino,
         usuario=usuario,
-        setor_usuario=setor_usuario,
     )
 
     if not sucesso:
@@ -110,7 +108,10 @@ def cancelar(pedido_id: int, usuario: str, setor_usuario: str):
     if not pode_cancelar_pedido(setor_usuario):
         return False, "Usuário sem permissão para cancelar pedidos."
 
-    sucesso = cancelar_pedido(pedido_id=pedido_id, usuario=usuario)
+    sucesso = cancelar_pedido(
+        pedido_id=pedido_id,
+        usuario=usuario,
+    )
 
     if not sucesso:
         return False, "Erro ao cancelar pedido."
