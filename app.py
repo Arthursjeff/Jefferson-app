@@ -1,1 +1,190 @@
+import streamlit as st
 
+from core.auth import validar_login
+from modules.modulo_01.service import (
+    ESTADOS_FILA,
+    LABEL_ESTADOS,
+    CORES_ESTADOS,
+    obter_pedidos_por_estado,
+    criar_novo_pedido,
+    avancar_pedido,
+    cancelar,
+    historico_pedido,
+)
+
+
+st.set_page_config(
+    page_title="Jefferson App",
+    page_icon="🧾",
+    layout="wide",
+)
+
+
+def init_session():
+    st.session_state.setdefault("logado", False)
+    st.session_state.setdefault("usuario", None)
+    st.session_state.setdefault("nome", None)
+    st.session_state.setdefault("setor", None)
+    st.session_state.setdefault("pedido_aberto", None)
+
+
+def tela_login():
+    st.title("🔐 Login")
+
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
+
+    if st.button("Entrar", type="primary"):
+        dados = validar_login(usuario, senha)
+
+        if not dados:
+            st.error("Usuário ou senha inválidos.")
+            return
+
+        st.session_state.logado = True
+        st.session_state.usuario = dados["usuario"]
+        st.session_state.nome = dados["nome"]
+        st.session_state.setor = dados["setor"]
+        st.rerun()
+
+
+def pagina_criar_pedido():
+    st.title("➕ Criar Pedido")
+
+    numero = st.text_input("Número do pedido")
+    cliente = st.text_input("Cliente")
+
+    if st.button("Criar pedido", type="primary"):
+        sucesso, mensagem = criar_novo_pedido(
+            numero_pedido=numero,
+            cliente=cliente,
+            usuario=st.session_state.nome,
+            setor_usuario=st.session_state.setor,
+        )
+
+        if sucesso:
+            st.success(mensagem)
+            st.rerun()
+        else:
+            st.warning(mensagem)
+
+
+def pagina_fila():
+    st.title("📦 Fila de Pedidos")
+
+    if st.button("🔄 Atualizar"):
+        st.rerun()
+
+    pedidos_por_estado = obter_pedidos_por_estado()
+
+    linha1 = st.columns(3)
+    linha2 = st.columns(3)
+
+    for idx, estado in enumerate(ESTADOS_FILA):
+        coluna = linha1[idx] if idx < 3 else linha2[idx - 3]
+        render_coluna(coluna, estado, pedidos_por_estado[estado])
+
+
+def render_coluna(coluna, estado, pedidos):
+    with coluna:
+        st.markdown(f"### {LABEL_ESTADOS[estado]} ({len(pedidos)})")
+        st.markdown(
+            f"<div style='height:10px;background:{CORES_ESTADOS[estado]};"
+            f"border-radius:8px;margin-bottom:10px'></div>",
+            unsafe_allow_html=True,
+        )
+
+        for pedido in pedidos:
+            pedido_id = pedido["id"]
+            aberto = st.session_state.pedido_aberto == pedido_id
+
+            label = f"{pedido['numero_pedido']} - {pedido['cliente']}"
+
+            if not aberto:
+                if st.button(label, key=f"abrir_{pedido_id}", use_container_width=True):
+                    st.session_state.pedido_aberto = pedido_id
+                    st.rerun()
+            else:
+                with st.container(border=True):
+                    st.markdown(f"**{label}**")
+                    st.caption(f"Criado por: {pedido.get('criado_por', '')}")
+                    st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
+
+                    st.divider()
+
+                    c1, c2 = st.columns(2)
+
+                    with c1:
+                        if st.button("➡️ Avançar", key=f"avancar_{pedido_id}"):
+                            sucesso, mensagem = avancar_pedido(
+                                pedido=pedido,
+                                usuario=st.session_state.nome,
+                                setor_usuario=st.session_state.setor,
+                            )
+
+                            if sucesso:
+                                st.success(mensagem)
+                                st.session_state.pedido_aberto = None
+                                st.rerun()
+                            else:
+                                st.warning(mensagem)
+
+                    with c2:
+                        if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
+                            sucesso, mensagem = cancelar(
+                                pedido_id=pedido_id,
+                                usuario=st.session_state.nome,
+                                setor_usuario=st.session_state.setor,
+                            )
+
+                            if sucesso:
+                                st.success(mensagem)
+                                st.session_state.pedido_aberto = None
+                                st.rerun()
+                            else:
+                                st.warning(mensagem)
+
+                    with st.expander("Histórico"):
+                        movimentos = historico_pedido(pedido_id)
+
+                        if not movimentos:
+                            st.caption("Sem histórico.")
+                        else:
+                            for mov in movimentos:
+                                st.write(
+                                    f"{mov.get('origem')} → {mov.get('destino')} | "
+                                    f"{mov.get('usuario')} | {mov.get('criado_em')}"
+                                )
+
+                    if st.button("Fechar", key=f"fechar_{pedido_id}"):
+                        st.session_state.pedido_aberto = None
+                        st.rerun()
+
+
+init_session()
+
+if not st.session_state.logado:
+    tela_login()
+    st.stop()
+
+
+with st.sidebar:
+    st.markdown("## Jefferson App")
+    st.caption(f"{st.session_state.nome} ({st.session_state.setor})")
+
+    pagina = st.radio(
+        "Navegação",
+        ["Fila de Pedidos", "Criar Pedido"],
+    )
+
+    st.divider()
+
+    if st.button("🚪 Sair"):
+        st.session_state.clear()
+        st.rerun()
+
+
+if pagina == "Criar Pedido":
+    pagina_criar_pedido()
+else:
+    pagina_fila()
