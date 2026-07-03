@@ -10,7 +10,7 @@ PERMISSOES_MOVIMENTO = {
         "FATURADO": ["EMBALADO"],
         "EMBALADO": ["RETIRADO"],
     },
-
+ }
 
 def pode_mover(setor_usuario: str, origem: str, destino: str) -> bool:
     destinos_permitidos = PERMISSOES_MOVIMENTO.get(setor_usuario, {}).get(origem, [])
