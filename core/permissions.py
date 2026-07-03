@@ -4,11 +4,12 @@ PERMISSOES_MOVIMENTO = {
     },
     "MONTAGEM": {
         "PEDIDO": ["EM_MONTAGEM"],
-        "EM_MONTAGEM": ["MONTADOS"],
+        "EM_MONTAGEM": ["PROGRAMADO", "IMPORTACAO", "MONTADOS"],
+        "PROGRAMADO": ["MONTADOS"],
+        "IMPORTACAO": ["MONTADOS"],
         "FATURADO": ["EMBALADO"],
         "EMBALADO": ["RETIRADO"],
     },
-}
 
 
 def pode_mover(setor_usuario: str, origem: str, destino: str) -> bool:
