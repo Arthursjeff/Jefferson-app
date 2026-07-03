@@ -62,19 +62,24 @@ def obter_pedidos_por_estado():
     return agrupado
 
 
-def criar_novo_pedido(numero_pedido: str, cliente: str, usuario: str, setor_usuario: str):
+def criar_novo_pedido(numero_pedido: str, cliente: str, usuario: str, setor_usuario: str, tipo_pedido: str, data_prevista_faturamento):
     if not pode_criar_pedido(setor_usuario):
         return False, "Usuário sem permissão para criar pedidos."
 
     if not numero_pedido or not cliente:
         return False, "Preencha número do pedido e cliente."
-
+        
+    if not data_prevista_faturamento:
+        return False, "Informe a data prevista de faturamento."
+    
     pedido = criar_pedido(
         numero_pedido=numero_pedido,
         cliente=cliente,
         usuario=usuario,
+        tipo_pedido=tipo_pedido,
+        data_prevista_faturamento=str(data_prevista_faturamento),
     )
-
+    
     if not pedido:
         return False, "Erro ao criar pedido."
 
