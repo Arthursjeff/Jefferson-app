@@ -10,6 +10,10 @@ from modules.modulo_01.service import (
     avancar_pedido,
     cancelar,
     historico_pedido,
+    adicionar_mensagem,
+    obter_mensagens,
+    remover_mensagem,
+    quantidade_mensagens,
 )
 
 
@@ -109,6 +113,52 @@ def render_coluna(coluna, estado, pedidos):
                     st.markdown(f"**{label}**")
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
+
+                    st.divider()
+
+                    # =========================
+                    # MENSAGENS
+                    # =========================
+
+                    qtd_msg = quantidade_mensagens(pedido_id)
+
+                    with st.expander(f"💬 Mensagens ({qtd_msg})"):
+                        mensagens = obter_mensagens(pedido_id)
+
+                        if not mensagens:
+                            st.caption("Nenhuma mensagem registrada.")
+                        else:
+                            for msg in mensagens:
+                                st.markdown(f"**{msg.get('criado_por', '')}:** {msg.get('mensagem', '')}")
+
+                                if st.button("Remover", key=f"remover_msg_{msg['id']}"):
+                                    sucesso, mensagem = remover_mensagem(msg["id"])
+
+                                    if sucesso:
+                                        st.success(mensagem)
+                                        st.rerun()
+                                    else:
+                                        st.warning(mensagem)
+
+                        nova_msg = st.text_area(
+                            "Nova mensagem",
+                            key=f"nova_msg_{pedido_id}",
+                            height=80,
+                            placeholder="Escreva uma mensagem para este pedido..."
+                        )
+
+                        if st.button("Adicionar mensagem", key=f"add_msg_{pedido_id}"):
+                            sucesso, mensagem = adicionar_mensagem(
+                                pedido_id=pedido_id,
+                                mensagem=nova_msg,
+                                usuario=st.session_state.nome,
+                            )
+
+                            if sucesso:
+                                st.success(mensagem)
+                                st.rerun()
+                            else:
+                                st.warning(mensagem)
 
                     st.divider()
 
