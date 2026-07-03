@@ -165,7 +165,7 @@ def render_coluna(coluna, estado, pedidos):
 
                     c1, c2 = st.columns(2)
 
-                        with c1:
+                    with c1:
                         if estado == "MONTADOS" and st.session_state.setor == "VENDAS":
                             nota = st.text_input(
                                 "Nota Fiscal",
