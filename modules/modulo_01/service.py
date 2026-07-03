@@ -21,10 +21,26 @@ from core.mensagens import (
 ESTADOS_FILA = [
     "PEDIDO",
     "EM_MONTAGEM",
+    "PROGRAMADO",
+    "IMPORTACAO",
     "MONTADOS",
     "FATURADO",
     "EMBALADO",
     "RETIRADO",
+]
+
+ESTADOS_VISIVEIS = [
+    "PEDIDO",
+    "EM_MONTAGEM",
+    "MONTADOS",
+    "FATURADO",
+    "EMBALADO",
+    "RETIRADO",
+]
+
+ESTADOS_OCULTOS = [
+    "PROGRAMADO",
+    "IMPORTACAO",
 ]
 
 LABEL_ESTADOS = {
@@ -34,6 +50,8 @@ LABEL_ESTADOS = {
     "FATURADO": "Faturados",
     "EMBALADO": "Embalados",
     "RETIRADO": "Retirados",
+    "PROGRAMADO": "Programados",
+    "IMPORTACAO": "Importação",    
 }
 
 CORES_ESTADOS = {
@@ -43,6 +61,8 @@ CORES_ESTADOS = {
     "FATURADO": "#87CEFA",
     "EMBALADO": "#D8B4FE",
     "RETIRADO": "#A9A9A9",
+    "PROGRAMADO": "#C4B5FD",
+    "IMPORTACAO": "#FDBA74",    
 }
 
 
@@ -98,6 +118,15 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
         return False, "Pedido já está no último estágio."
 
     destino = ESTADOS_FILA[idx + 1]
+
+    if estado_atual == "EM_MONTAGEM":
+        tipo = pedido.get("tipo_pedido")
+
+        if tipo == "PROGRAMADO":
+            destino = "PROGRAMADO"
+
+        if tipo == "IMPORTACAO":
+            destino = "IMPORTACAO"    
 
     if not pode_mover(setor_usuario, estado_atual, destino):
         return False, "Usuário sem permissão para esta movimentação."
