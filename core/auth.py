@@ -1,1 +1,66 @@
+USUARIOS = {
+    "arthur": {
+        "senha": "1234",
+        "nome": "Arthur",
+        "setor": "VENDAS",
+    },
+    "amanda": {
+        "senha": "1234",
+        "nome": "Amanda",
+        "setor": "VENDAS",
+    },
+    "carla": {
+        "senha": "1234",
+        "nome": "Carla",
+        "setor": "VENDAS",
+    },
+    "jaqueline": {
+        "senha": "1234",
+        "nome": "Jaqueline",
+        "setor": "VENDAS",
+    },
+    "marilene": {
+        "senha": "1234",
+        "nome": "Marilene",
+        "setor": "VENDAS",
+    },
+    "romulo": {
+        "senha": "1234",
+        "nome": "Romulo",
+        "setor": "VENDAS",
+    },
+    "joao": {
+        "senha": "1234",
+        "nome": "João",
+        "setor": "MONTAGEM",
+    },
+    "ricardo": {
+        "senha": "1234",
+        "nome": "Ricardo",
+        "setor": "MONTAGEM",
+    },
+    "marco": {
+        "senha": "1234",
+        "nome": "Marco",
+        "setor": "MONTAGEM",
+    },
+}
 
+
+def validar_login(usuario: str, senha: str):
+    usuario = (usuario or "").strip().lower()
+    senha = senha or ""
+
+    if usuario not in USUARIOS:
+        return None
+
+    dados = USUARIOS[usuario]
+
+    if senha != dados["senha"]:
+        return None
+
+    return {
+        "usuario": usuario,
+        "nome": dados["nome"],
+        "setor": dados["setor"],
+    }
