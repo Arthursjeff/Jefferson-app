@@ -109,6 +109,12 @@ def pagina_criar_pedido():
 
     numero = st.text_input("Número do pedido")
     cliente = st.text_input("Cliente")
+    tipo_pedido = st.selectbox(
+        "Tipo do pedido",
+        ["NORMAL", "PROGRAMADO", "IMPORTACAO"]
+    )
+
+    data_prevista_faturamento = st.date_input("Data prevista de faturamento")    
 
     if st.button("Criar pedido", type="primary"):
         sucesso, mensagem = criar_novo_pedido(
@@ -116,6 +122,8 @@ def pagina_criar_pedido():
             cliente=cliente,
             usuario=st.session_state.nome,
             setor_usuario=st.session_state.setor,
+            tipo_pedido=tipo_pedido,
+            data_prevista_faturamento=data_prevista_faturamento,
         )
 
         if sucesso:
