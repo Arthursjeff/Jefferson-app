@@ -1,1 +1,2 @@
-https://unkloeubijlhlonqcuwn.supabase.co
+SUPABASE_URL = "https://unkloeubijlhlonqcuwn.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua2xvZXViaWpsaGxvbnFjdXduIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MzA3ODEyMSwiZXhwIjoyMDk4NjU0MTIxfQ.X8VWJUYGc0HolgWb70bQvAWJZGLcyp-0e4f3gqc66ck"
