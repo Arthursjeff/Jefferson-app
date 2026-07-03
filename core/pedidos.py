@@ -123,3 +123,29 @@ def listar_movimentacoes(pedido_id: int):
     )
 
     return response.data or []
+    
+def registrar_nota_fiscal(pedido_id: int, nota_fiscal: str, usuario: str):
+    nota = str(nota_fiscal).strip()
+
+    if not nota:
+        return False
+
+    response = (
+        supabase
+        .table(TABELA_PEDIDOS)
+        .update({"nota_fiscal": nota})
+        .eq("id", pedido_id)
+        .execute()
+    )
+
+    if response.data:
+        registrar_movimentacao(
+            pedido_id=pedido_id,
+            origem="MONTADOS",
+            destino="FATURADO",
+            usuario=usuario,
+            tipo_evento="NOTA_FISCAL",
+            observacao=f"Nota Fiscal {nota} registrada por {usuario}."
+        )
+
+    return bool(response.data)
