@@ -271,7 +271,9 @@ def verificar_notificacoes():
             <script>
             if ("Notification" in window && Notification.permission === "granted") {{
                 new Notification({json.dumps(titulo)}, {{
-                    body: {json.dumps(mensagem)}
+                    body: {json.dumps(mensagem)},
+                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png",
+                    requireInteraction: true
                 }});
             }}
             </script>
