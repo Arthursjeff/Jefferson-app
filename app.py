@@ -30,43 +30,64 @@ st.set_page_config(
     layout="wide",
 )
 
-def teste_notificacao_navegador():
+def ativar_notificacoes():
     components.html(
         """
-        <button onclick="notificar()" style="
-            padding:10px 14px;
-            border-radius:8px;
-            border:1px solid #ccc;
-            cursor:pointer;
-        ">
-            🔔 Testar notificação do navegador
-        </button>
+        <div id="ativar_notificacoes"></div>
 
         <script>
-        function notificar() {
+        async function iniciar() {
+
             if (!("Notification" in window)) {
-                alert("Este navegador não suporta notificações.");
+                document.getElementById("ativar_notificacoes").innerHTML =
+                    "<b>Este navegador não suporta notificações.</b>";
                 return;
             }
 
             if (Notification.permission === "granted") {
-                new Notification("Jefferson App", {
-                    body: "Teste de notificação da fila de pedidos.",
-                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png"
-                });
-            } else if (Notification.permission !== "denied") {
-                Notification.requestPermission().then(function(permission) {
-                    if (permission === "granted") {
-                        new Notification("Jefferson App", {
-                            body: "Notificações ativadas com sucesso.",
-                            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png"
-                        });
-                    }
-                });
-            } else {
-                alert("As notificações estão bloqueadas neste navegador.");
+                return;
             }
+
+            if (Notification.permission === "denied") {
+                document.getElementById("ativar_notificacoes").innerHTML =
+                    "<b>⚠️ As notificações estão bloqueadas neste navegador.</b>";
+                return;
+            }
+
+            document.getElementById("ativar_notificacoes").innerHTML = `
+                <button onclick="pedirPermissao()"
+                    style="
+                        background:#0e7490;
+                        color:white;
+                        border:none;
+                        padding:10px 18px;
+                        border-radius:8px;
+                        cursor:pointer;
+                        font-weight:bold;
+                    ">
+                    🔔 Ativar notificações
+                </button>
+            `;
         }
+
+        async function pedirPermissao(){
+
+            const permissao = await Notification.requestPermission();
+
+            if(permissao==="granted"){
+
+                new Notification("Jefferson App",{
+                    body:"Notificações ativadas com sucesso!"
+                });
+
+                location.reload();
+
+            }
+
+        }
+
+        iniciar();
+
         </script>
         """,
         height=70,
@@ -267,6 +288,7 @@ def monitor_notificacoes():
 
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
+    ativar_notificacoes()
     if st.session_state.setor == "ADMINISTRADOR":
         with st.expander("⚙️ Administração"):
             c_admin1, c_admin2 = st.columns(2)
