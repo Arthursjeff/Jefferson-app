@@ -247,6 +247,13 @@ def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario
     if not sucesso_mov:
         return False, "Nota registrada, mas erro ao mover para Faturados."
 
+    criar_notificacao(
+        pedido_id=pedido["id"],
+        setor_destino="MONTAGEM",
+        tipo="PEDIDO_FATURADO",
+        mensagem=f"Pedido faturado: {pedido['numero_pedido']} - {pedido['cliente']}"
+    )
+
     return True, "Nota Fiscal registrada e pedido faturado."
 
 def obter_notificacoes_pendentes(setor_usuario: str):
