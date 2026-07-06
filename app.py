@@ -34,6 +34,7 @@ def init_session():
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
     st.session_state.setdefault("show_nf_modal", False)
+    st.session_state.setdefault("filas_minimizadas", {})
     st.session_state.setdefault("show_trocar_operador", False)
     st.session_state.setdefault("pedido_nf", None)
 
@@ -228,13 +229,25 @@ def icone_tipo_pedido(tipo_pedido):
 
 def render_coluna(coluna, estado, pedidos):
     with coluna:
-        st.markdown(f"### {LABEL_ESTADOS[estado]} ({len(pedidos)})")
+        minimizada = st.session_state.filas_minimizadas.get(estado, False)        
+        c_titulo, c_btn = st.columns([4, 1])
+
+        with c_titulo:
+            st.markdown(f"### {LABEL_ESTADOS[estado]} ({len(pedidos)})")
+
+        with c_btn:
+            if st.button("➕" if minimizada else "➖", key=f"min_{estado}"):
+                st.session_state.filas_minimizadas[estado] = not minimizada
+                st.rerun()
         st.markdown(
             f"<div style='height:10px;background:{CORES_ESTADOS[estado]};"
             f"border-radius:8px;margin-bottom:10px'></div>",
             unsafe_allow_html=True,
         )
-
+        if minimizada:
+            st.caption("Fila minimizada.")
+            return
+            
         for pedido in pedidos:
             pedido_id = pedido["id"]
             aberto = st.session_state.pedido_aberto == pedido_id
