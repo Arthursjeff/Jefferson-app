@@ -255,9 +255,9 @@ def verificar_notificacoes():
     if not st.session_state.logado:
         return
 
-    setor = st.session_state.setor
+    usuario = st.session_state.usuario
 
-    notificacoes = obter_notificacoes_pendentes(setor)
+    notificacoes = obter_notificacoes_pendentes(usuario)
 
     if not notificacoes:
         return
