@@ -1,6 +1,6 @@
 import streamlit as st
 
-from core.auth import validar_login
+from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
     LABEL_ESTADOS,
@@ -34,6 +34,7 @@ def init_session():
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
     st.session_state.setdefault("show_nf_modal", False)
+    st.session_state.setdefault("show_trocar_operador", False)
     st.session_state.setdefault("pedido_nf", None)
 
 def abrir_modal_nf(pedido):
@@ -85,6 +86,46 @@ def modal_nota_fiscal():
                 st.rerun()
             else:
                 st.warning(mensagem)
+
+def abrir_troca_operador():
+    st.session_state.show_trocar_operador = True
+
+
+def fechar_troca_operador():
+    st.session_state.show_trocar_operador = False
+
+
+@st.dialog("👤 Trocar operador")
+def modal_trocar_operador():
+    operadores = {
+        usuario: dados
+        for usuario, dados in USUARIOS.items()
+        if dados["setor"] == "MONTAGEM"
+    }
+
+    nomes = [dados["nome"] for dados in operadores.values()]
+
+    novo_nome = st.selectbox("Selecione o operador", nomes)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Cancelar"):
+            fechar_troca_operador()
+            st.rerun()
+
+    with c2:
+        if st.button("Confirmar", type="primary"):
+            for usuario, dados in operadores.items():
+                if dados["nome"] == novo_nome:
+                    st.session_state.usuario = usuario
+                    st.session_state.nome = dados["nome"]
+                    st.session_state.setor = dados["setor"]
+                    break
+
+            fechar_troca_operador()
+            st.success(f"Operador alterado para {novo_nome}.")
+            st.rerun()
                 
 def tela_login():
     st.title("🔐 Login")
@@ -137,6 +178,17 @@ def pagina_criar_pedido():
 
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
+
+    if st.session_state.setor == "MONTAGEM":
+        c_op1, c_op2 = st.columns([3, 1])
+
+        with c_op1:
+            st.caption(f"Operador atual: **{st.session_state.nome}**")
+
+        with c_op2:
+            if st.button("👤 Trocar operador", use_container_width=True):
+                abrir_troca_operador()
+                st.rerun()
 
     if st.button("🔄 Atualizar"):
         st.rerun()
@@ -303,6 +355,9 @@ if not st.session_state.logado:
     st.stop()
 if st.session_state.show_nf_modal:
     modal_nota_fiscal()
+
+if st.session_state.show_trocar_operador:
+    modal_trocar_operador()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
