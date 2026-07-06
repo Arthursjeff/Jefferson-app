@@ -99,6 +99,7 @@ def init_session():
     st.session_state.setdefault("nome", None)
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
+    st.session_state.setdefault("form_pedido_id", 0)
     st.session_state.setdefault("show_nf_modal", False)
     st.session_state.setdefault("filas_minimizadas", {})
     st.session_state.setdefault("show_trocar_operador", False)
@@ -228,18 +229,25 @@ def tela_login():
 def pagina_criar_pedido():
     st.title("➕ Criar Pedido")
 
-    with st.form("form_criar_pedido"):
-        numero = st.text_input("Número do pedido", key="numero_pedido_input")
-        cliente = st.text_input("Cliente", key="cliente_input")
+    with st.form(f"form_criar_pedido_{st.session_state.form_pedido_id}"):
+
+        numero = st.text_input("Número do pedido")
+
+        cliente = st.text_input("Cliente")
 
         tipo_pedido = st.selectbox(
             "Tipo do pedido",
             ["NORMAL", "PROGRAMADO", "IMPORTACAO"]
         )
 
-        data_prevista_faturamento = st.date_input("Data prevista de faturamento")
+        data_prevista_faturamento = st.date_input(
+            "Data prevista de faturamento"
+        )
 
-        criar = st.form_submit_button("Criar pedido", type="primary")
+        criar = st.form_submit_button(
+            "Criar pedido",
+            type="primary"
+        )
 
     if criar:
         sucesso, mensagem = criar_novo_pedido(
@@ -254,10 +262,11 @@ def pagina_criar_pedido():
         if sucesso:
             st.success(mensagem)
 
-            st.session_state["numero_pedido_input"] = ""
-            st.session_state["cliente_input"] = ""
+            # Gera um formulário completamente novo
+            st.session_state.form_pedido_id += 1
 
             st.rerun()
+
         else:
             st.warning(mensagem)
 
