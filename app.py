@@ -229,8 +229,8 @@ def pagina_criar_pedido():
     st.title("➕ Criar Pedido")
 
     with st.form("form_criar_pedido"):
-        numero = st.text_input("Número do pedido")
-        cliente = st.text_input("Cliente")
+        numero = st.text_input("Número do pedido", key="numero_pedido_input")
+        cliente = st.text_input("Cliente", key="cliente_input")
 
         tipo_pedido = st.selectbox(
             "Tipo do pedido",
@@ -253,6 +253,10 @@ def pagina_criar_pedido():
 
         if sucesso:
             st.success(mensagem)
+
+            st.session_state["numero_pedido_input"] = ""
+            st.session_state["cliente_input"] = ""
+
             st.rerun()
         else:
             st.warning(mensagem)
