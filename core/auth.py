@@ -35,12 +35,12 @@ USUARIOS = {
         "setor": "MONTAGEM",
     },
     "ricardo": {
-        "senha": "1234",
+        "senha": "RBC",
         "nome": "Ricardo",
         "setor": "MONTAGEM",
     },
     "marco": {
-        "senha": "1234",
+        "senha": "1963",
         "nome": "Marco",
         "setor": "MONTAGEM",
     },
