@@ -240,7 +240,20 @@ def render_coluna(coluna, estado, pedidos):
             aberto = st.session_state.pedido_aberto == pedido_id
 
             icone = icone_tipo_pedido(pedido.get("tipo_pedido"))
-            label = f"{icone}{pedido['numero_pedido']} - {pedido['cliente']}"
+
+            badges = ""
+
+            if quantidade_mensagens(pedido_id) > 0:
+                badges += " 💬"
+
+            # futuramente
+            # if quantidade_alertas(pedido_id) > 0:
+            #     badges += " 🚨"
+
+            # if pedido.get("foto_obrigatoria"):
+            #     badges += " 📷"
+
+            label = f"{icone}{pedido['numero_pedido']} - {pedido['cliente']}{badges}"
 
             if not aberto:
                 if st.button(label, key=f"abrir_{pedido_id}", use_container_width=True):
