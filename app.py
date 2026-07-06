@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from core.admin import apagar_tudo
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
@@ -26,6 +27,47 @@ st.set_page_config(
     layout="wide",
 )
 
+def teste_notificacao_navegador():
+    components.html(
+        """
+        <button onclick="notificar()" style="
+            padding:10px 14px;
+            border-radius:8px;
+            border:1px solid #ccc;
+            cursor:pointer;
+        ">
+            🔔 Testar notificação do navegador
+        </button>
+
+        <script>
+        function notificar() {
+            if (!("Notification" in window)) {
+                alert("Este navegador não suporta notificações.");
+                return;
+            }
+
+            if (Notification.permission === "granted") {
+                new Notification("Jefferson App", {
+                    body: "Teste de notificação da fila de pedidos.",
+                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png"
+                });
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === "granted") {
+                        new Notification("Jefferson App", {
+                            body: "Notificações ativadas com sucesso.",
+                            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png"
+                        });
+                    }
+                });
+            } else {
+                alert("As notificações estão bloqueadas neste navegador.");
+            }
+        }
+        </script>
+        """,
+        height=70,
+    )
 
 def init_session():
     st.session_state.setdefault("logado", False)
@@ -190,6 +232,7 @@ def pagina_fila():
     st.title("📦 Fila de Pedidos")
     if st.session_state.setor == "ADMINISTRADOR":
         with st.expander("⚙️ Administração"):
+            teste_notificacao_navegador()
             c_admin1, c_admin2 = st.columns(2)
 
             with c_admin1:
