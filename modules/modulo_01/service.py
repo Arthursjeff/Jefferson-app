@@ -156,6 +156,14 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
     if not sucesso:
         return False, "Erro ao mover pedido."
 
+    if destino == "MONTADOS":
+        criar_notificacao(
+            pedido_id=pedido["id"],
+            setor_destino="VENDAS",
+            tipo="PEDIDO_MONTADO",
+            mensagem=f"Pedido montado: {pedido['numero_pedido']} - {pedido['cliente']}"
+        )
+
     return True, f"Pedido movido para {LABEL_ESTADOS[destino]}."
 
 
