@@ -282,7 +282,7 @@ def verificar_notificacoes():
         )
 
         visualizar_notificacao(notif["id"])
-    st.rerun()        
+     
 
 @st.fragment(run_every="15s")
 def monitor_notificacoes():
