@@ -1,6 +1,5 @@
 import streamlit as st
 import json
-from streamlit_autorefresh import st_autorefresh
 import streamlit.components.v1 as components
 from core.admin import apagar_tudo
 from core.auth import validar_login, USUARIOS
@@ -260,11 +259,15 @@ def verificar_notificacoes():
         )
 
         visualizar_notificacao(notif["id"])
+
+@st.fragment(run_every="15s")
+def monitor_notificacoes():
+    verificar_notificacoes()
+
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
     if st.session_state.setor == "ADMINISTRADOR":
         with st.expander("⚙️ Administração"):
-            teste_notificacao_navegador()
             c_admin1, c_admin2 = st.columns(2)
 
             with c_admin1:
@@ -490,9 +493,7 @@ if st.session_state.show_nf_modal:
 if st.session_state.show_trocar_operador:
     modal_trocar_operador()
 
-st_autorefresh(interval=15000, key="notificacoes_refresh")
-
-verificar_notificacoes()
+monitor_notificacoes()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
