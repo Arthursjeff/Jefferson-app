@@ -151,3 +151,40 @@ def registrar_nota_fiscal(pedido_id: int, nota_fiscal: str, usuario: str):
         )
 
     return bool(response.data)
+
+def editar_pedido(
+    pedido_id: int,
+    numero_pedido: str,
+    cliente: str,
+    tipo_pedido: str,
+    data_prevista_faturamento,
+    nota_fiscal: str,
+    usuario: str,
+):
+    dados = {
+        "numero_pedido": str(numero_pedido).strip(),
+        "cliente": str(cliente).strip().upper(),
+        "tipo_pedido": tipo_pedido,
+        "data_prevista_faturamento": str(data_prevista_faturamento),
+        "nota_fiscal": str(nota_fiscal).strip() if nota_fiscal else None,
+    }
+
+    response = (
+        supabase
+        .table(TABELA_PEDIDOS)
+        .update(dados)
+        .eq("id", pedido_id)
+        .execute()
+    )
+
+    if response.data:
+        registrar_movimentacao(
+            pedido_id=pedido_id,
+            origem="",
+            destino="",
+            usuario=usuario,
+            tipo_evento="EDICAO",
+            observacao=f"Pedido editado por {usuario}."
+        )
+
+    return bool(response.data)
