@@ -103,9 +103,15 @@ def modal_trocar_operador():
         if dados["setor"] == "MONTAGEM"
     }
 
-    nomes = [dados["nome"] for dados in operadores.values()]
+    opcoes = list(operadores.keys())
 
-    novo_nome = st.selectbox("Selecione o operador", nomes)
+    novo_usuario = st.selectbox(
+        "Selecione o operador",
+        opcoes,
+        format_func=lambda u: operadores[u]["nome"]
+    )
+
+    senha = st.text_input("Senha do operador", type="password")
 
     c1, c2 = st.columns(2)
 
@@ -116,15 +122,18 @@ def modal_trocar_operador():
 
     with c2:
         if st.button("Confirmar", type="primary"):
-            for usuario, dados in operadores.items():
-                if dados["nome"] == novo_nome:
-                    st.session_state.usuario = usuario
-                    st.session_state.nome = dados["nome"]
-                    st.session_state.setor = dados["setor"]
-                    break
+            dados = validar_login(novo_usuario, senha)
+
+            if not dados:
+                st.error("Senha inválida para este operador.")
+                return
+
+            st.session_state.usuario = dados["usuario"]
+            st.session_state.nome = dados["nome"]
+            st.session_state.setor = dados["setor"]
 
             fechar_troca_operador()
-            st.success(f"Operador alterado para {novo_nome}.")
+            st.success(f"Operador alterado para {dados['nome']}.")
             st.rerun()
                 
 def tela_login():
