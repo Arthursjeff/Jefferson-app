@@ -97,7 +97,6 @@ def init_session():
     st.session_state.setdefault("logado", False)
     st.session_state.setdefault("usuario", None)
     st.session_state.setdefault("nome", None)
-    st.session_state.setdefault("atualizar_apos_notificacao", False)
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
     st.session_state.setdefault("show_nf_modal", False)
@@ -276,6 +275,10 @@ def verificar_notificacoes():
                     icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png",
                     requireInteraction: true
                 }});
+
+                setTimeout(function() {{
+                    window.parent.location.reload();
+                }}, 3000);
             }}
             </script>
             """,
@@ -283,15 +286,10 @@ def verificar_notificacoes():
         )
 
         visualizar_notificacao(notif["id"])
-        st.session_state.atualizar_apos_notificacao = True
      
 
 @st.fragment(run_every="15s")
 def monitor_notificacoes():
-    if st.session_state.get("atualizar_apos_notificacao"):
-        st.session_state.atualizar_apos_notificacao = False
-        st.rerun()
-
     verificar_notificacoes()
 
 def pagina_fila():
