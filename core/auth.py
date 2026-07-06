@@ -2,7 +2,7 @@ USUARIOS = {
     "arthur": {
         "senha": "Turico1710*",
         "nome": "Arthur",
-        "setor": "VENDAS",
+        "setor": "ADMINISTRADOR",
     },
     "amanda": {
         "senha": "1234",
