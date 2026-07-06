@@ -1,5 +1,5 @@
 import streamlit as st
-
+from core.admin import apagar_tudo
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
@@ -188,7 +188,28 @@ def pagina_criar_pedido():
 
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
+    if st.session_state.setor == "ADMINISTRADOR":
+        with st.expander("⚙️ Administração"):
+            c_admin1, c_admin2 = st.columns(2)
 
+            with c_admin1:
+                if st.button("📊 Gerar relatório", use_container_width=True):
+                    st.info("Relatório ainda será configurado.")
+
+            with c_admin2:
+                confirmar = st.text_input(
+                    "Digite APAGAR para limpar todos os dados",
+                    key="confirmar_apagar_tudo"
+                )
+
+                if st.button("🗑️ Apagar tudo", use_container_width=True):
+                    if confirmar != "APAGAR":
+                        st.warning("Digite APAGAR para confirmar.")
+                    else:
+                        apagar_tudo()
+                        st.success("Todos os dados foram apagados.")
+                        st.rerun()
+    
     if st.session_state.setor == "MONTAGEM":
         c_op1, c_op2 = st.columns([3, 1])
 
