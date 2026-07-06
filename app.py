@@ -17,6 +17,7 @@ from modules.modulo_01.service import (
     historico_pedido,
     ESTADOS_VISIVEIS,
     ESTADOS_OCULTOS,
+    editar_dados_pedido,
     adicionar_mensagem,
     obter_mensagens,
     remover_mensagem,
@@ -100,6 +101,8 @@ def init_session():
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
     st.session_state.setdefault("form_pedido_id", 0)
+    st.session_state.setdefault("show_editar_pedido", False)
+    st.session_state.setdefault("pedido_edicao", None)
     st.session_state.setdefault("show_nf_modal", False)
     st.session_state.setdefault("filas_minimizadas", {})
     st.session_state.setdefault("show_trocar_operador", False)
@@ -203,7 +206,79 @@ def modal_trocar_operador():
             fechar_troca_operador()
             st.success(f"Operador alterado para {dados['nome']}.")
             st.rerun()
-                
+
+def abrir_edicao_pedido(pedido):
+    st.session_state.show_editar_pedido = True
+    st.session_state.pedido_edicao = pedido
+
+
+def fechar_edicao_pedido():
+    st.session_state.show_editar_pedido = False
+    st.session_state.pedido_edicao = None
+
+@st.dialog("✏️ Editar pedido")
+def modal_editar_pedido():
+    pedido = st.session_state.get("pedido_edicao")
+
+    if not pedido:
+        st.error("Pedido não encontrado.")
+        return
+
+    numero = st.text_input(
+        "Número do pedido",
+        value=pedido.get("numero_pedido", ""),
+    )
+
+    cliente = st.text_input(
+        "Cliente",
+        value=pedido.get("cliente", ""),
+    )
+
+    tipo_pedido = st.selectbox(
+        "Tipo do pedido",
+        ["NORMAL", "PROGRAMADO", "IMPORTACAO"],
+        index=["NORMAL", "PROGRAMADO", "IMPORTACAO"].index(
+            pedido.get("tipo_pedido") or "NORMAL"
+        ),
+    )
+
+    data_prevista = st.date_input(
+        "Data prevista de faturamento",
+        value=pedido.get("data_prevista_faturamento"),
+    )
+
+    nota_fiscal = st.text_input(
+        "Nota Fiscal",
+        value=pedido.get("nota_fiscal") or "",
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Cancelar"):
+            fechar_edicao_pedido()
+            st.rerun()
+
+    with c2:
+        if st.button("Salvar alterações", type="primary"):
+            sucesso, mensagem = editar_dados_pedido(
+                pedido=pedido,
+                numero_pedido=numero,
+                cliente=cliente,
+                tipo_pedido=tipo_pedido,
+                data_prevista_faturamento=data_prevista,
+                nota_fiscal=nota_fiscal,
+                usuario=st.session_state.nome,
+                setor_usuario=st.session_state.setor,
+            )
+
+            if sucesso:
+                fechar_edicao_pedido()
+                st.success(mensagem)
+                st.rerun()
+            else:
+                st.warning(mensagem)
+
 def tela_login():
     st.title("🔐 Login")
 
@@ -423,7 +498,10 @@ def render_coluna(coluna, estado, pedidos):
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
                         st.info(f"🧾 Nota Fiscal: {pedido.get('nota_fiscal')}")                    
-
+                    if st.session_state.setor == "ADMINISTRADOR":
+                        if st.button("✏️ Editar pedido", key=f"editar_{pedido_id}"):
+                            abrir_edicao_pedido(pedido)
+                            st.rerun()
                     st.divider()
 
                     # =========================
@@ -539,6 +617,9 @@ if st.session_state.show_trocar_operador:
     modal_trocar_operador()
 
 monitor_notificacoes()
+
+if st.session_state.show_editar_pedido:
+    modal_editar_pedido()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
