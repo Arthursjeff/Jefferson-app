@@ -206,10 +206,13 @@ def modal_trocar_operador():
 def tela_login():
     st.title("🔐 Login")
 
-    usuario = st.text_input("Usuário")
-    senha = st.text_input("Senha", type="password")
+    with st.form("form_login"):
+        usuario = st.text_input("Usuário")
+        senha = st.text_input("Senha", type="password")
 
-    if st.button("Entrar", type="primary"):
+        entrar = st.form_submit_button("Entrar", type="primary")
+
+    if entrar:
         dados = validar_login(usuario, senha)
 
         if not dados:
@@ -222,20 +225,23 @@ def tela_login():
         st.session_state.setor = dados["setor"]
         st.rerun()
 
-
 def pagina_criar_pedido():
     st.title("➕ Criar Pedido")
 
-    numero = st.text_input("Número do pedido")
-    cliente = st.text_input("Cliente")
-    tipo_pedido = st.selectbox(
-        "Tipo do pedido",
-        ["NORMAL", "PROGRAMADO", "IMPORTACAO"]
-    )
+    with st.form("form_criar_pedido"):
+        numero = st.text_input("Número do pedido")
+        cliente = st.text_input("Cliente")
 
-    data_prevista_faturamento = st.date_input("Data prevista de faturamento")    
+        tipo_pedido = st.selectbox(
+            "Tipo do pedido",
+            ["NORMAL", "PROGRAMADO", "IMPORTACAO"]
+        )
 
-    if st.button("Criar pedido", type="primary"):
+        data_prevista_faturamento = st.date_input("Data prevista de faturamento")
+
+        criar = st.form_submit_button("Criar pedido", type="primary")
+
+    if criar:
         sucesso, mensagem = criar_novo_pedido(
             numero_pedido=numero,
             cliente=cliente,
