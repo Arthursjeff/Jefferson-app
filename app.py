@@ -331,7 +331,7 @@ def render_coluna(coluna, estado, pedidos):
                     c1, c2 = st.columns(2)
 
                     with c1:
-                        if estado == "MONTADOS" and st.session_state.setor == "VENDAS":
+                        if estado == "MONTADOS" and st.session_state.setor in ["VENDAS", "ADMINISTRADOR"]:
                             if st.button("🧾 Faturar", key=f"abrir_nf_{pedido_id}"):
                                 abrir_modal_nf(pedido)
                                 st.rerun()
@@ -398,7 +398,7 @@ with st.sidebar:
     st.markdown("## Jefferson App")
     st.caption(f"{st.session_state.nome} ({st.session_state.setor})")
 
-    if st.session_state.setor == "VENDAS":
+    if st.session_state.setor in ["VENDAS", "ADMINISTRADOR"]:
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
@@ -421,6 +421,10 @@ with st.sidebar:
 
 
 if pagina == "Criar Pedido":
+    if st.session_state.setor not in ["VENDAS", "ADMINISTRADOR"]:
+        st.error("Você não possui permissão para acessar esta página.")
+        st.stop()
+
     pagina_criar_pedido()
 else:
     pagina_fila()
