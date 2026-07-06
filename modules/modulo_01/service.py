@@ -6,7 +6,12 @@ from core.pedidos import (
     cancelar_pedido,
     listar_movimentacoes,
 )
-from core.notificacoes import criar_notificacao
+from core.notificacoes import (
+    criar_notificacao,
+    listar_notificacoes_pendentes,
+    marcar_notificacao_visualizada,
+)
+
 from core.permissions import (
     pode_mover,
     pode_criar_pedido,
@@ -230,8 +235,15 @@ def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario
         destino="FATURADO",
         usuario=usuario,
     )
-
+   
     if not sucesso_mov:
         return False, "Nota registrada, mas erro ao mover para Faturados."
 
     return True, "Nota Fiscal registrada e pedido faturado."
+
+def obter_notificacoes_pendentes(setor_usuario: str):
+    return listar_notificacoes_pendentes(setor_usuario)
+
+
+def visualizar_notificacao(notificacao_id: int):
+    return marcar_notificacao_visualizada(notificacao_id)
