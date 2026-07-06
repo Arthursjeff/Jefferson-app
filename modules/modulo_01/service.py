@@ -219,8 +219,8 @@ def quantidade_mensagens(pedido_id: int):
     return contar_mensagens_ativas(pedido_id)
 
 def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario: str):
-    if setor_usuario != "VENDAS":
-        return False, "Somente VENDAS pode faturar pedidos."
+    if setor_usuario not in ["VENDAS", "ADMINISTRADOR"]:
+        return False, "Somente VENDAS ou ADMINISTRADOR pode faturar pedidos."
 
     if pedido.get("setor_atual") != "MONTADOS":
         return False, "A Nota Fiscal só pode ser registrada em pedidos montados."
