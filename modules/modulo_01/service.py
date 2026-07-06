@@ -6,6 +6,7 @@ from core.pedidos import (
     cancelar_pedido,
     listar_movimentacoes,
 )
+from core.notificacoes import criar_notificacao
 from core.permissions import (
     pode_mover,
     pode_criar_pedido,
@@ -103,8 +104,14 @@ def criar_novo_pedido(numero_pedido: str, cliente: str, usuario: str, setor_usua
     if not pedido:
         return False, "Erro ao criar pedido."
 
-    return True, "Pedido criado com sucesso."
+    criar_notificacao(
+        pedido_id=pedido["id"],
+        setor_destino="MONTAGEM",
+        tipo="NOVO_PEDIDO",
+        mensagem=f"Novo pedido criado: {pedido['numero_pedido']} - {pedido['cliente']}"
+    )
 
+    return True, "Pedido criado com sucesso."
 
 def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
     estado_atual = pedido.get("setor_atual")
