@@ -278,7 +278,7 @@ def verificar_notificacoes():
             }}
             </script>
             """,
-            height=0,
+            height=1,
         )
 
         visualizar_notificacao(notif["id"])
