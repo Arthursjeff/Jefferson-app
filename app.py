@@ -1,4 +1,6 @@
 import streamlit as st
+import json
+from streamlit_autorefresh import st_autorefresh
 import streamlit.components.v1 as components
 from core.admin import apagar_tudo
 from core.auth import validar_login, USUARIOS
@@ -8,6 +10,8 @@ from modules.modulo_01.service import (
     CORES_ESTADOS,
     obter_pedidos_por_estado,
     criar_novo_pedido,
+    obter_notificacoes_pendentes,
+    visualizar_notificacao,
     avancar_pedido,
     faturar_com_nota,
     cancelar,
@@ -227,7 +231,35 @@ def pagina_criar_pedido():
         else:
             st.warning(mensagem)
 
+def verificar_notificacoes():
+    if not st.session_state.logado:
+        return
 
+    setor = st.session_state.setor
+
+    notificacoes = obter_notificacoes_pendentes(setor)
+
+    if not notificacoes:
+        return
+
+    for notif in notificacoes:
+        titulo = "Jefferson App"
+        mensagem = notif.get("mensagem", "Nova notificação")
+
+        components.html(
+            f"""
+            <script>
+            if ("Notification" in window && Notification.permission === "granted") {{
+                new Notification({json.dumps(titulo)}, {{
+                    body: {json.dumps(mensagem)}
+                }});
+            }}
+            </script>
+            """,
+            height=0,
+        )
+
+        visualizar_notificacao(notif["id"])
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
     if st.session_state.setor == "ADMINISTRADOR":
@@ -457,6 +489,10 @@ if st.session_state.show_nf_modal:
 
 if st.session_state.show_trocar_operador:
     modal_trocar_operador()
+
+st_autorefresh(interval=15000, key="notificacoes_refresh")
+
+verificar_notificacoes()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
