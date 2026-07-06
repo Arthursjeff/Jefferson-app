@@ -7,7 +7,7 @@ from core.pedidos import (
     listar_movimentacoes,
 )
 from core.notificacoes import (
-    criar_notificacao,
+    criar_notificacao_para_setor,
     listar_notificacoes_pendentes,
     marcar_notificacao_visualizada,
 )
@@ -109,7 +109,7 @@ def criar_novo_pedido(numero_pedido: str, cliente: str, usuario: str, setor_usua
     if not pedido:
         return False, "Erro ao criar pedido."
 
-    criar_notificacao(
+    criar_notificacao_para_setor(
         pedido_id=pedido["id"],
         setor_destino="MONTAGEM",
         tipo="NOVO_PEDIDO",
@@ -157,7 +157,7 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
         return False, "Erro ao mover pedido."
 
     if destino == "MONTADOS":
-        criar_notificacao(
+        criar_notificacao_para_setor(
             pedido_id=pedido["id"],
             setor_destino="VENDAS",
             tipo="PEDIDO_MONTADO",
@@ -247,7 +247,7 @@ def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario
     if not sucesso_mov:
         return False, "Nota registrada, mas erro ao mover para Faturados."
 
-    criar_notificacao(
+    criar_notificacao_para_setor(
         pedido_id=pedido["id"],
         setor_destino="MONTAGEM",
         tipo="PEDIDO_FATURADO",
@@ -256,8 +256,8 @@ def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario
 
     return True, "Nota Fiscal registrada e pedido faturado."
 
-def obter_notificacoes_pendentes(setor_usuario: str):
-    return listar_notificacoes_pendentes(setor_usuario)
+def obter_notificacoes_pendentes(usuario: str):
+    return listar_notificacoes_pendentes(usuario)
 
 
 def visualizar_notificacao(notificacao_id: int):
