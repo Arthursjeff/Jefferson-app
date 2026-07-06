@@ -2,6 +2,7 @@ from core.pedidos import (
     criar_pedido,
     listar_pedidos,
     mover_pedido,
+    editar_pedido,
     registrar_nota_fiscal,
     cancelar_pedido,
     listar_movimentacoes,
@@ -262,3 +263,34 @@ def obter_notificacoes_pendentes(usuario: str):
 
 def visualizar_notificacao(notificacao_id: int):
     return marcar_notificacao_visualizada(notificacao_id)
+
+def editar_dados_pedido(
+    pedido: dict,
+    numero_pedido: str,
+    cliente: str,
+    tipo_pedido: str,
+    data_prevista_faturamento,
+    nota_fiscal: str,
+    usuario: str,
+    setor_usuario: str,
+):
+    if setor_usuario != "ADMINISTRADOR":
+        return False, "Somente ADMINISTRADOR pode editar pedidos."
+
+    if not numero_pedido or not cliente:
+        return False, "Número do pedido e cliente são obrigatórios."
+
+    sucesso = editar_pedido(
+        pedido_id=pedido["id"],
+        numero_pedido=numero_pedido,
+        cliente=cliente,
+        tipo_pedido=tipo_pedido,
+        data_prevista_faturamento=data_prevista_faturamento,
+        nota_fiscal=nota_fiscal,
+        usuario=usuario,
+    )
+
+    if not sucesso:
+        return False, "Erro ao editar pedido."
+
+    return True, "Pedido editado com sucesso."
