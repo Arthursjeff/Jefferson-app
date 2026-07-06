@@ -1,6 +1,6 @@
 USUARIOS = {
     "arthur": {
-        "senha": "1234",
+        "senha": "Turico1710*",
         "nome": "Arthur",
         "setor": "VENDAS",
     },
@@ -10,17 +10,17 @@ USUARIOS = {
         "setor": "VENDAS",
     },
     "carla": {
-        "senha": "1234",
+        "senha": "123456",
         "nome": "Carla",
         "setor": "VENDAS",
     },
     "jaqueline": {
-        "senha": "1234",
+        "senha": "POL1",
         "nome": "Jaqueline",
         "setor": "VENDAS",
     },
     "marilene": {
-        "senha": "1234",
+        "senha": "K42A4",
         "nome": "Marilene",
         "setor": "VENDAS",
     },
