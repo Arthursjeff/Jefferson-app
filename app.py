@@ -275,10 +275,6 @@ def verificar_notificacoes():
                     icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png",
                     requireInteraction: true
                 }});
-
-                setTimeout(function() {{
-                    window.parent.location.reload();
-                }}, 3000);
             }}
             </script>
             """,
@@ -286,8 +282,9 @@ def verificar_notificacoes():
         )
 
         visualizar_notificacao(notif["id"])
-     
 
+    st.rerun()
+    
 @st.fragment(run_every="15s")
 def monitor_notificacoes():
     verificar_notificacoes()
