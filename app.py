@@ -308,9 +308,19 @@ with st.sidebar:
     st.markdown("## Jefferson App")
     st.caption(f"{st.session_state.nome} ({st.session_state.setor})")
 
+    if st.session_state.setor == "VENDAS":
+        paginas = [
+            "Fila de Pedidos",
+            "Criar Pedido",
+        ]
+    else:
+        paginas = [
+            "Fila de Pedidos",
+        ]
+
     pagina = st.radio(
         "Navegação",
-        ["Fila de Pedidos", "Criar Pedido"],
+        paginas,
     )
 
     st.divider()
