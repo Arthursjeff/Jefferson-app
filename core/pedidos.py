@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from core.database import supabase
 
 TABELA_PEDIDOS = "fila_pedidos"
@@ -6,7 +7,7 @@ TABELA_MOVIMENTACOES = "fila_movimentacoes"
 
 
 def criar_pedido(numero_pedido: str, cliente: str, usuario: str, tipo_pedido: str, data_prevista_faturamento):
-    agora = datetime.now()
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
 
     dados = {
         "numero_pedido": str(numero_pedido).strip(),
@@ -108,6 +109,7 @@ def registrar_movimentacao(
         "usuario": usuario,
         "tipo_evento": tipo_evento,
         "observacao": observacao,
+        "criado_em": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat(),
     }
 
     response = supabase.table(TABELA_MOVIMENTACOES).insert(dados).execute()
