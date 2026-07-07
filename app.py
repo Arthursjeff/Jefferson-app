@@ -17,6 +17,10 @@ from modules.modulo_01.service import (
     historico_pedido,
     ESTADOS_VISIVEIS,
     ESTADOS_OCULTOS,
+    adicionar_alerta,
+    obter_alertas,
+    remover_alerta,
+    quantidade_alertas,
     editar_dados_pedido,
     adicionar_mensagem,
     obter_mensagens,
@@ -102,6 +106,8 @@ def init_session():
     st.session_state.setdefault("pedido_aberto", None)
     st.session_state.setdefault("form_pedido_id", 0)
     st.session_state.setdefault("show_editar_pedido", False)
+    st.session_state.setdefault("show_alerta_modal", False)
+    st.session_state.setdefault("pedido_alerta", None)
     st.session_state.setdefault("pedido_edicao", None)
     st.session_state.setdefault("show_nf_modal", False)
     st.session_state.setdefault("filas_minimizadas", {})
@@ -274,6 +280,55 @@ def modal_editar_pedido():
 
             if sucesso:
                 fechar_edicao_pedido()
+                st.success(mensagem)
+                st.rerun()
+            else:
+                st.warning(mensagem)
+
+def abrir_modal_alerta(pedido):
+    st.session_state.show_alerta_modal = True
+    st.session_state.pedido_alerta = pedido
+
+
+def fechar_modal_alerta():
+    st.session_state.show_alerta_modal = False
+    st.session_state.pedido_alerta = None
+
+
+@st.dialog("🚨 Criar alerta")
+def modal_alerta():
+    pedido = st.session_state.get("pedido_alerta")
+
+    if not pedido:
+        st.error("Pedido não encontrado.")
+        return
+
+    st.write(f"Pedido: **{pedido.get('numero_pedido')} - {pedido.get('cliente')}**")
+
+    texto = st.text_area(
+        "Texto do alerta",
+        height=120,
+        placeholder="Descreva o alerta..."
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Cancelar"):
+            fechar_modal_alerta()
+            st.rerun()
+
+    with c2:
+        if st.button("Criar alerta", type="primary"):
+            sucesso, mensagem = adicionar_alerta(
+                pedido=pedido,
+                mensagem=texto,
+                usuario=st.session_state.nome,
+                setor_usuario=st.session_state.setor,
+            )
+
+            if sucesso:
+                fechar_modal_alerta()
                 st.success(mensagem)
                 st.rerun()
             else:
@@ -478,9 +533,8 @@ def render_coluna(coluna, estado, pedidos):
             if quantidade_mensagens(pedido_id) > 0:
                 badges += " 💬"
 
-            # futuramente
-            # if quantidade_alertas(pedido_id) > 0:
-            #     badges += " 🚨"
+            if quantidade_alertas(pedido_id) > 0:
+                badges += " 🚨"
 
             # if pedido.get("foto_obrigatoria"):
             #     badges += " 📷"
@@ -497,7 +551,26 @@ def render_coluna(coluna, estado, pedidos):
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
-                        st.info(f"🧾 Nota Fiscal: {pedido.get('nota_fiscal')}")                    
+                        st.info(f"🧾 Nota Fiscal: {pedido.get('nota_fiscal')}")
+                    if quantidade_alertas(pedido_id) > 0:
+                        st.error("🚨 Este pedido possui alerta ativo.")
+
+                        alertas = obter_alertas(pedido_id)
+
+                        for alerta in alertas:
+                            st.warning(
+                                f"**{alerta.get('criado_por', '')}:** "
+                                f"{alerta.get('mensagem', '')}"
+                            )
+
+                            if st.button("✅ Resolver alerta", key=f"resolver_alerta_{alerta['id']}"):
+                                sucesso, mensagem = remover_alerta(alerta["id"])
+
+                                if sucesso:
+                                    st.success(mensagem)
+                                    st.rerun()
+                                else:
+                                    st.warning(mensagem)                        
                     if st.session_state.setor == "ADMINISTRADOR":
                         if st.button("✏️ Editar pedido", key=f"editar_{pedido_id}"):
                             abrir_edicao_pedido(pedido)
@@ -587,7 +660,10 @@ def render_coluna(coluna, estado, pedidos):
                                 st.rerun()
                             else:
                                 st.warning(mensagem)
-
+                    if st.button("🚨 Criar alerta", key=f"criar_alerta_{pedido_id}", use_container_width=True):
+                        abrir_modal_alerta(pedido)
+                        st.rerun()
+                    
                     if st.button("Fechar", key=f"fechar_{pedido_id}"):
                         st.session_state.pedido_aberto = None
                         st.rerun()
@@ -608,6 +684,9 @@ monitor_notificacoes()
 
 if st.session_state.show_editar_pedido:
     modal_editar_pedido()
+
+if st.session_state.show_alerta_modal:
+    modal_alerta()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
