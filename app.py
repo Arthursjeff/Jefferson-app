@@ -588,18 +588,6 @@ def render_coluna(coluna, estado, pedidos):
                             else:
                                 st.warning(mensagem)
 
-                    with st.expander("Histórico"):
-                        movimentos = historico_pedido(pedido_id)
-
-                        if not movimentos:
-                            st.caption("Sem histórico.")
-                        else:
-                            for mov in movimentos:
-                                st.write(
-                                    f"{mov.get('origem')} → {mov.get('destino')} | "
-                                    f"{mov.get('usuario')} | {mov.get('criado_em')}"
-                                )
-
                     if st.button("Fechar", key=f"fechar_{pedido_id}"):
                         st.session_state.pedido_aberto = None
                         st.rerun()
