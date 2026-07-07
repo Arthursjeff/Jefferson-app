@@ -7,6 +7,14 @@ from core.pedidos import (
     cancelar_pedido,
     listar_movimentacoes,
 )
+
+from core.alertas import (
+    criar_alerta,
+    listar_alertas,
+    resolver_alerta,
+    contar_alertas_ativos,
+)
+
 from core.notificacoes import (
     criar_notificacao_para_setor,
     listar_notificacoes_pendentes,
@@ -294,3 +302,49 @@ def editar_dados_pedido(
         return False, "Erro ao editar pedido."
 
     return True, "Pedido editado com sucesso."
+
+def adicionar_alerta(pedido: dict, mensagem: str, usuario: str, setor_usuario: str):
+    texto = mensagem.strip()
+
+    if not texto:
+        return False, "Digite o texto do alerta."
+
+    alerta = criar_alerta(
+        pedido_id=pedido["id"],
+        mensagem=texto,
+        usuario=usuario,
+    )
+
+    if not alerta:
+        return False, "Erro ao criar alerta."
+
+    if setor_usuario == "MONTAGEM":
+        setor_destino = "VENDAS"
+    else:
+        setor_destino = "MONTAGEM"
+
+    criar_notificacao_para_setor(
+        pedido_id=pedido["id"],
+        setor_destino=setor_destino,
+        tipo="ALERTA",
+        mensagem=f"🚨 Alerta no pedido {pedido['numero_pedido']} - {pedido['cliente']}: {texto}"
+    )
+
+    return True, "Alerta criado com sucesso."
+
+
+def obter_alertas(pedido_id: int):
+    return listar_alertas(pedido_id)
+
+
+def remover_alerta(alerta_id: int):
+    sucesso = resolver_alerta(alerta_id)
+
+    if sucesso:
+        return True, "Alerta resolvido."
+
+    return False, "Erro ao resolver alerta."
+
+
+def quantidade_alertas(pedido_id: int):
+    return contar_alertas_ativos(pedido_id)
