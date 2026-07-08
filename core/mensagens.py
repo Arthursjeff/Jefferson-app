@@ -50,3 +50,21 @@ def desativar_mensagem(mensagem_id: int):
 def contar_mensagens_ativas(pedido_id: int):
     mensagens = listar_mensagens(pedido_id, apenas_ativas=True)
     return len(mensagens)
+
+
+def contar_mensagens_por_pedido():
+    response = (
+        supabase
+        .table(TABELA_MENSAGENS)
+        .select("pedido_id")
+        .eq("ativa", True)
+        .execute()
+    )
+
+    contagem = {}
+
+    for item in response.data or []:
+        pedido_id = item["pedido_id"]
+        contagem[pedido_id] = contagem.get(pedido_id, 0) + 1
+
+    return contagem
