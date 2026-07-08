@@ -719,19 +719,27 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     c1, c2 = st.columns(2)
 
                     with c1:
+
                         if estado == "MONTADOS" and st.session_state.setor in ["VENDAS", "ADMINISTRADOR"]:
+
                             if st.button("🧾 Faturar", key=f"abrir_nf_{pedido_id}"):
                                 abrir_modal_nf(pedido)
                                 st.rerun()
 
                         else:
+
                             if st.button("➡️ Avançar", key=f"avancar_{pedido_id}"):
 
-                                if estado == "FATURADO" and st.session_state.setor in ["MONTAGEM", "ADMINISTRADOR"]:
+                                # Apenas na transição FATURADO -> EMBALADO exige foto
+                                if (
+                                    estado == "FATURADO"
+                                    and st.session_state.setor in ["MONTAGEM", "ADMINISTRADOR"]
+                                ):
                                     abrir_modal_foto(pedido)
                                     st.rerun()
 
                                 else:
+
                                     sucesso, mensagem = avancar_pedido(
                                         pedido=pedido,
                                         usuario=st.session_state.nome,
@@ -744,13 +752,24 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                                         st.rerun()
                                     else:
                                         st.warning(mensagem)
-                                if sucesso:
-                                    st.success(mensagem)
-                                    st.session_state.pedido_aberto = None
-                                    st.rerun()
-                                else:
-                                    st.warning(mensagem)
 
+                    with c2:
+
+                        if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
+
+                            sucesso, mensagem = cancelar(
+                                pedido_id=pedido_id,
+                                usuario=st.session_state.nome,
+                                setor_usuario=st.session_state.setor,
+                            )
+
+                            if sucesso:
+                                st.success(mensagem)
+                                st.session_state.pedido_aberto = None
+                                st.rerun()
+                            else:
+                                st.warning(mensagem)
+                                
                     with c2:
                         if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
                             sucesso, mensagem = cancelar(
@@ -765,6 +784,8 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                                 st.rerun()
                             else:
                                 st.warning(mensagem)
+
+                    
                     if st.button("🚨 Criar alerta", key=f"criar_alerta_{pedido_id}", use_container_width=True):
                         abrir_modal_alerta(pedido)
                         st.rerun()
