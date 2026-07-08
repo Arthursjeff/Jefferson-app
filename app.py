@@ -568,7 +568,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
                         st.info(f"🧾 Nota Fiscal: {pedido.get('nota_fiscal')}")
-                    if quantidade_alertas(pedido_id) > 0:
+                    if contagens_alertas.get(pedido_id, 0) > 0:
                         st.error("🚨 Este pedido possui alerta ativo.")
 
                         alertas = obter_alertas(pedido_id)
@@ -597,7 +597,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     # MENSAGENS
                     # =========================
 
-                    qtd_msg = quantidade_mensagens(pedido_id)
+                    qtd_msg = contagens_mensagens.get(pedido_id, 0)
 
                     with st.expander(f"💬 Mensagens ({qtd_msg})"):
                         mensagens = obter_mensagens(pedido_id)
