@@ -11,6 +11,7 @@ from core.pedidos import (
 from core.alertas import (
     criar_alerta,
     listar_alertas,
+    contar_alertas_por_pedido,
     resolver_alerta,
     contar_alertas_ativos,
 )
@@ -29,6 +30,7 @@ from core.permissions import (
 from core.mensagens import (
     criar_mensagem,
     listar_mensagens,
+    contar_mensagens_por_pedido,
     desativar_mensagem,
     contar_mensagens_ativas,
 )
@@ -348,3 +350,10 @@ def remover_alerta(alerta_id: int):
 
 def quantidade_alertas(pedido_id: int):
     return contar_alertas_ativos(pedido_id)
+
+def obter_contagens_mensagens():
+    return contar_mensagens_por_pedido()
+
+
+def obter_contagens_alertas():
+    return contar_alertas_por_pedido()
