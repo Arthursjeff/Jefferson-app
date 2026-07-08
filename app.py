@@ -753,23 +753,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                                     else:
                                         st.warning(mensagem)
 
-                    with c2:
 
-                        if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
-
-                            sucesso, mensagem = cancelar(
-                                pedido_id=pedido_id,
-                                usuario=st.session_state.nome,
-                                setor_usuario=st.session_state.setor,
-                            )
-
-                            if sucesso:
-                                st.success(mensagem)
-                                st.session_state.pedido_aberto = None
-                                st.rerun()
-                            else:
-                                st.warning(mensagem)
-                                
                     with c2:
                         if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
                             sucesso, mensagem = cancelar(
