@@ -8,6 +8,7 @@ from modules.modulo_01.service import (
     LABEL_ESTADOS,
     CORES_ESTADOS,
     obter_pedidos_por_estado,
+    salvar_foto_e_avancar,
     criar_novo_pedido,
     obter_notificacoes_pendentes,
     visualizar_notificacao,
@@ -159,12 +160,12 @@ def modal_foto_obrigatoria():
                 st.warning("Tire uma foto antes de avançar.")
                 return
 
-            sucesso, mensagem = avancar_pedido(
+            sucesso, mensagem = salvar_foto_e_avancar(
                 pedido=pedido,
+                foto=foto,
                 usuario=st.session_state.nome,
                 setor_usuario=st.session_state.setor,
             )
-
             if sucesso:
                 fechar_modal_foto()
                 st.session_state.pedido_aberto = None
