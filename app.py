@@ -107,6 +107,7 @@ def init_session():
     st.session_state.setdefault("show_editar_pedido", False)
     st.session_state.setdefault("show_alerta_modal", False)
     st.session_state.setdefault("pedido_alerta", None)
+    st.session_state.setdefault("show_teste_camera", False)
     st.session_state.setdefault("pedido_edicao", None)
     st.session_state.setdefault("show_nf_modal", False)
     st.session_state.setdefault("filas_minimizadas", {})
@@ -117,6 +118,12 @@ def abrir_modal_nf(pedido):
     st.session_state.show_nf_modal = True
     st.session_state.pedido_nf = pedido
 
+def abrir_teste_camera():
+    st.session_state.show_teste_camera = True
+
+
+def fechar_teste_camera():
+    st.session_state.show_teste_camera = False    
 
 def fechar_modal_nf():
     st.session_state.show_nf_modal = False
@@ -471,6 +478,19 @@ def render_kanban():
             contagens_alertas,
         )
 
+@st.dialog("📷 Teste de câmera")
+def modal_teste_camera():
+    st.write("Teste de captura de foto pelo navegador/celular.")
+
+    foto = st.camera_input("Tirar foto")
+
+    if foto:
+        st.success("Foto capturada com sucesso.")
+        st.image(foto, caption="Pré-visualização da foto capturada")
+
+    if st.button("Fechar"):
+        st.rerun()
+
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
     ativar_notificacoes()
@@ -488,6 +508,10 @@ def pagina_fila():
                     key="confirmar_apagar_tudo"
                 )
 
+                if st.button("📷 Testar câmera", use_container_width=True):
+                    abrir_teste_camera()
+                    st.rerun()
+                    
                 if st.button("🗑️ Apagar tudo", use_container_width=True):
                     if confirmar != "APAGAR":
                         st.warning("Digite APAGAR para confirmar.")
@@ -702,6 +726,9 @@ monitor_notificacoes()
 
 if st.session_state.show_editar_pedido:
     modal_editar_pedido()
+
+if st.session_state.show_teste_camera:
+    modal_teste_camera()
 
 if st.session_state.show_alerta_modal:
     modal_alerta()
