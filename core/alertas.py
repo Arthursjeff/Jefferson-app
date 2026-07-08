@@ -50,3 +50,20 @@ def resolver_alerta(alerta_id: int):
 def contar_alertas_ativos(pedido_id: int):
     alertas = listar_alertas(pedido_id, apenas_ativos=True)
     return len(alertas)
+
+def contar_alertas_por_pedido():
+    response = (
+        supabase
+        .table(TABELA_ALERTAS)
+        .select("pedido_id")
+        .eq("ativo", True)
+        .execute()
+    )
+
+    contagem = {}
+
+    for item in response.data or []:
+        pedido_id = item["pedido_id"]
+        contagem[pedido_id] = contagem.get(pedido_id, 0) + 1
+
+    return contagem
