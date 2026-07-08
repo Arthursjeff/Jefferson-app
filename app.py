@@ -792,8 +792,13 @@ if st.session_state.show_trocar_operador:
 
 monitor_notificacoes()
 
-if st.session_state.show_foto_modal:
-    modal_foto_obrigatoria()
+if st.session_state.show_foto_modal and st.session_state.pedido_foto:
+    pedido_foto = st.session_state.pedido_foto
+
+    if pedido_foto.get("setor_atual") == "FATURADO":
+        modal_foto_obrigatoria()
+    else:
+        fechar_modal_foto()
 
 if st.session_state.show_editar_pedido:
     modal_editar_pedido()
