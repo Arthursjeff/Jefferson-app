@@ -8,6 +8,8 @@ from core.pedidos import (
     listar_movimentacoes,
 )
 
+from core.fotos import salvar_foto_pedido
+
 from core.alertas import (
     criar_alerta,
     listar_alertas,
@@ -347,6 +349,38 @@ def remover_alerta(alerta_id: int):
 
     return False, "Erro ao resolver alerta."
 
+def salvar_foto_e_avancar(
+    pedido: dict,
+    foto,
+    usuario: str,
+    setor_usuario: str,
+):
+    if not foto:
+        return False, "Foto obrigatória."
+
+    if pedido.get("setor_atual") != "FATURADO":
+        return False, "A foto só é obrigatória para avançar de Faturado para Embalado."
+
+    foto_salva = salvar_foto_pedido(
+        pedido_id=pedido["id"],
+        foto=foto,
+        usuario=usuario,
+        tipo_evento="FATURADO_PARA_EMBALADO",
+    )
+
+    if not foto_salva:
+        return False, "Erro ao salvar foto."
+
+    sucesso, mensagem = avancar_pedido(
+        pedido=pedido,
+        usuario=usuario,
+        setor_usuario=setor_usuario,
+    )
+
+    if not sucesso:
+        return False, mensagem
+
+    return True, "Foto salva e pedido avançado com sucesso."
 
 def quantidade_alertas(pedido_id: int):
     return contar_alertas_ativos(pedido_id)
