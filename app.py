@@ -14,7 +14,6 @@ from modules.modulo_01.service import (
     avancar_pedido,
     faturar_com_nota,
     cancelar,
-    historico_pedido,
     obter_contagens_mensagens,
     obter_contagens_alertas,
     ESTADOS_VISIVEIS,
@@ -22,12 +21,10 @@ from modules.modulo_01.service import (
     adicionar_alerta,
     obter_alertas,
     remover_alerta,
-    quantidade_alertas,
     editar_dados_pedido,
     adicionar_mensagem,
     obter_mensagens,
     remover_mensagem,
-    quantidade_mensagens,
 )
 
 
@@ -440,6 +437,40 @@ def verificar_notificacoes():
 def monitor_notificacoes():
     verificar_notificacoes()
 
+@st.fragment
+def render_kanban():
+    pedidos_por_estado = obter_pedidos_por_estado()
+    contagens_mensagens = obter_contagens_mensagens()
+    contagens_alertas = obter_contagens_alertas()
+
+    with st.expander("📂 Programados / Importação"):
+        ocultas = st.columns(2)
+
+        for idx, estado in enumerate(ESTADOS_OCULTOS):
+            render_coluna(
+                ocultas[idx],
+                estado,
+                pedidos_por_estado[estado],
+                contagens_mensagens,
+                contagens_alertas,
+            )
+
+    st.divider()
+
+    linha1 = st.columns(3)
+    linha2 = st.columns(3)
+
+    for idx, estado in enumerate(ESTADOS_VISIVEIS):
+        coluna = linha1[idx] if idx < 3 else linha2[idx - 3]
+
+        render_coluna(
+            coluna,
+            estado,
+            pedidos_por_estado[estado],
+            contagens_mensagens,
+            contagens_alertas,
+        )
+
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
     ativar_notificacoes()
@@ -478,37 +509,8 @@ def pagina_fila():
 
     if st.button("🔄 Atualizar"):
         st.rerun()
-
-    pedidos_por_estado = obter_pedidos_por_estado()
-    contagens_mensagens = obter_contagens_mensagens()
-    contagens_alertas = obter_contagens_alertas()
-
-    with st.expander("📂 Programados / Importação"):
-        ocultas = st.columns(2)
-
-        for idx, estado in enumerate(ESTADOS_OCULTOS):
-            render_coluna(
-                ocultas[idx],
-                estado,
-                pedidos_por_estado[estado],
-                contagens_mensagens,
-                contagens_alertas,
-            )
-
-    st.divider()
-
-    linha1 = st.columns(3)
-    linha2 = st.columns(3)
-
-    for idx, estado in enumerate(ESTADOS_VISIVEIS):
-        coluna = linha1[idx] if idx < 3 else linha2[idx - 3]
-        render_coluna(
-                coluna,
-                estado,
-                pedidos_por_estado[estado],
-                contagens_mensagens,
-                contagens_alertas,
-            )
+    
+    render_kanban()
 
 def icone_tipo_pedido(tipo_pedido):
     if tipo_pedido == "IMPORTACAO":
