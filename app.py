@@ -107,6 +107,8 @@ def init_session():
     st.session_state.setdefault("show_editar_pedido", False)
     st.session_state.setdefault("show_alerta_modal", False)
     st.session_state.setdefault("pedido_alerta", None)
+    st.session_state.setdefault("show_foto_modal", False)
+    st.session_state.setdefault("pedido_foto", None)
     st.session_state.setdefault("show_teste_camera", False)
     st.session_state.setdefault("pedido_edicao", None)
     st.session_state.setdefault("show_nf_modal", False)
@@ -121,6 +123,55 @@ def abrir_modal_nf(pedido):
 def abrir_teste_camera():
     st.session_state.show_teste_camera = True
 
+def abrir_modal_foto(pedido):
+    st.session_state.show_foto_modal = True
+    st.session_state.pedido_foto = pedido
+
+
+def fechar_modal_foto():
+    st.session_state.show_foto_modal = False
+    st.session_state.pedido_foto = None
+
+
+@st.dialog("📷 Foto obrigatória")
+def modal_foto_obrigatoria():
+    pedido = st.session_state.get("pedido_foto")
+
+    if not pedido:
+        st.error("Pedido não encontrado.")
+        return
+
+    st.write(f"Pedido: **{pedido.get('numero_pedido')} - {pedido.get('cliente')}**")
+    st.warning("Para avançar de Faturado para Embalado, é obrigatório tirar uma foto.")
+
+    foto = st.camera_input("Tirar foto da embalagem")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Cancelar"):
+            fechar_modal_foto()
+            st.rerun()
+
+    with c2:
+        if st.button("Confirmar e avançar", type="primary"):
+            if not foto:
+                st.warning("Tire uma foto antes de avançar.")
+                return
+
+            sucesso, mensagem = avancar_pedido(
+                pedido=pedido,
+                usuario=st.session_state.nome,
+                setor_usuario=st.session_state.setor,
+            )
+
+            if sucesso:
+                fechar_modal_foto()
+                st.session_state.pedido_aberto = None
+                st.success(mensagem)
+                st.rerun()
+            else:
+                st.warning(mensagem)
 
 def fechar_teste_camera():
     st.session_state.show_teste_camera = False    
@@ -675,12 +726,24 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
 
                         else:
                             if st.button("➡️ Avançar", key=f"avancar_{pedido_id}"):
-                                sucesso, mensagem = avancar_pedido(
-                                    pedido=pedido,
-                                    usuario=st.session_state.nome,
-                                    setor_usuario=st.session_state.setor,
-                                )
 
+                                if estado == "FATURADO" and st.session_state.setor in ["MONTAGEM", "ADMINISTRADOR"]:
+                                    abrir_modal_foto(pedido)
+                                    st.rerun()
+
+                                else:
+                                    sucesso, mensagem = avancar_pedido(
+                                        pedido=pedido,
+                                        usuario=st.session_state.nome,
+                                        setor_usuario=st.session_state.setor,
+                                    )
+
+                                    if sucesso:
+                                        st.success(mensagem)
+                                        st.session_state.pedido_aberto = None
+                                        st.rerun()
+                                    else:
+                                        st.warning(mensagem)
                                 if sucesso:
                                     st.success(mensagem)
                                     st.session_state.pedido_aberto = None
@@ -723,6 +786,9 @@ if st.session_state.show_trocar_operador:
     modal_trocar_operador()
 
 monitor_notificacoes()
+
+if st.session_state.show_foto_modal:
+    modal_foto_obrigatoria()
 
 if st.session_state.show_editar_pedido:
     modal_editar_pedido()
