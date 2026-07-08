@@ -15,6 +15,8 @@ from modules.modulo_01.service import (
     faturar_com_nota,
     cancelar,
     historico_pedido,
+    obter_contagens_mensagens,
+    obter_contagens_alertas,
     ESTADOS_VISIVEIS,
     ESTADOS_OCULTOS,
     adicionar_alerta,
@@ -478,12 +480,20 @@ def pagina_fila():
         st.rerun()
 
     pedidos_por_estado = obter_pedidos_por_estado()
+    contagens_mensagens = obter_contagens_mensagens()
+    contagens_alertas = obter_contagens_alertas()
 
     with st.expander("📂 Programados / Importação"):
         ocultas = st.columns(2)
 
         for idx, estado in enumerate(ESTADOS_OCULTOS):
-            render_coluna(ocultas[idx], estado, pedidos_por_estado[estado])
+            render_coluna(
+                ocultas[idx],
+                estado,
+                pedidos_por_estado[estado],
+                contagens_mensagens,
+                contagens_alertas,
+            )
 
     st.divider()
 
@@ -492,7 +502,13 @@ def pagina_fila():
 
     for idx, estado in enumerate(ESTADOS_VISIVEIS):
         coluna = linha1[idx] if idx < 3 else linha2[idx - 3]
-        render_coluna(coluna, estado, pedidos_por_estado[estado])
+        render_coluna(
+                coluna,
+                estado,
+                pedidos_por_estado[estado],
+                contagens_mensagens,
+                contagens_alertas,
+            )
 
 def icone_tipo_pedido(tipo_pedido):
     if tipo_pedido == "IMPORTACAO":
@@ -501,7 +517,7 @@ def icone_tipo_pedido(tipo_pedido):
         return "📅 "
     return ""
 
-def render_coluna(coluna, estado, pedidos):
+def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alertas):
     with coluna:
         minimizada = st.session_state.filas_minimizadas.get(estado, False)        
         c_titulo, c_btn = st.columns([4, 1])
@@ -530,10 +546,10 @@ def render_coluna(coluna, estado, pedidos):
 
             badges = ""
 
-            if quantidade_mensagens(pedido_id) > 0:
+            if contagens_mensagens.get(pedido_id, 0) > 0:
                 badges += " 💬"
 
-            if quantidade_alertas(pedido_id) > 0:
+            if contagens_alertas.get(pedido_id, 0) > 0:
                 badges += " 🚨"
 
             # if pedido.get("foto_obrigatoria"):
