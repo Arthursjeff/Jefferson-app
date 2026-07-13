@@ -105,6 +105,8 @@ def init_session():
     st.session_state.setdefault("setor", None)
     st.session_state.setdefault("pedido_aberto", None)
     st.session_state.setdefault("form_pedido_id", 0)
+    st.session_state.setdefault("show_cancelar_modal", False)
+    st.session_state.setdefault("pedido_cancelamento", None)
     st.session_state.setdefault("show_editar_pedido", False)
     st.session_state.setdefault("show_alerta_modal", False)
     st.session_state.setdefault("pedido_alerta", None)
@@ -180,9 +182,79 @@ def fechar_teste_camera():
 def fechar_modal_nf():
     st.session_state.show_nf_modal = False
     st.session_state.pedido_nf = None
-
-
 @st.dialog("🧾 Registrar Nota Fiscal")
+
+def abrir_modal_cancelamento(pedido):
+    st.session_state.show_cancelar_modal = True
+    st.session_state.pedido_cancelamento = pedido
+
+
+def fechar_modal_cancelamento():
+    st.session_state.show_cancelar_modal = False
+    st.session_state.pedido_cancelamento = None
+
+@st.dialog("❌ Confirmar cancelamento")
+def modal_cancelamento():
+    pedido = st.session_state.get("pedido_cancelamento")
+
+    if not pedido:
+        st.error("Pedido não encontrado.")
+        return
+
+    st.warning(
+        "Esta ação cancelará o pedido. "
+        "Digite APAGAR para confirmar."
+    )
+
+    st.write(
+        f"Pedido: **{pedido.get('numero_pedido')} - "
+        f"{pedido.get('cliente')}**"
+    )
+
+    confirmacao = st.text_input(
+        "Confirmação",
+        placeholder="Digite APAGAR",
+        key=f"confirmar_cancelamento_{pedido['id']}",
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button(
+            "Voltar",
+            key=f"voltar_cancelamento_{pedido['id']}",
+            use_container_width=True,
+        ):
+            fechar_modal_cancelamento()
+            st.rerun()
+
+    with c2:
+        if st.button(
+            "❌ Cancelar pedido",
+            key=f"confirmar_cancelamento_botao_{pedido['id']}",
+            type="primary",
+            use_container_width=True,
+        ):
+            if confirmacao.strip().upper() != "APAGAR":
+                st.warning("Digite APAGAR corretamente para confirmar.")
+                return
+
+            sucesso, mensagem = cancelar(
+                pedido_id=pedido["id"],
+                usuario=st.session_state.nome,
+                setor_usuario=st.session_state.setor,
+            )
+
+            if sucesso:
+                fechar_modal_cancelamento()
+                st.session_state.pedido_aberto = None
+                st.success(mensagem)
+                st.rerun()
+            else:
+                st.warning(mensagem)
+
+
+
 def modal_nota_fiscal():
     pedido = st.session_state.get("pedido_nf")
 
@@ -756,19 +828,13 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
 
 
                     with c2:
-                        if st.button("❌ Cancelar", key=f"cancelar_{pedido_id}"):
-                            sucesso, mensagem = cancelar(
-                                pedido_id=pedido_id,
-                                usuario=st.session_state.nome,
-                                setor_usuario=st.session_state.setor,
-                            )
-
-                            if sucesso:
-                                st.success(mensagem)
-                                st.session_state.pedido_aberto = None
-                                st.rerun()
-                            else:
-                                st.warning(mensagem)
+                        if st.button(
+                            "❌ Cancelar",
+                            key=f"cancelar_{pedido_id}",
+                            use_container_width=True,
+                        ):
+                            abrir_modal_cancelamento(pedido)
+                            st.rerun()
 
                     
                     if st.button("🚨 Criar alerta", key=f"criar_alerta_{pedido_id}", use_container_width=True):
@@ -809,6 +875,8 @@ if st.session_state.show_teste_camera:
 
 if st.session_state.show_alerta_modal:
     modal_alerta()
+if st.session_state.show_cancelar_modal:
+    modal_cancelamento()
 
 with st.sidebar:
     st.markdown("## Jefferson App")
