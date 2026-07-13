@@ -182,7 +182,6 @@ def fechar_teste_camera():
 def fechar_modal_nf():
     st.session_state.show_nf_modal = False
     st.session_state.pedido_nf = None
-@st.dialog("🧾 Registrar Nota Fiscal")
 
 def abrir_modal_cancelamento(pedido):
     st.session_state.show_cancelar_modal = True
@@ -254,7 +253,7 @@ def modal_cancelamento():
                 st.warning(mensagem)
 
 
-
+@st.dialog("🧾 Registrar Nota Fiscal")
 def modal_nota_fiscal():
     pedido = st.session_state.get("pedido_nf")
 
