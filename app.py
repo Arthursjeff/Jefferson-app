@@ -31,7 +31,7 @@ from modules.modulo_01.service import (
 
 st.set_page_config(
     page_title="Jefferson App",
-    page_icon="🧾",
+    page_icon="assets/icone_jefferson.png",
     layout="wide",
 )
 
