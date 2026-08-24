@@ -164,9 +164,193 @@ def pagina_orcamentos():
     # PRÓXIMA ETAPA
     # ======================================================
 
+    # ======================================================
+    # ITENS DO ORÇAMENTO
+    # ======================================================
+
     st.subheader("Itens do orçamento")
 
-    st.info(
-        "Na próxima etapa vamos adicionar "
-        "código, tensão, quantidade, valor unitário e prazo."
-    )
+    # Inicializa a lista de itens
+    if "orcamento_itens" not in st.session_state:
+        st.session_state.orcamento_itens = []
+
+    # ======================================================
+    # ITENS JÁ ADICIONADOS
+    # ======================================================
+
+    if st.session_state.orcamento_itens:
+
+        st.write("### Itens adicionados")
+
+        total_orcamento = 0
+
+        for indice, item in enumerate(
+            st.session_state.orcamento_itens
+        ):
+
+            total_item = (
+                item["quantidade"]
+                * item["valor_unitario"]
+            )
+
+            total_orcamento += total_item
+
+            with st.container(border=True):
+
+                c1, c2 = st.columns([5, 1])
+
+                with c1:
+
+                    st.markdown(
+                        f"### Item {indice + 1} — "
+                        f"{item['codigo']}"
+                    )
+
+                    st.write(
+                        f"**Tensão:** {item['tensao']}"
+                    )
+
+                    st.write(
+                        f"**Quantidade:** "
+                        f"{item['quantidade']}"
+                    )
+
+                    st.write(
+                        f"**Valor unitário:** "
+                        f"R$ {item['valor_unitario']:,.2f}"
+                    )
+
+                    st.write(
+                        f"**Total do item:** "
+                        f"R$ {total_item:,.2f}"
+                    )
+
+                    st.write(
+                        f"**Prazo:** "
+                        f"{item['prazo']}"
+                    )
+
+                    if item["observacao"]:
+
+                        st.write(
+                            f"**Observação:** "
+                            f"{item['observacao']}"
+                        )
+
+                with c2:
+
+                    if st.button(
+                        "Excluir",
+                        key=f"excluir_item_{indice}",
+                        use_container_width=True,
+                    ):
+
+                        st.session_state.orcamento_itens.pop(
+                            indice
+                        )
+
+                        st.rerun()
+
+        st.metric(
+            "Total do orçamento",
+            f"R$ {total_orcamento:,.2f}"
+        )
+
+        st.divider()
+
+    # ======================================================
+    # ADICIONAR NOVO ITEM
+    # ======================================================
+
+    st.write("### Adicionar item")
+
+    with st.form(
+        "form_adicionar_item",
+        clear_on_submit=True,
+    ):
+
+        codigo = st.text_input(
+            "Código do produto",
+            placeholder="Ex.: 1335BA04T",
+        )
+
+        tensao = st.text_input(
+            "Tensão",
+            placeholder="Ex.: 220/60HZ",
+        )
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+
+            quantidade = st.number_input(
+                "Quantidade",
+                min_value=1,
+                value=1,
+                step=1,
+            )
+
+        with c2:
+
+            valor_unitario = st.number_input(
+                "Valor unitário (R$)",
+                min_value=0.0,
+                value=0.0,
+                step=0.01,
+                format="%.2f",
+            )
+
+        prazo = st.text_input(
+            "Prazo",
+            placeholder="Ex.: 15 dias",
+        )
+
+        observacao = st.text_area(
+            "Observação do item",
+            placeholder="Opcional",
+        )
+
+        adicionar_item = st.form_submit_button(
+            "Adicionar item",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if adicionar_item:
+
+        if not codigo.strip():
+
+            st.warning(
+                "Informe o código do produto."
+            )
+
+        elif not tensao.strip():
+
+            st.warning(
+                "Informe a tensão."
+            )
+
+        elif not prazo.strip():
+
+            st.warning(
+                "Informe o prazo."
+            )
+
+        else:
+
+            novo_item = {
+                "codigo": codigo.strip().upper(),
+                "tensao": tensao.strip().upper(),
+                "quantidade": int(quantidade),
+                "valor_unitario": float(
+                    valor_unitario
+                ),
+                "prazo": prazo.strip(),
+                "observacao": observacao.strip(),
+            }
+
+            st.session_state.orcamento_itens.append(
+                novo_item
+            )
+
+            st.rerun()
