@@ -2,6 +2,28 @@ import streamlit as st
 
 from modules.modulo_orcamentos.clientes_repository import buscar_clientes
 
+OPCOES_TENSAO = [
+    "110/60HZ",
+    "220/60HZ",
+    "24VCC",
+    "12VCC",
+    "110/50HZ",
+    "220/50HZ",
+    "OUTRO",
+]
+
+OPCOES_PRAZO = [
+    "IMEDIATO",
+    "5 DIAS",
+    "10 DIAS",
+    "15 DIAS",
+    "20 DIAS",
+    "30 DIAS",
+    "45 DIAS",
+    "60 DIAS",
+    "OUTRO",
+]
+
 
 def pagina_orcamentos():
 
@@ -274,10 +296,20 @@ def pagina_orcamentos():
             placeholder="Ex.: 1335BA04T",
         )
 
-        tensao = st.text_input(
+        tensao_selecionada = st.selectbox(
             "Tensão",
-            placeholder="Ex.: 220/60HZ",
+            options=OPCOES_TENSAO,
+            index=None,
+            placeholder="Digite para buscar...",
         )
+
+        if tensao_selecionada == "OUTRO":
+            tensao = st.text_input(
+                "Outra tensão",
+                placeholder="Digite a tensão manualmente",
+            )
+        else:
+            tensao = tensao_selecionada or ""
 
         c1, c2 = st.columns(2)
 
@@ -300,11 +332,21 @@ def pagina_orcamentos():
                 format="%.2f",
             )
 
-        prazo = st.text_input(
+        prazo_selecionado = st.selectbox(
             "Prazo",
-            placeholder="Ex.: 15 dias",
+            options=OPCOES_PRAZO,
+            index=None,
+            placeholder="Digite para buscar...",
         )
 
+        if prazo_selecionado == "OUTRO":
+            prazo = st.text_input(
+                "Outro prazo",
+                placeholder="Digite o prazo manualmente",
+            )
+        else:
+            prazo = prazo_selecionado or ""
+        
         observacao = st.text_area(
             "Observação do item",
             placeholder="Opcional",
