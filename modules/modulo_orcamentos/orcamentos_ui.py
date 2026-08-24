@@ -2,6 +2,7 @@ import streamlit as st
 
 from modules.modulo_orcamentos.clientes_repository import buscar_clientes
 from modules.modulo_orcamentos.orcamentos_repository import salvar_orcamento
+from modules.modulo_orcamentos.pdf.pdf_teste_ui import mostrar_teste_pdf
 
 OPCOES_TENSAO = [
     "110/60HZ",
@@ -465,3 +466,6 @@ def pagina_orcamentos():
                 st.error(
                     f"Erro ao salvar orçamento: {erro}"
                 )
+
+
+    mostrar_teste_pdf()
