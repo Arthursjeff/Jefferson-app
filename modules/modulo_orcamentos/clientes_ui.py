@@ -1,7 +1,11 @@
 import streamlit as st
 
-from core.clientes_importer import preparar_clientes
+from core.clientes_importer import (
+    preparar_clientes,
+    dataframe_para_registros,
+)
 
+from core.clientes_database import importar_clientes_supabase
 
 def pagina_importar_clientes():
 
@@ -96,10 +100,60 @@ def pagina_importar_clientes():
             hide_index=True,
         )
 
-        st.info(
-            "Os dados ainda NÃO foram enviados ao Supabase. "
-            "Esta etapa é apenas para validar o tratamento."
+        st.divider()
+
+        st.subheader("Atualizar base de clientes")
+
+        st.warning(
+            "Ao confirmar, os clientes existentes serão atualizados "
+            "e os novos clientes serão adicionados ao Supabase."
         )
+
+        confirmar = st.checkbox(
+            "Confirmo que revisei a prévia e desejo atualizar a base.",
+            key="confirmar_importacao_clientes",
+        )
+
+        if st.button(
+            "Confirmar e atualizar Supabase",
+            type="primary",
+            disabled=not confirmar,
+            use_container_width=True,
+        ):
+
+            try:
+
+                registros = dataframe_para_registros(clientes)
+
+                barra = st.progress(
+                    0,
+                    text="Preparando atualização..."
+                )
+
+                with st.spinner(
+                    "Atualizando a base de clientes..."
+                ):
+
+                    resultado = importar_clientes_supabase(
+                        registros
+                    )
+
+                barra.progress(
+                    100,
+                    text="Atualização concluída."
+                )
+
+                st.success(
+                    f'Base atualizada com sucesso. '
+                    f'{resultado["processados"]} clientes processados '
+                    f'em {resultado["lotes"]} lote(s).'
+                )
+
+            except Exception as erro:
+
+                st.error(
+                    f"Erro ao atualizar Supabase: {erro}"
+                )
 
     except Exception as erro:
 
