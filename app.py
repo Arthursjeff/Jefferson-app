@@ -895,7 +895,6 @@ with st.sidebar:
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
-            "Orçamentos",
         ]
 
     else:
