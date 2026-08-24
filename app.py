@@ -942,12 +942,7 @@ elif pagina == "Orçamentos":
         st.error("Você não possui permissão para acessar esta página.")
         st.stop()
 
-    st.title("📄 Orçamentos")
-
-    st.info(
-        "Módulo de orçamento em desenvolvimento."
-    )
-
+    pagina_orcamentos()
 
 else:
 
