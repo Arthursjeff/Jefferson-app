@@ -882,13 +882,21 @@ with st.sidebar:
     st.markdown("## Jefferson App")
     st.caption(f"{st.session_state.nome} ({st.session_state.setor})")
 
-    if st.session_state.setor in ["VENDAS", "ADMINISTRADOR"]:
+    if st.session_state.setor == "ADMINISTRADOR":
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
-             "Orçamentos",
-             "Importar Clientes",
+            "Orçamentos",
+            "Importar Clientes",
         ]
+
+    elif st.session_state.setor == "VENDAS":
+        paginas = [
+            "Fila de Pedidos",
+            "Criar Pedido",
+            "Orçamentos",
+        ]
+
     else:
         paginas = [
             "Fila de Pedidos",
