@@ -297,3 +297,21 @@ def preparar_clientes(arquivo_excel):
     }
 
     return df, relatorio
+
+def dataframe_para_registros(df):
+    """
+    Converte o DataFrame tratado em uma lista de dicionários
+    compatível com o Supabase.
+
+    Garante que valores vazios sejam enviados como NULL.
+    """
+
+    df_envio = df.copy()
+
+    # Converte NaN / NaT / pd.NA para None
+    df_envio = df_envio.astype(object).where(
+        pd.notna(df_envio),
+        None
+    )
+
+    return df_envio.to_dict(orient="records")
