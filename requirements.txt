@@ -3,3 +3,4 @@ supabase
 pandas
 python-dateutil
 openpyxl
+reportlab
