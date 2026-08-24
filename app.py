@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import streamlit.components.v1 as components
 from core.admin import apagar_tudo
+from modules.modulo_orcamentos.clientes_ui import pagina_importar_clientes
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
@@ -885,6 +886,8 @@ with st.sidebar:
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
+             "Orçamentos",
+             "Importar Clientes",
         ]
     else:
         paginas = [
@@ -904,10 +907,39 @@ with st.sidebar:
 
 
 if pagina == "Criar Pedido":
+
     if st.session_state.setor not in ["VENDAS", "ADMINISTRADOR"]:
         st.error("Você não possui permissão para acessar esta página.")
         st.stop()
 
     pagina_criar_pedido()
+
+
+elif pagina == "Importar Clientes":
+
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error(
+            "A importação da base de clientes "
+            "é permitida somente para administradores."
+        )
+        st.stop()
+
+    pagina_importar_clientes()
+
+
+elif pagina == "Orçamentos":
+
+    if st.session_state.setor not in ["VENDAS", "ADMINISTRADOR"]:
+        st.error("Você não possui permissão para acessar esta página.")
+        st.stop()
+
+    st.title("📄 Orçamentos")
+
+    st.info(
+        "Módulo de orçamento em desenvolvimento."
+    )
+
+
 else:
+
     pagina_fila()
