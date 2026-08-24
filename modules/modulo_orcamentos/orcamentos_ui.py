@@ -1,6 +1,7 @@
 import streamlit as st
 
 from modules.modulo_orcamentos.clientes_repository import buscar_clientes
+from modules.modulo_orcamentos.orcamentos_repository import salvar_orcamento
 
 OPCOES_TENSAO = [
     "110/60HZ",
@@ -396,3 +397,71 @@ def pagina_orcamentos():
             )
 
             st.rerun()
+
+
+    st.divider()
+
+    st.subheader("Observações gerais")
+
+    observacao_geral = st.text_area(
+        "Observação do orçamento",
+        placeholder="Informações gerais que devem constar no orçamento...",
+        key="orcamento_observacao_geral",
+    )
+
+
+    st.divider()
+
+    salvar = st.button(
+        "💾 Salvar orçamento",
+        type="primary",
+        use_container_width=True,
+    )
+
+    if salvar:
+
+        if not numero_orcamento.strip():
+
+            st.warning(
+                "Informe o número do orçamento."
+            )
+
+        elif not cliente_selecionado:
+
+            st.warning(
+                "Selecione um cliente."
+            )
+
+        elif not st.session_state.orcamento_itens:
+
+            st.warning(
+                "Adicione pelo menos um item."
+            )
+
+        else:
+
+            try:
+
+                with st.spinner(
+                    "Salvando orçamento..."
+                ):
+
+                    orcamento_salvo = salvar_orcamento(
+                        numero_orcamento=numero_orcamento,
+                        cliente=cliente_selecionado,
+                        itens=st.session_state.orcamento_itens,
+                        criado_por=st.session_state.nome,
+                        observacao_geral=observacao_geral,
+                    )
+
+                st.success(
+                    f'Orçamento '
+                    f'{orcamento_salvo["numero_orcamento"]} '
+                    f'salvo com sucesso.'
+                )
+
+            except Exception as erro:
+
+                st.error(
+                    f"Erro ao salvar orçamento: {erro}"
+                )
