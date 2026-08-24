@@ -230,14 +230,23 @@ def preparar_clientes(arquivo_excel):
 
     if "tipo_cliente_codigo" in df.columns:
 
+    # Código 0 no ERP significa "sem classificação"
+        df.loc[
+            df["tipo_cliente_codigo"] == "0",
+            "tipo_cliente_codigo"
+        ] = None
+
         df["tipo_cliente"] = df[
             "tipo_cliente_codigo"
         ].map(TIPOS_CLIENTE)
 
-        # Se aparecer código novo, não quebra a importação
-        df["tipo_cliente"] = df[
+    # Só marca como NÃO MAPEADO quando existe um código real
+    # que ainda não está na nossa tabela de tipos
+        df.loc[
+            df["tipo_cliente_codigo"].notna()
+            & df["tipo_cliente"].isna(),
             "tipo_cliente"
-        ].fillna("NÃO MAPEADO")
+        ] = "NÃO MAPEADO"
 
     # -----------------------------------------
     # REMOVE LINHAS SEM CÓDIGO
