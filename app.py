@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import streamlit.components.v1 as components
 from core.admin import apagar_tudo
+from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_importar_clientes
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
