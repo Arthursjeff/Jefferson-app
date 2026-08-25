@@ -854,18 +854,20 @@ def desenhar_condicoes(
 ):
     margem = 14 * mm
 
+    # Título maior
     texto(
         c,
         margem,
         y_topo,
         "CONDIÇÕES COMERCIAIS",
-        tamanho=9.5,
+        tamanho=11,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
 
-    altura = 24 * mm
-    y = y_topo - altura - 3 * mm
+    # Mantemos a caixa compacta
+    altura = 25 * mm
+    y = y_topo - altura - 4 * mm
 
     c.setFillColor(CINZA_FUNDO)
 
@@ -898,28 +900,35 @@ def desenhar_condicoes(
         ),
     ]
 
-    y_linha = y + 17.5 * mm
+    # Começa mais perto do topo
+    y_linha = y + 18.5 * mm
 
     for titulo, valor in condicoes:
 
+        # Nome da condição
         texto(
             c,
-            margem + 5 * mm,
+            margem + 6 * mm,
             y_linha,
             titulo,
-            tamanho=7.4,
+            tamanho=8.8,
             fonte="Helvetica-Bold",
+            cor=PRETO,
         )
 
+        # Valor
         texto(
             c,
-            margem + 62 * mm,
+            margem + 65 * mm,
             y_linha,
             valor,
-            tamanho=7.4,
+            tamanho=8.8,
+            fonte="Helvetica",
+            cor=PRETO,
         )
 
-        y_linha -= 4.8 * mm
+        # Espaçamento entre linhas
+        y_linha -= 5.2 * mm
 
     return y
 
