@@ -727,9 +727,9 @@ def desenhar_resumo(
         # CÓDIGO DO PRODUTO
         largura = colunas[1][1]
 
-        texto(
+        texto_centro(
             c,
-            x + 3 * mm,
+            x + largura / 2,
             y + 4.2 * mm,
             item["codigo"],
             tamanho=6.7,
