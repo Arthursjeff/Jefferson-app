@@ -1316,12 +1316,39 @@ def desenhar_pagina_tecnica_teste(
     # LINHAS TÉCNICAS
     # ========================================================
 
+    dados_teste = [
+        ("OPERAÇÃO", "Ação direta"),
+        ("VIAS", "2 vias"),
+        ("POSIÇÃO", "Normalmente fechada"),
+        ("CORPO", "Latão"),
+        ("VEDAÇÃO", "Buna-N (NBR)"),
+        ("CONEXÃO", '1/2" BSP'),
+        ("ORIFÍCIO", "18 mm"),
+        ("PRESSÃO MÍN.", "0 bar"),
+        ("PRESSÃO MÁX.", "10 bar"),
+        ("TEMPERATURA", "80 °C"),
+        ("BOBINA", "Encapsulada"),
+        ("CLASSE TÉRMICA", "Classe H - 180 °C"),
+        ("PROTEÇÃO", "IP65"),
+        ("CONEXÃO ELÉTR.", "Plug-in PG9"),
+        ("POTÊNCIA", "13 W"),
+        ("TENSÃO", "220 V / 60 Hz"),
+        ("CERTIFICAÇÃO", "Área classificada"),
+        ("PROTEÇÃO EX", "Ex db IIC T4 Gb"),
+        ("ENTRADA ELÉTR.", '1/2" NPT'),
+        ("OBSERVAÇÃO", "Configuração especial"),
+    ]
+
     for numero_linha in range(
         1,
         quantidade_linhas + 1,
     ):
 
         y -= altura_linha
+
+        campo, valor = dados_teste[
+            numero_linha - 1
+        ]
 
         for indice in range(3):
 
@@ -1358,23 +1385,23 @@ def desenhar_pagina_tecnica_teste(
                 y + altura_linha,
             )
 
-            # Nome provisório da linha
+            # NOME DO CAMPO
             texto(
                 c,
                 x + 2.2 * mm,
                 y + 2.0 * mm,
-                f"LINHA {numero_linha}",
+                campo,
                 tamanho=5.5,
                 fonte="Helvetica-Bold",
                 cor=CINZA_MEDIO,
             )
 
-            # Espaço provisório do valor
+            # VALOR
             texto(
                 c,
                 x + largura_campo + 2.2 * mm,
                 y + 2.0 * mm,
-                "—",
+                valor,
                 tamanho=6.0,
                 fonte="Helvetica",
                 cor=PRETO,
