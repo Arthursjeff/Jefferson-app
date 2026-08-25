@@ -263,8 +263,8 @@ def desenhar_cabecalho(
             str(caminho_logo),
             margem,
             y_topo - 22 * mm,
-            width=50 * mm,
-            height=50 * mm,
+            width=75 * mm,
+            height=24 * mm,
             preserveAspectRatio=True,
             mask="auto",
         )
