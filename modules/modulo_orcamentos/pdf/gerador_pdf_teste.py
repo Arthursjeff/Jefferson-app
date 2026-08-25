@@ -1052,6 +1052,7 @@ def gerar_pdf_teste():
         c,
         y - 7 * mm,
         "RESUMO DA PROPOSTA",
+        largura_pagina,
     )
 
     y = desenhar_resumo(
