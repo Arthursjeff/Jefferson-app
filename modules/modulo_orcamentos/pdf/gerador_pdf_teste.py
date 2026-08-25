@@ -558,12 +558,12 @@ def desenhar_resumo(
 
     colunas = [
         ("ITEM", 11 * mm),
-        ("IMAGEM", 26 * mm),
-        ("MODELO / CONFIGURAÇÃO", 59 * mm),
-        ("QTD.", 13 * mm),
-        ("UNITÁRIO", 25 * mm),
-        ("TOTAL", 27 * mm),
-        ("PRAZO", 21 * mm),
+        ("CÓDIGO DO PRODUTO", 48 * mm),
+        ("TENSÃO", 27 * mm),
+        ("QTD.", 14 * mm),
+        ("VALOR UNIT.", 28 * mm),
+        ("VALOR TOTAL", 29 * mm),
+        ("PRAZO", 25 * mm),
     ]
 
     largura_total = sum(
@@ -571,15 +571,15 @@ def desenhar_resumo(
         for _, largura in colunas
     )
 
-    altura_cabecalho = 8 * mm
-    altura_item = 22 * mm
+    # Mais compacto para permitir vários itens
+    altura_cabecalho = 7 * mm
+    altura_item = 11.5 * mm
 
-    # --------------------------------------------------------
-    # CABEÇALHO DA TABELA
-    # --------------------------------------------------------
+    # ======================================================
+    # CABEÇALHO
+    # ======================================================
 
     y = y_topo - altura_cabecalho
-
     x = margem
 
     for titulo, largura in colunas:
@@ -598,23 +598,23 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 2.7 * mm,
+            y + 2.4 * mm,
             titulo,
-            tamanho=5.5,
+            tamanho=5.2,
             fonte="Helvetica-Bold",
             cor=BRANCO,
         )
 
         x += largura
 
-    # --------------------------------------------------------
-    # DADOS DE TESTE
-    # --------------------------------------------------------
+    # ======================================================
+    # ITENS DE TESTE
+    # ======================================================
 
     itens = [
         {
             "item": "01",
-            "codigo": ["Z1335BA04T"],
+            "codigo": "Z1335BA04T",
             "tensao": "110 V / 60 Hz",
             "qtd": "4",
             "unitario": "R$ 1.500,00",
@@ -623,10 +623,7 @@ def desenhar_resumo(
         },
         {
             "item": "02",
-            "codigo": [
-                "V338-ZRC",
-                "2088LA12LT",
-            ],
+            "codigo": "2088LA12LT",
             "tensao": "110 V / 60 Hz",
             "qtd": "8",
             "unitario": "R$ 8.200,00",
@@ -635,17 +632,63 @@ def desenhar_resumo(
         },
         {
             "item": "03",
-            "codigo": [
-                "V338-ZRC",
-                "2088LA16RT",
-            ],
+            "codigo": "2088LA16RT",
             "tensao": "110 V / 60 Hz",
             "qtd": "2",
             "unitario": "R$ 7.790,00",
             "total": "R$ 15.580,00",
             "prazo": "30 A 45 DIAS",
         },
+        {
+            "item": "04",
+            "codigo": "2036BV04",
+            "tensao": "220 V / 60 Hz",
+            "qtd": "3",
+            "unitario": "R$ 980,00",
+            "total": "R$ 2.940,00",
+            "prazo": "15 DIAS",
+        },
+        {
+            "item": "05",
+            "codigo": "1323BA20C",
+            "tensao": "24 VCC",
+            "qtd": "5",
+            "unitario": "R$ 720,00",
+            "total": "R$ 3.600,00",
+            "prazo": "IMEDIATO",
+        },
+        {
+            "item": "06",
+            "codigo": "1342BA08T",
+            "tensao": "220 V / 60 Hz",
+            "qtd": "1",
+            "unitario": "R$ 1.450,00",
+            "total": "R$ 1.450,00",
+            "prazo": "20 DIAS",
+        },
+        {
+            "item": "07",
+            "codigo": "1335BA06",
+            "tensao": "110 V / 60 Hz",
+            "qtd": "6",
+            "unitario": "R$ 850,00",
+            "total": "R$ 5.100,00",
+            "prazo": "10 DIAS",
+        },
+        {
+            "item": "08",
+            "codigo": "2036BE06",
+            "tensao": "24 VCC",
+            "qtd": "2",
+            "unitario": "R$ 1.180,00",
+            "total": "R$ 2.360,00",
+            "prazo": "30 DIAS",
+        },
     ]
+
+    # ======================================================
+    # LINHAS DOS ITENS
+    # ======================================================
 
     for indice, item in enumerate(itens):
 
@@ -668,140 +711,101 @@ def desenhar_resumo(
 
         x = margem
 
-        # ----------------------------------------------------
         # ITEM
-        # ----------------------------------------------------
-
         largura = colunas[0][1]
 
         texto_centro(
             c,
             x + largura / 2,
-            y + 9.5 * mm,
+            y + 4.3 * mm,
             item["item"],
-            tamanho=7.5,
+            tamanho=6.5,
         )
 
         x += largura
 
-        # ----------------------------------------------------
-        # IMAGEM
-        # ----------------------------------------------------
-
+        # CÓDIGO DO PRODUTO
         largura = colunas[1][1]
-
-        desenhar_valvula_teste(
-            c,
-            x + 5 * mm,
-            y + 3 * mm,
-            largura - 10 * mm,
-            altura_item - 6 * mm,
-        )
-
-        x += largura
-
-        # ----------------------------------------------------
-        # MODELO / CONFIGURAÇÃO
-        # ----------------------------------------------------
-
-        largura = colunas[2][1]
-
-        y_codigo = y + 13.5 * mm
-
-        for linha_codigo in item["codigo"]:
-
-            texto(
-                c,
-                x + 4 * mm,
-                y_codigo,
-                linha_codigo,
-                tamanho=7,
-                fonte="Helvetica-Bold",
-            )
-
-            y_codigo -= 3.8 * mm
 
         texto(
             c,
-            x + 4 * mm,
-            y + 3.2 * mm,
-            item["tensao"],
-            tamanho=6.2,
-            cor=CINZA_MEDIO,
+            x + 3 * mm,
+            y + 4.2 * mm,
+            item["codigo"],
+            tamanho=6.7,
+            fonte="Helvetica-Bold",
         )
 
         x += largura
 
-        # ----------------------------------------------------
-        # QTD
-        # ----------------------------------------------------
+        # TENSÃO
+        largura = colunas[2][1]
 
+        texto_centro(
+            c,
+            x + largura / 2,
+            y + 4.2 * mm,
+            item["tensao"],
+            tamanho=6.2,
+        )
+
+        x += largura
+
+        # QUANTIDADE
         largura = colunas[3][1]
 
         texto_centro(
             c,
             x + largura / 2,
-            y + 9.5 * mm,
+            y + 4.2 * mm,
             item["qtd"],
-            tamanho=7.7,
+            tamanho=6.5,
         )
 
         x += largura
 
-        # ----------------------------------------------------
-        # UNITÁRIO
-        # ----------------------------------------------------
-
+        # VALOR UNITÁRIO
         largura = colunas[4][1]
 
         texto_centro(
             c,
             x + largura / 2,
-            y + 9.5 * mm,
+            y + 4.2 * mm,
             item["unitario"],
-            tamanho=6.3,
+            tamanho=6.1,
         )
 
         x += largura
 
-        # ----------------------------------------------------
-        # TOTAL
-        # ----------------------------------------------------
-
+        # VALOR TOTAL
         largura = colunas[5][1]
 
         texto_centro(
             c,
             x + largura / 2,
-            y + 9.5 * mm,
+            y + 4.2 * mm,
             item["total"],
-            tamanho=6.3,
+            tamanho=6.1,
             fonte="Helvetica-Bold",
         )
 
         x += largura
 
-        # ----------------------------------------------------
         # PRAZO
-        # ----------------------------------------------------
-
         largura = colunas[6][1]
 
-        texto_quebrado(
+        texto_centro(
             c,
+            x + largura / 2,
+            y + 4.2 * mm,
             item["prazo"],
-            x + 2 * mm,
-            y + 11 * mm,
-            largura - 4 * mm,
-            tamanho=6,
-            entrelinha=6.8,
+            tamanho=5.9,
             fonte="Helvetica-Bold",
-            max_linhas=2,
         )
 
         # Linha divisória
         c.setStrokeColor(CINZA_LINHA)
-        c.setLineWidth(0.4)
+        c.setLineWidth(0.35)
 
         c.line(
             margem,
@@ -810,12 +814,12 @@ def desenhar_resumo(
             y,
         )
 
-    # --------------------------------------------------------
-    # BORDA GERAL DA TABELA
-    # --------------------------------------------------------
+    # ======================================================
+    # BORDA GERAL
+    # ======================================================
 
     c.setStrokeColor(CINZA_LINHA)
-    c.setLineWidth(0.7)
+    c.setLineWidth(0.6)
 
     c.rect(
         margem,
