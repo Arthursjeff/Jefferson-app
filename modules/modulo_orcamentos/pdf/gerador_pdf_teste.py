@@ -1005,7 +1005,8 @@ def desenhar_rodape(
 
 
 # ============================================================
-# PÁGINA 2 - TESTE DE ESTRUTURA DOS DADOS TÉCNICOS
+# PÁGINA 2 - FOLHA DE DADOS TÉCNICOS
+# 3 ITENS VERTICAIS LADO A LADO
 # ============================================================
 
 def desenhar_cabecalho_tecnico(
@@ -1015,7 +1016,6 @@ def desenhar_cabecalho_tecnico(
     numero_pagina=2,
 ):
     margem = 14 * mm
-
     y_topo = altura_pagina - 12 * mm
 
     # --------------------------------------------------------
@@ -1058,7 +1058,6 @@ def desenhar_cabecalho_tecnico(
         y_topo - 11 * mm,
         f"Proposta {PROPOSTA_NUMERO}",
         tamanho=8,
-        fonte="Helvetica",
         cor=CINZA_MEDIO,
     )
 
@@ -1068,11 +1067,9 @@ def desenhar_cabecalho_tecnico(
         y_topo - 16 * mm,
         f"Página {numero_pagina}",
         tamanho=7,
-        fonte="Helvetica",
         cor=CINZA_MEDIO,
     )
 
-    # Linha verde
     y_linha = y_topo - 23 * mm
 
     c.setStrokeColor(COR_PRINCIPAL)
@@ -1089,231 +1086,43 @@ def desenhar_cabecalho_tecnico(
 
 
 # ============================================================
-# BLOCO DE UM ITEM TÉCNICO
+# CÉLULA DE UMA COLUNA TÉCNICA
 # ============================================================
 
-def desenhar_item_tecnico_teste(
+def desenhar_celula_tecnica(
     c,
-    largura_pagina,
-    y_topo,
-    numero_item,
-    codigo,
+    x,
+    y,
+    largura,
+    altura,
+    fundo=BRANCO,
 ):
-    margem = 14 * mm
-
-    largura = largura_pagina - 2 * margem
-
-    # --------------------------------------------------------
-    # TAMANHOS DAS LINHAS
-    # --------------------------------------------------------
-
-    altura_item = 7 * mm
-    altura_codigo = 8 * mm
-
-    # Linha propositalmente alta para imagem
-    altura_imagem = 25 * mm
-
-    # Linhas técnicas abaixo da imagem
-    altura_linha_tecnica = 6.5 * mm
-
-    quantidade_linhas_tecnicas = 5
-
-    # ========================================================
-    # LINHA 1 - ITEM
-    # ========================================================
-
-    y = y_topo - altura_item
-
-    c.setFillColor(COR_PRINCIPAL_ESCURA)
+    c.setFillColor(fundo)
 
     c.rect(
-        margem,
+        x,
         y,
         largura,
-        altura_item,
+        altura,
         fill=1,
         stroke=0,
-    )
-
-    texto(
-        c,
-        margem + 4 * mm,
-        y + 2.2 * mm,
-        f"ITEM {numero_item:02d}",
-        tamanho=8,
-        fonte="Helvetica-Bold",
-        cor=BRANCO,
-    )
-
-    # ========================================================
-    # LINHA 2 - CÓDIGO
-    # ========================================================
-
-    y -= altura_codigo
-
-    c.setFillColor(CINZA_FUNDO)
-
-    c.rect(
-        margem,
-        y,
-        largura,
-        altura_codigo,
-        fill=1,
-        stroke=0,
-    )
-
-    texto(
-        c,
-        margem + 4 * mm,
-        y + 2.7 * mm,
-        "CÓDIGO",
-        tamanho=6.5,
-        fonte="Helvetica-Bold",
-        cor=CINZA_MEDIO,
-    )
-
-    texto(
-        c,
-        margem + 30 * mm,
-        y + 2.3 * mm,
-        codigo,
-        tamanho=9,
-        fonte="Helvetica-Bold",
-        cor=PRETO,
-    )
-
-    # ========================================================
-    # LINHA 3 - IMAGEM
-    # ========================================================
-
-    y -= altura_imagem
-
-    c.setFillColor(BRANCO)
-
-    c.rect(
-        margem,
-        y,
-        largura,
-        altura_imagem,
-        fill=1,
-        stroke=0,
-    )
-
-    # Apenas para visualização do espaço reservado
-    c.setStrokeColor(CINZA_LINHA)
-    c.setLineWidth(0.5)
-
-    margem_imagem = 4 * mm
-
-    c.roundRect(
-        margem + margem_imagem,
-        y + 3 * mm,
-        largura - 2 * margem_imagem,
-        altura_imagem - 6 * mm,
-        1.5 * mm,
-        fill=0,
-        stroke=1,
-    )
-
-    texto_centro(
-        c,
-        margem + largura / 2,
-        y + altura_imagem / 2 - 1 * mm,
-        "ÁREA DA IMAGEM DO PRODUTO",
-        tamanho=7,
-        fonte="Helvetica-Bold",
-        cor=CINZA_MEDIO,
-    )
-
-    # ========================================================
-    # LINHAS TÉCNICAS VAZIAS
-    # ========================================================
-
-    for numero_linha in range(
-        1,
-        quantidade_linhas_tecnicas + 1,
-    ):
-
-        y -= altura_linha_tecnica
-
-        # Alternância leve de fundo
-        if numero_linha % 2 == 0:
-            c.setFillColor(CINZA_ALTERNADO)
-        else:
-            c.setFillColor(BRANCO)
-
-        c.rect(
-            margem,
-            y,
-            largura,
-            altura_linha_tecnica,
-            fill=1,
-            stroke=0,
-        )
-
-        # Número da linha para facilitar o teste impresso
-        texto(
-            c,
-            margem + 3 * mm,
-            y + 2 * mm,
-            f"Linha {numero_linha}",
-            tamanho=5.5,
-            fonte="Helvetica",
-            cor=CINZA_MEDIO,
-        )
-
-        # Linha vertical central para testar dois campos por linha
-        meio = margem + largura / 2
-
-        c.setStrokeColor(CINZA_LINHA)
-        c.setLineWidth(0.35)
-
-        c.line(
-            meio,
-            y,
-            meio,
-            y + altura_linha_tecnica,
-        )
-
-        # Linha horizontal
-        c.line(
-            margem,
-            y,
-            margem + largura,
-            y,
-        )
-
-    # ========================================================
-    # BORDA DO BLOCO COMPLETO
-    # ========================================================
-
-    altura_total = (
-        altura_item
-        + altura_codigo
-        + altura_imagem
-        + (
-            quantidade_linhas_tecnicas
-            * altura_linha_tecnica
-        )
     )
 
     c.setStrokeColor(CINZA_LINHA)
-    c.setLineWidth(0.7)
+    c.setLineWidth(0.45)
 
     c.rect(
-        margem,
+        x,
         y,
         largura,
-        altura_total,
+        altura,
         fill=0,
         stroke=1,
     )
-
-    return y
 
 
 # ============================================================
-# PÁGINA TÉCNICA COMPLETA - 3 ITENS
+# PÁGINA TÉCNICA COMPLETA
 # ============================================================
 
 def desenhar_pagina_tecnica_teste(
@@ -1321,73 +1130,298 @@ def desenhar_pagina_tecnica_teste(
     largura_pagina,
     altura_pagina,
 ):
+    margem = 14 * mm
+
     # --------------------------------------------------------
     # CABEÇALHO
     # --------------------------------------------------------
 
-    y = desenhar_cabecalho_tecnico(
+    y_topo = desenhar_cabecalho_tecnico(
         c,
         largura_pagina,
         altura_pagina,
         numero_pagina=2,
     )
 
-    # Espaço entre cabeçalho e primeiro item
-    y -= 4 * mm
+    y_topo -= 5 * mm
 
-    # --------------------------------------------------------
-    # ITEM 1
-    # --------------------------------------------------------
+    # ========================================================
+    # DIMENSÕES GERAIS
+    # ========================================================
 
-    y = desenhar_item_tecnico_teste(
-        c,
-        largura_pagina,
-        y,
-        numero_item=1,
-        codigo="Z1335BA04T",
+    largura_util = largura_pagina - 2 * margem
+
+    # 3 colunas iguais
+    largura_coluna = largura_util / 3
+
+    x1 = margem
+    x2 = margem + largura_coluna
+    x3 = margem + largura_coluna * 2
+
+    colunas_x = [
+        x1,
+        x2,
+        x3,
+    ]
+
+    itens = [
+        {
+            "item": "ITEM 01",
+            "codigo": "Z1335BA04T",
+        },
+        {
+            "item": "ITEM 02",
+            "codigo": "2088LA12LT",
+        },
+        {
+            "item": "ITEM 03",
+            "codigo": "2036BV04",
+        },
+    ]
+
+    # ========================================================
+    # ALTURAS
+    # ========================================================
+
+    altura_item = 9 * mm
+    altura_codigo = 11 * mm
+
+    # A terceira linha é propositalmente alta
+    altura_imagem = 48 * mm
+
+    # Linha padrão dos dados técnicos
+    altura_linha = 10 * mm
+
+    quantidade_linhas = 13
+
+    y = y_topo
+
+    # ========================================================
+    # LINHA 1 - ITEM
+    # ========================================================
+
+    y -= altura_item
+
+    for indice in range(3):
+
+        x = colunas_x[indice]
+
+        c.setFillColor(COR_PRINCIPAL_ESCURA)
+
+        c.rect(
+            x,
+            y,
+            largura_coluna,
+            altura_item,
+            fill=1,
+            stroke=0,
+        )
+
+        c.setStrokeColor(BRANCO)
+        c.setLineWidth(0.4)
+
+        c.rect(
+            x,
+            y,
+            largura_coluna,
+            altura_item,
+            fill=0,
+            stroke=1,
+        )
+
+        texto_centro(
+            c,
+            x + largura_coluna / 2,
+            y + 3.1 * mm,
+            itens[indice]["item"],
+            tamanho=8.5,
+            fonte="Helvetica-Bold",
+            cor=BRANCO,
+        )
+
+    # ========================================================
+    # LINHA 2 - CÓDIGO
+    # ========================================================
+
+    y -= altura_codigo
+
+    for indice in range(3):
+
+        x = colunas_x[indice]
+
+        desenhar_celula_tecnica(
+            c,
+            x,
+            y,
+            largura_coluna,
+            altura_codigo,
+            fundo=CINZA_FUNDO,
+        )
+
+        texto_centro(
+            c,
+            x + largura_coluna / 2,
+            y + 4.1 * mm,
+            itens[indice]["codigo"],
+            tamanho=9,
+            fonte="Helvetica-Bold",
+            cor=PRETO,
+        )
+
+    # ========================================================
+    # LINHA 3 - IMAGEM
+    # ========================================================
+
+    y -= altura_imagem
+
+    for indice in range(3):
+
+        x = colunas_x[indice]
+
+        desenhar_celula_tecnica(
+            c,
+            x,
+            y,
+            largura_coluna,
+            altura_imagem,
+            fundo=BRANCO,
+        )
+
+        # Área interna da imagem
+        margem_interna = 5 * mm
+
+        c.setStrokeColor(CINZA_LINHA)
+        c.setLineWidth(0.5)
+
+        c.roundRect(
+            x + margem_interna,
+            y + 5 * mm,
+            largura_coluna - 2 * margem_interna,
+            altura_imagem - 10 * mm,
+            2 * mm,
+            fill=0,
+            stroke=1,
+        )
+
+        texto_centro(
+            c,
+            x + largura_coluna / 2,
+            y + altura_imagem / 2,
+            "IMAGEM",
+            tamanho=8,
+            fonte="Helvetica-Bold",
+            cor=CINZA_MEDIO,
+        )
+
+    # ========================================================
+    # LINHAS TÉCNICAS
+    # ========================================================
+
+    for numero_linha in range(
+        1,
+        quantidade_linhas + 1,
+    ):
+
+        y -= altura_linha
+
+        for indice in range(3):
+
+            x = colunas_x[indice]
+
+            fundo = (
+                CINZA_ALTERNADO
+                if numero_linha % 2 == 0
+                else BRANCO
+            )
+
+            desenhar_celula_tecnica(
+                c,
+                x,
+                y,
+                largura_coluna,
+                altura_linha,
+                fundo=fundo,
+            )
+
+            # ------------------------------------------------
+            # DIVISÃO INTERNA CAMPO / VALOR
+            # ------------------------------------------------
+
+            largura_campo = largura_coluna * 0.42
+
+            c.setStrokeColor(CINZA_LINHA)
+            c.setLineWidth(0.35)
+
+            c.line(
+                x + largura_campo,
+                y,
+                x + largura_campo,
+                y + altura_linha,
+            )
+
+            # Nome provisório da linha
+            texto(
+                c,
+                x + 2.5 * mm,
+                y + 3.7 * mm,
+                f"LINHA {numero_linha}",
+                tamanho=6.3,
+                fonte="Helvetica-Bold",
+                cor=CINZA_MEDIO,
+            )
+
+            # Espaço do valor
+            texto(
+                c,
+                x + largura_campo + 2.5 * mm,
+                y + 3.7 * mm,
+                "—",
+                tamanho=7,
+                fonte="Helvetica",
+                cor=PRETO,
+            )
+
+    # ========================================================
+    # RODAPÉ
+    # ========================================================
+
+    c.setStrokeColor(CINZA_LINHA)
+    c.setLineWidth(0.5)
+
+    c.line(
+        margem,
+        17 * mm,
+        largura_pagina - margem,
+        17 * mm,
     )
 
-    y -= 4 * mm
-
-    # --------------------------------------------------------
-    # ITEM 2
-    # --------------------------------------------------------
-
-    y = desenhar_item_tecnico_teste(
+    texto(
         c,
-        largura_pagina,
-        y,
-        numero_item=2,
-        codigo="2088LA12LT",
+        margem,
+        11 * mm,
+        "JEFFERSON SOLENOIDBRAS LIMITADA",
+        tamanho=6.5,
+        fonte="Helvetica-Bold",
+        cor=CINZA_MEDIO,
     )
 
-    y -= 4 * mm
-
-    # --------------------------------------------------------
-    # ITEM 3
-    # --------------------------------------------------------
-
-    y = desenhar_item_tecnico_teste(
+    texto_direita(
         c,
-        largura_pagina,
-        y,
-        numero_item=3,
-        codigo="2036BV04",
+        largura_pagina - margem,
+        11 * mm,
+        "Dados técnicos da proposta",
+        tamanho=6.5,
+        cor=CINZA_MEDIO,
     )
-
-    # --------------------------------------------------------
-    # NÚMERO DA PÁGINA
-    # --------------------------------------------------------
 
     texto_centro(
         c,
         largura_pagina / 2,
-        7 * mm,
+        6 * mm,
         "2",
         tamanho=7,
         cor=CINZA_MEDIO,
     )
-
 
 # ============================================================
 # GERADOR PRINCIPAL
