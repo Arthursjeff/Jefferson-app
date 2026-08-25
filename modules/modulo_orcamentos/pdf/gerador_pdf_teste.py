@@ -254,7 +254,7 @@ def desenhar_cabecalho(
     # --------------------------------------------------------
 
     caminho_logo = Path(
-        "assets/icone_jefferson.png"
+        "assets/Logo_Jefferson.png"
     )
 
     if caminho_logo.exists():
