@@ -1185,16 +1185,15 @@ def desenhar_pagina_tecnica_teste(
 
     altura_item = 9 * mm
     altura_codigo = 11 * mm
-
-    # Linha alta para a imagem
     altura_imagem = 48 * mm
 
-    # Linhas técnicas compactas
-    altura_linha = 6.2 * mm
+    # Um pouco mais altas para melhorar leitura
+    altura_linha = 6.8 * mm
+
     quantidade_linhas = 20
 
     y = y_topo
-
+    
     # ========================================================
     # LINHA 1 - ITEM
     # ========================================================
@@ -1317,95 +1316,162 @@ def desenhar_pagina_tecnica_teste(
     # ========================================================
 
     dados_teste = [
-        ("OPERAÇÃO", "Ação direta"),
-        ("VIAS", "2 vias"),
-        ("POSIÇÃO", "Normalmente fechada"),
-        ("CORPO", "Latão"),
-        ("VEDAÇÃO", "Buna-N (NBR)"),
-        ("CONEXÃO", '1/2" BSP'),
-        ("ORIFÍCIO", "18 mm"),
-        ("PRESSÃO MÍN.", "0 bar"),
-        ("PRESSÃO MÁX.", "10 bar"),
-        ("TEMPERATURA", "80 °C"),
-        ("BOBINA", "Encapsulada"),
-        ("CLASSE TÉRMICA", "Classe H - 180 °C"),
-        ("PROTEÇÃO", "IP65"),
-        ("CONEXÃO ELÉTR.", "Plug-in PG9"),
-        ("POTÊNCIA", "13 W"),
-        ("TENSÃO", "220 V / 60 Hz"),
-        ("CERTIFICAÇÃO", "Área classificada"),
-        ("PROTEÇÃO EX", "Ex db IIC T4 Gb"),
-        ("ENTRADA ELÉTR.", '1/2" NPT'),
-        ("OBSERVAÇÃO", "Configuração especial"),
+        ("OPERAÇÃO", ["Ação direta", "Servo operada", "Ação combinada"]),
+        ("VIAS", ["2 vias", "2 vias", "3 vias"]),
+        ("POSIÇÃO", ["NF", "NF", "NA"]),
+        ("CORPO", ["Latão", "Bronze", "Inox 316"]),
+        ("VEDAÇÃO", ["Buna-N", "Viton", "EPDM"]),
+        ("CONEXÃO", ['1/2" BSP', '1" NPT', '3/4" BSP']),
+        ("ORIFÍCIO", ["18 mm", "26 mm", "12 mm"]),
+        ("PRESSÃO MÍN.", ["0 bar", "0,2 bar", "0 bar"]),
+        ("PRESSÃO MÁX.", ["7 bar", "15 bar", "10 bar"]),
+        ("TEMPERATURA", ["80 °C", "150 °C", "145 °C"]),
+        ("BOBINA", ["Encapsulada", "Carretel", "Encapsulada"]),
+        ("CLASSE TÉRMICA", ["H - 180 °C", "H - 180 °C", "H - 180 °C"]),
+        ("PROTEÇÃO", ["IP65", "IP65", "IP65"]),
+        ("CONEXÃO ELÉTR.", ["Plug-in PG9", "Caixa geral", "Plug-in PG9"]),
+        ("POTÊNCIA", ["13 W", "30 W", "19 W"]),
+        ("TENSÃO", ["220 V / 60 Hz", "24 VCC", "110 V / 60 Hz"]),
+        ("CERTIFICAÇÃO", ["—", "Área classificada", "—"]),
+        ("PROTEÇÃO EX", ["—", "Ex db IIC T4 Gb", "—"]),
+        ("ENTRADA ELÉTR.", ['PG9', '1/2" NPT', "PG9"]),
+        ("OBSERVAÇÃO", ["Padrão", "Especial", "Padrão"]),
     ]
 
+    # --------------------------------------------------------
+    # LARGURAS
+    # --------------------------------------------------------
+
+    largura_util = largura_pagina - 2 * margem
+
+    # Coluna única com o nome do parâmetro
+    largura_campo = 38 * mm
+
+    # O restante é dividido igualmente entre os 3 produtos
+    largura_valores = largura_util - largura_campo
+    largura_valor = largura_valores / 3
+
     for numero_linha in range(
-        1,
-        quantidade_linhas + 1,
+        quantidade_linhas
     ):
 
         y -= altura_linha
 
-        campo, valor = dados_teste[
-            numero_linha - 1
-        ]
+        campo, valores = dados_teste[numero_linha]
+
+        fundo = (
+            CINZA_ALTERNADO
+            if numero_linha % 2 == 1
+            else BRANCO
+        )
+
+        # ====================================================
+        # FUNDO DA LINHA INTEIRA
+        # ====================================================
+
+        c.setFillColor(fundo)
+
+        c.rect(
+            margem,
+            y,
+            largura_util,
+            altura_linha,
+            fill=1,
+            stroke=0,
+        )
+
+        # ====================================================
+        # NOME DO PARÂMETRO - APARECE UMA ÚNICA VEZ
+        # ====================================================
+
+        texto(
+            c,
+            margem + 3 * mm,
+            y + 2.15 * mm,
+            campo,
+            tamanho=6.4,
+            fonte="Helvetica-Bold",
+            cor=CINZA_ESCURO,
+        )
+
+        # Linha vertical depois do campo
+        c.setStrokeColor(CINZA_LINHA)
+        c.setLineWidth(0.4)
+
+        x_inicio_valores = margem + largura_campo
+
+        c.line(
+            x_inicio_valores,
+            y,
+            x_inicio_valores,
+            y + altura_linha,
+        )
+
+        # ====================================================
+        # VALORES DOS 3 PRODUTOS
+        # ====================================================
 
         for indice in range(3):
 
-            x = colunas_x[indice]
-
-            fundo = (
-                CINZA_ALTERNADO
-                if numero_linha % 2 == 0
-                else BRANCO
+            x = (
+                x_inicio_valores
+                + indice * largura_valor
             )
 
-            desenhar_celula_tecnica(
+            texto_centro(
                 c,
-                x,
-                y,
-                largura_coluna,
-                altura_linha,
-                fundo=fundo,
-            )
-
-            # ------------------------------------------------
-            # DIVISÃO INTERNA CAMPO / VALOR
-            # ------------------------------------------------
-
-            largura_campo = largura_coluna * 0.42
-
-            c.setStrokeColor(CINZA_LINHA)
-            c.setLineWidth(0.30)
-
-            c.line(
-                x + largura_campo,
-                y,
-                x + largura_campo,
-                y + altura_linha,
-            )
-
-            # NOME DO CAMPO
-            texto(
-                c,
-                x + 2.2 * mm,
-                y + 2.0 * mm,
-                campo,
-                tamanho=5.5,
-                fonte="Helvetica-Bold",
-                cor=CINZA_MEDIO,
-            )
-
-            # VALOR
-            texto(
-                c,
-                x + largura_campo + 2.2 * mm,
-                y + 2.0 * mm,
-                valor,
-                tamanho=6.0,
+                x + largura_valor / 2,
+                y + 2.15 * mm,
+                valores[indice],
+                tamanho=6.8,
                 fonte="Helvetica",
                 cor=PRETO,
             )
+
+            # Separação vertical entre produtos
+            if indice < 2:
+
+                c.line(
+                    x + largura_valor,
+                    y,
+                    x + largura_valor,
+                    y + altura_linha,
+                )
+
+        # ====================================================
+        # LINHA HORIZONTAL
+        # ====================================================
+
+        c.setStrokeColor(CINZA_LINHA)
+        c.setLineWidth(0.35)
+
+        c.line(
+            margem,
+            y,
+            margem + largura_util,
+            y,
+        )
+
+    # ========================================================
+    # BORDA GERAL DAS LINHAS TÉCNICAS
+    # ========================================================
+
+    altura_total_dados = (
+        quantidade_linhas
+        * altura_linha
+    )
+
+    c.setStrokeColor(CINZA_LINHA)
+    c.setLineWidth(0.6)
+
+    c.rect(
+        margem,
+        y,
+        largura_util,
+        altura_total_dados,
+        fill=0,
+        stroke=1,
+    )
             
     # ========================================================
     # RODAPÉ
