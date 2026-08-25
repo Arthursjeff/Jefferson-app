@@ -433,9 +433,11 @@ def titulo_secao(
     c,
     y,
     titulo,
+    largura_pagina,
 ):
     margem = 14 * mm
 
+    # Título principal
     texto(
         c,
         margem,
@@ -446,8 +448,18 @@ def titulo_secao(
         cor=COR_PRINCIPAL_ESCURA,
     )
 
-    return y - 4.5 * mm
+    # Aviso menor no lado direito
+    texto_direita(
+        c,
+        largura_pagina - margem,
+        y + 0.3 * mm,
+        "Dados técnicos nas próximas páginas",
+        tamanho=6.8,
+        fonte="Helvetica-Oblique",
+        cor=CINZA_MEDIO,
+    )
 
+    return y - 4.5 * mm
 
 # ============================================================
 # TABELA RESUMO
