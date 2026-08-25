@@ -350,7 +350,8 @@ def desenhar_proposta_data(
     largura_util = largura_pagina - 2 * margem
     meio = margem + largura_util / 2
 
-    altura = 13 * mm
+    # Caixa mais compacta
+    altura = 10 * mm
 
     y = y_topo - altura - 3 * mm
 
@@ -371,17 +372,19 @@ def desenhar_proposta_data(
 
     c.line(
         meio,
-        y + 2 * mm,
+        y + 1.5 * mm,
         meio,
-        y + altura - 2 * mm,
+        y + altura - 1.5 * mm,
     )
 
-    # Proposta
+    # --------------------------------------------------------
+    # PROPOSTA
+    # --------------------------------------------------------
 
     texto(
         c,
         margem + 6 * mm,
-        y + 8 * mm,
+        y + 6.2 * mm,
         "PROPOSTA Nº",
         tamanho=5.8,
         fonte="Helvetica-Bold",
@@ -391,19 +394,21 @@ def desenhar_proposta_data(
     texto(
         c,
         margem + 6 * mm,
-        y + 2.8 * mm,
+        y + 1.7 * mm,
         PROPOSTA_NUMERO,
         tamanho=10.5,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
 
-    # Data
+    # --------------------------------------------------------
+    # DATA
+    # --------------------------------------------------------
 
     texto(
         c,
         meio + 6 * mm,
-        y + 8 * mm,
+        y + 6.2 * mm,
         "DATA",
         tamanho=5.8,
         fonte="Helvetica-Bold",
@@ -413,7 +418,7 @@ def desenhar_proposta_data(
     texto(
         c,
         meio + 6 * mm,
-        y + 2.8 * mm,
+        y + 1.7 * mm,
         PROPOSTA_DATA,
         tamanho=10.5,
         fonte="Helvetica-Bold",
@@ -434,7 +439,9 @@ def desenhar_cliente(
 ):
     margem = 14 * mm
 
-    altura = 16 * mm
+    # Caixa reduzida de 16 mm para 12 mm
+    altura = 12 * mm
+
     y = y_topo - altura
 
     larguras = [
@@ -477,20 +484,22 @@ def desenhar_cliente(
             stroke=0,
         )
 
+        # Título da coluna
         texto(
             c,
             x + 3 * mm,
-            y + 10.5 * mm,
+            y + 7.3 * mm,
             titulos[indice],
             tamanho=5.7,
             fonte="Helvetica-Bold",
             cor=CINZA_MEDIO,
         )
 
+        # Valor
         texto(
             c,
             x + 3 * mm,
-            y + 3.5 * mm,
+            y + 1.8 * mm,
             valores[indice],
             tamanho=8,
             fonte="Helvetica-Bold",
@@ -566,7 +575,7 @@ def desenhar_resumo(
     altura_item = 22 * mm
 
     # --------------------------------------------------------
-    # Cabeçalho
+    # CABEÇALHO DA TABELA
     # --------------------------------------------------------
 
     y = y_topo - altura_cabecalho
@@ -599,7 +608,7 @@ def desenhar_resumo(
         x += largura
 
     # --------------------------------------------------------
-    # Dados de teste
+    # DADOS DE TESTE
     # --------------------------------------------------------
 
     itens = [
@@ -659,7 +668,10 @@ def desenhar_resumo(
 
         x = margem
 
+        # ----------------------------------------------------
         # ITEM
+        # ----------------------------------------------------
+
         largura = colunas[0][1]
 
         texto_centro(
@@ -672,7 +684,10 @@ def desenhar_resumo(
 
         x += largura
 
+        # ----------------------------------------------------
         # IMAGEM
+        # ----------------------------------------------------
+
         largura = colunas[1][1]
 
         desenhar_valvula_teste(
@@ -685,7 +700,10 @@ def desenhar_resumo(
 
         x += largura
 
-        # MODELO
+        # ----------------------------------------------------
+        # MODELO / CONFIGURAÇÃO
+        # ----------------------------------------------------
+
         largura = colunas[2][1]
 
         y_codigo = y + 13.5 * mm
@@ -714,7 +732,10 @@ def desenhar_resumo(
 
         x += largura
 
+        # ----------------------------------------------------
         # QTD
+        # ----------------------------------------------------
+
         largura = colunas[3][1]
 
         texto_centro(
@@ -727,7 +748,10 @@ def desenhar_resumo(
 
         x += largura
 
+        # ----------------------------------------------------
         # UNITÁRIO
+        # ----------------------------------------------------
+
         largura = colunas[4][1]
 
         texto_centro(
@@ -740,7 +764,10 @@ def desenhar_resumo(
 
         x += largura
 
+        # ----------------------------------------------------
         # TOTAL
+        # ----------------------------------------------------
+
         largura = colunas[5][1]
 
         texto_centro(
@@ -754,7 +781,10 @@ def desenhar_resumo(
 
         x += largura
 
+        # ----------------------------------------------------
         # PRAZO
+        # ----------------------------------------------------
+
         largura = colunas[6][1]
 
         texto_quebrado(
@@ -780,7 +810,10 @@ def desenhar_resumo(
             y,
         )
 
-    # Borda
+    # --------------------------------------------------------
+    # BORDA GERAL DA TABELA
+    # --------------------------------------------------------
+
     c.setStrokeColor(CINZA_LINHA)
     c.setLineWidth(0.7)
 
@@ -794,7 +827,6 @@ def desenhar_resumo(
     )
 
     return y
-
 
 # ============================================================
 # OBSERVAÇÕES
