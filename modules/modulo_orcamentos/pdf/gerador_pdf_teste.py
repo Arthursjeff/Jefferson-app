@@ -1003,6 +1003,392 @@ def desenhar_rodape(
     )
 
 
+
+# ============================================================
+# PÁGINA 2 - TESTE DE ESTRUTURA DOS DADOS TÉCNICOS
+# ============================================================
+
+def desenhar_cabecalho_tecnico(
+    c,
+    largura_pagina,
+    altura_pagina,
+    numero_pagina=2,
+):
+    margem = 14 * mm
+
+    y_topo = altura_pagina - 12 * mm
+
+    # --------------------------------------------------------
+    # LOGO
+    # --------------------------------------------------------
+
+    caminho_logo = Path(
+        "assets/Logo_Jefferson.png"
+    )
+
+    if caminho_logo.exists():
+
+        c.drawImage(
+            str(caminho_logo),
+            margem,
+            y_topo - 18 * mm,
+            width=60 * mm,
+            height=18 * mm,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
+    # --------------------------------------------------------
+    # TÍTULO
+    # --------------------------------------------------------
+
+    texto_direita(
+        c,
+        largura_pagina - margem,
+        y_topo - 5 * mm,
+        "DADOS TÉCNICOS",
+        tamanho=13,
+        fonte="Helvetica-Bold",
+        cor=COR_PRINCIPAL_ESCURA,
+    )
+
+    texto_direita(
+        c,
+        largura_pagina - margem,
+        y_topo - 11 * mm,
+        f"Proposta {PROPOSTA_NUMERO}",
+        tamanho=8,
+        fonte="Helvetica",
+        cor=CINZA_MEDIO,
+    )
+
+    texto_direita(
+        c,
+        largura_pagina - margem,
+        y_topo - 16 * mm,
+        f"Página {numero_pagina}",
+        tamanho=7,
+        fonte="Helvetica",
+        cor=CINZA_MEDIO,
+    )
+
+    # Linha verde
+    y_linha = y_topo - 23 * mm
+
+    c.setStrokeColor(COR_PRINCIPAL)
+    c.setLineWidth(1.2)
+
+    c.line(
+        margem,
+        y_linha,
+        largura_pagina - margem,
+        y_linha,
+    )
+
+    return y_linha
+
+
+# ============================================================
+# BLOCO DE UM ITEM TÉCNICO
+# ============================================================
+
+def desenhar_item_tecnico_teste(
+    c,
+    largura_pagina,
+    y_topo,
+    numero_item,
+    codigo,
+):
+    margem = 14 * mm
+
+    largura = largura_pagina - 2 * margem
+
+    # --------------------------------------------------------
+    # TAMANHOS DAS LINHAS
+    # --------------------------------------------------------
+
+    altura_item = 7 * mm
+    altura_codigo = 8 * mm
+
+    # Linha propositalmente alta para imagem
+    altura_imagem = 25 * mm
+
+    # Linhas técnicas abaixo da imagem
+    altura_linha_tecnica = 6.5 * mm
+
+    quantidade_linhas_tecnicas = 5
+
+    # ========================================================
+    # LINHA 1 - ITEM
+    # ========================================================
+
+    y = y_topo - altura_item
+
+    c.setFillColor(COR_PRINCIPAL_ESCURA)
+
+    c.rect(
+        margem,
+        y,
+        largura,
+        altura_item,
+        fill=1,
+        stroke=0,
+    )
+
+    texto(
+        c,
+        margem + 4 * mm,
+        y + 2.2 * mm,
+        f"ITEM {numero_item:02d}",
+        tamanho=8,
+        fonte="Helvetica-Bold",
+        cor=BRANCO,
+    )
+
+    # ========================================================
+    # LINHA 2 - CÓDIGO
+    # ========================================================
+
+    y -= altura_codigo
+
+    c.setFillColor(CINZA_FUNDO)
+
+    c.rect(
+        margem,
+        y,
+        largura,
+        altura_codigo,
+        fill=1,
+        stroke=0,
+    )
+
+    texto(
+        c,
+        margem + 4 * mm,
+        y + 2.7 * mm,
+        "CÓDIGO",
+        tamanho=6.5,
+        fonte="Helvetica-Bold",
+        cor=CINZA_MEDIO,
+    )
+
+    texto(
+        c,
+        margem + 30 * mm,
+        y + 2.3 * mm,
+        codigo,
+        tamanho=9,
+        fonte="Helvetica-Bold",
+        cor=PRETO,
+    )
+
+    # ========================================================
+    # LINHA 3 - IMAGEM
+    # ========================================================
+
+    y -= altura_imagem
+
+    c.setFillColor(BRANCO)
+
+    c.rect(
+        margem,
+        y,
+        largura,
+        altura_imagem,
+        fill=1,
+        stroke=0,
+    )
+
+    # Apenas para visualização do espaço reservado
+    c.setStrokeColor(CINZA_LINHA)
+    c.setLineWidth(0.5)
+
+    margem_imagem = 4 * mm
+
+    c.roundRect(
+        margem + margem_imagem,
+        y + 3 * mm,
+        largura - 2 * margem_imagem,
+        altura_imagem - 6 * mm,
+        1.5 * mm,
+        fill=0,
+        stroke=1,
+    )
+
+    texto_centro(
+        c,
+        margem + largura / 2,
+        y + altura_imagem / 2 - 1 * mm,
+        "ÁREA DA IMAGEM DO PRODUTO",
+        tamanho=7,
+        fonte="Helvetica-Bold",
+        cor=CINZA_MEDIO,
+    )
+
+    # ========================================================
+    # LINHAS TÉCNICAS VAZIAS
+    # ========================================================
+
+    for numero_linha in range(
+        1,
+        quantidade_linhas_tecnicas + 1,
+    ):
+
+        y -= altura_linha_tecnica
+
+        # Alternância leve de fundo
+        if numero_linha % 2 == 0:
+            c.setFillColor(CINZA_ALTERNADO)
+        else:
+            c.setFillColor(BRANCO)
+
+        c.rect(
+            margem,
+            y,
+            largura,
+            altura_linha_tecnica,
+            fill=1,
+            stroke=0,
+        )
+
+        # Número da linha para facilitar o teste impresso
+        texto(
+            c,
+            margem + 3 * mm,
+            y + 2 * mm,
+            f"Linha {numero_linha}",
+            tamanho=5.5,
+            fonte="Helvetica",
+            cor=CINZA_MEDIO,
+        )
+
+        # Linha vertical central para testar dois campos por linha
+        meio = margem + largura / 2
+
+        c.setStrokeColor(CINZA_LINHA)
+        c.setLineWidth(0.35)
+
+        c.line(
+            meio,
+            y,
+            meio,
+            y + altura_linha_tecnica,
+        )
+
+        # Linha horizontal
+        c.line(
+            margem,
+            y,
+            margem + largura,
+            y,
+        )
+
+    # ========================================================
+    # BORDA DO BLOCO COMPLETO
+    # ========================================================
+
+    altura_total = (
+        altura_item
+        + altura_codigo
+        + altura_imagem
+        + (
+            quantidade_linhas_tecnicas
+            * altura_linha_tecnica
+        )
+    )
+
+    c.setStrokeColor(CINZA_LINHA)
+    c.setLineWidth(0.7)
+
+    c.rect(
+        margem,
+        y,
+        largura,
+        altura_total,
+        fill=0,
+        stroke=1,
+    )
+
+    return y
+
+
+# ============================================================
+# PÁGINA TÉCNICA COMPLETA - 3 ITENS
+# ============================================================
+
+def desenhar_pagina_tecnica_teste(
+    c,
+    largura_pagina,
+    altura_pagina,
+):
+    # --------------------------------------------------------
+    # CABEÇALHO
+    # --------------------------------------------------------
+
+    y = desenhar_cabecalho_tecnico(
+        c,
+        largura_pagina,
+        altura_pagina,
+        numero_pagina=2,
+    )
+
+    # Espaço entre cabeçalho e primeiro item
+    y -= 4 * mm
+
+    # --------------------------------------------------------
+    # ITEM 1
+    # --------------------------------------------------------
+
+    y = desenhar_item_tecnico_teste(
+        c,
+        largura_pagina,
+        y,
+        numero_item=1,
+        codigo="Z1335BA04T",
+    )
+
+    y -= 4 * mm
+
+    # --------------------------------------------------------
+    # ITEM 2
+    # --------------------------------------------------------
+
+    y = desenhar_item_tecnico_teste(
+        c,
+        largura_pagina,
+        y,
+        numero_item=2,
+        codigo="2088LA12LT",
+    )
+
+    y -= 4 * mm
+
+    # --------------------------------------------------------
+    # ITEM 3
+    # --------------------------------------------------------
+
+    y = desenhar_item_tecnico_teste(
+        c,
+        largura_pagina,
+        y,
+        numero_item=3,
+        codigo="2036BV04",
+    )
+
+    # --------------------------------------------------------
+    # NÚMERO DA PÁGINA
+    # --------------------------------------------------------
+
+    texto_centro(
+        c,
+        largura_pagina / 2,
+        7 * mm,
+        "2",
+        tamanho=7,
+        cor=CINZA_MEDIO,
+    )
+
+
 # ============================================================
 # GERADOR PRINCIPAL
 # ============================================================
@@ -1089,7 +1475,30 @@ def gerar_pdf_teste():
         largura_pagina,
     )
 
+# ============================================================
+# FINALIZA PÁGINA 1
+# ============================================================
+
     c.showPage()
+
+
+# ============================================================
+# PÁGINA 2 - DADOS TÉCNICOS
+# ============================================================
+
+    desenhar_pagina_tecnica_teste(
+        c,
+        largura_pagina,
+        altura_pagina,
+    )
+
+    c.showPage()
+
+
+# ============================================================
+# FINALIZA PDF
+# ============================================================
+
     c.save()
 
     buffer.seek(0)
