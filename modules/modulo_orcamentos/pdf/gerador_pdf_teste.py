@@ -1186,13 +1186,12 @@ def desenhar_pagina_tecnica_teste(
     altura_item = 9 * mm
     altura_codigo = 11 * mm
 
-    # A terceira linha é propositalmente alta
+    # Linha alta para a imagem
     altura_imagem = 48 * mm
 
-    # Linha padrão dos dados técnicos
-    altura_linha = 10 * mm
-
-    quantidade_linhas = 13
+    # Linhas técnicas compactas
+    altura_linha = 6.2 * mm
+    quantidade_linhas = 20
 
     y = y_topo
 
@@ -1350,7 +1349,7 @@ def desenhar_pagina_tecnica_teste(
             largura_campo = largura_coluna * 0.42
 
             c.setStrokeColor(CINZA_LINHA)
-            c.setLineWidth(0.35)
+            c.setLineWidth(0.30)
 
             c.line(
                 x + largura_campo,
@@ -1362,25 +1361,25 @@ def desenhar_pagina_tecnica_teste(
             # Nome provisório da linha
             texto(
                 c,
-                x + 2.5 * mm,
-                y + 3.7 * mm,
+                x + 2.2 * mm,
+                y + 2.0 * mm,
                 f"LINHA {numero_linha}",
-                tamanho=6.3,
+                tamanho=5.5,
                 fonte="Helvetica-Bold",
                 cor=CINZA_MEDIO,
             )
 
-            # Espaço do valor
+            # Espaço provisório do valor
             texto(
                 c,
-                x + largura_campo + 2.5 * mm,
-                y + 3.7 * mm,
+                x + largura_campo + 2.2 * mm,
+                y + 2.0 * mm,
                 "—",
-                tamanho=7,
+                tamanho=6.0,
                 fonte="Helvetica",
                 cor=PRETO,
             )
-
+            
     # ========================================================
     # RODAPÉ
     # ========================================================
