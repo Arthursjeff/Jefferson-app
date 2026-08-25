@@ -11,8 +11,6 @@ from reportlab.pdfgen import canvas
 # CONFIGURAÇÃO VISUAL
 # ============================================================
 
-# COR TEMPORÁRIA
-# Depois vamos substituir pelo verde oficial da Jefferson.
 COR_PRINCIPAL = colors.HexColor("#146B3A")
 COR_PRINCIPAL_ESCURA = colors.HexColor("#0D512B")
 COR_PRINCIPAL_CLARA = colors.HexColor("#E8F2EC")
@@ -152,91 +150,6 @@ def texto_quebrado(
 
 
 # ============================================================
-# IMAGEM TESTE DE PRODUTO
-# ============================================================
-
-def desenhar_valvula_teste(
-    c,
-    x,
-    y,
-    largura,
-    altura,
-):
-    """
-    Placeholder visual temporário.
-    Depois será substituído pelas imagens reais.
-    """
-
-    centro_x = x + largura / 2
-    centro_y = y + altura / 2
-
-    c.saveState()
-
-    c.setStrokeColor(CINZA_ESCURO)
-    c.setLineWidth(0.9)
-
-    raio = min(
-        largura,
-        altura
-    ) * 0.20
-
-    # Corpo
-    c.setFillColor(BRANCO)
-
-    c.circle(
-        centro_x,
-        centro_y - 1 * mm,
-        raio,
-        fill=1,
-        stroke=1,
-    )
-
-    # Entrada esquerda
-    c.rect(
-        x + 1 * mm,
-        centro_y - 4 * mm,
-        largura * 0.28,
-        6 * mm,
-        fill=0,
-        stroke=1,
-    )
-
-    # Saída direita
-    c.rect(
-        centro_x + raio,
-        centro_y - 4 * mm,
-        largura * 0.26,
-        6 * mm,
-        fill=0,
-        stroke=1,
-    )
-
-    # Pescoço
-    c.rect(
-        centro_x - 4.5 * mm,
-        centro_y + raio - 1 * mm,
-        9 * mm,
-        6 * mm,
-        fill=0,
-        stroke=1,
-    )
-
-    # Bobina
-    c.setFillColor(CINZA_ESCURO)
-
-    c.rect(
-        centro_x - 6 * mm,
-        centro_y + raio + 5 * mm,
-        12 * mm,
-        7 * mm,
-        fill=1,
-        stroke=1,
-    )
-
-    c.restoreState()
-
-
-# ============================================================
 # CABEÇALHO
 # ============================================================
 
@@ -269,7 +182,6 @@ def desenhar_cabecalho(
             mask="auto",
         )
 
-
     # --------------------------------------------------------
     # DADOS DA EMPRESA
     # --------------------------------------------------------
@@ -281,7 +193,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 3 * mm,
         EMPRESA_NOME,
-        tamanho=8,
+        tamanho=8.5,
         fonte="Helvetica-Bold",
     )
 
@@ -290,7 +202,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 8 * mm,
         EMPRESA_CNPJ,
-        tamanho=6.8,
+        tamanho=7.4,
         cor=CINZA_ESCURO,
     )
 
@@ -299,7 +211,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 12 * mm,
         EMPRESA_IE,
-        tamanho=6.8,
+        tamanho=7.4,
         cor=CINZA_ESCURO,
     )
 
@@ -308,7 +220,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 16 * mm,
         EMPRESA_ENDERECO,
-        tamanho=6.8,
+        tamanho=7.4,
         cor=CINZA_ESCURO,
     )
 
@@ -317,7 +229,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 20 * mm,
         EMPRESA_CONTATO,
-        tamanho=6.8,
+        tamanho=7.4,
         cor=CINZA_ESCURO,
     )
 
@@ -350,7 +262,6 @@ def desenhar_proposta_data(
     largura_util = largura_pagina - 2 * margem
     meio = margem + largura_util / 2
 
-    # Caixa mais compacta
     altura = 10 * mm
 
     y = y_topo - altura - 3 * mm
@@ -377,16 +288,14 @@ def desenhar_proposta_data(
         y + altura - 1.5 * mm,
     )
 
-    # --------------------------------------------------------
     # PROPOSTA
-    # --------------------------------------------------------
 
     texto(
         c,
         margem + 6 * mm,
         y + 6.2 * mm,
         "PROPOSTA Nº",
-        tamanho=5.8,
+        tamanho=6.4,
         fonte="Helvetica-Bold",
         cor=CINZA_MEDIO,
     )
@@ -401,16 +310,14 @@ def desenhar_proposta_data(
         cor=COR_PRINCIPAL_ESCURA,
     )
 
-    # --------------------------------------------------------
     # DATA
-    # --------------------------------------------------------
 
     texto(
         c,
         meio + 6 * mm,
         y + 6.2 * mm,
         "DATA",
-        tamanho=5.8,
+        tamanho=6.4,
         fonte="Helvetica-Bold",
         cor=CINZA_MEDIO,
     )
@@ -429,7 +336,7 @@ def desenhar_proposta_data(
 
 
 # ============================================================
-# CLIENTE - FORMATO HORIZONTAL V2
+# CLIENTE
 # ============================================================
 
 def desenhar_cliente(
@@ -439,9 +346,7 @@ def desenhar_cliente(
 ):
     margem = 14 * mm
 
-    # Caixa reduzida de 16 mm para 12 mm
     altura = 12 * mm
-
     y = y_topo - altura
 
     larguras = [
@@ -484,24 +389,22 @@ def desenhar_cliente(
             stroke=0,
         )
 
-        # Título da coluna
         texto(
             c,
             x + 3 * mm,
             y + 7.3 * mm,
             titulos[indice],
-            tamanho=5.7,
+            tamanho=6.3,
             fonte="Helvetica-Bold",
             cor=CINZA_MEDIO,
         )
 
-        # Valor
         texto(
             c,
             x + 3 * mm,
             y + 1.8 * mm,
             valores[indice],
-            tamanho=8,
+            tamanho=8.5,
             fonte="Helvetica-Bold",
         )
 
@@ -538,7 +441,7 @@ def titulo_secao(
         margem,
         y,
         titulo,
-        tamanho=9.5,
+        tamanho=10.5,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
@@ -571,7 +474,6 @@ def desenhar_resumo(
         for _, largura in colunas
     )
 
-    # Mais compacto para permitir vários itens
     altura_cabecalho = 7 * mm
     altura_item = 11.5 * mm
 
@@ -598,9 +500,9 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 2.4 * mm,
+            y + 2.2 * mm,
             titulo,
-            tamanho=5.2,
+            tamanho=6.2,
             fonte="Helvetica-Bold",
             cor=BRANCO,
         )
@@ -717,9 +619,10 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.3 * mm,
+            y + 4.0 * mm,
             item["item"],
-            tamanho=6.5,
+            tamanho=7.5,
+            fonte="Helvetica-Bold",
         )
 
         x += largura
@@ -730,9 +633,9 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.2 * mm,
+            y + 3.9 * mm,
             item["codigo"],
-            tamanho=6.7,
+            tamanho=8.0,
             fonte="Helvetica-Bold",
         )
 
@@ -744,9 +647,9 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.2 * mm,
+            y + 4.0 * mm,
             item["tensao"],
-            tamanho=6.2,
+            tamanho=7.2,
         )
 
         x += largura
@@ -757,9 +660,10 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.2 * mm,
+            y + 4.0 * mm,
             item["qtd"],
-            tamanho=6.5,
+            tamanho=7.5,
+            fonte="Helvetica-Bold",
         )
 
         x += largura
@@ -770,9 +674,9 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.2 * mm,
+            y + 4.0 * mm,
             item["unitario"],
-            tamanho=6.1,
+            tamanho=7.0,
         )
 
         x += largura
@@ -783,9 +687,9 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.2 * mm,
+            y + 4.0 * mm,
             item["total"],
-            tamanho=6.1,
+            tamanho=7.0,
             fonte="Helvetica-Bold",
         )
 
@@ -797,13 +701,12 @@ def desenhar_resumo(
         texto_centro(
             c,
             x + largura / 2,
-            y + 4.2 * mm,
+            y + 4.0 * mm,
             item["prazo"],
-            tamanho=5.9,
+            tamanho=6.8,
             fonte="Helvetica-Bold",
         )
 
-        # Linha divisória
         c.setStrokeColor(CINZA_LINHA)
         c.setLineWidth(0.35)
 
@@ -831,6 +734,7 @@ def desenhar_resumo(
     )
 
     return y
+
 
 # ============================================================
 # OBSERVAÇÕES
@@ -862,7 +766,7 @@ def desenhar_observacoes(
         margem + 5 * mm,
         y + 17 * mm,
         "OBSERVAÇÕES / DESTAQUES DA PROPOSTA",
-        tamanho=7.4,
+        tamanho=8.5,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
@@ -878,10 +782,10 @@ def desenhar_observacoes(
         c,
         observacao,
         margem + 5 * mm,
-        y + 11 * mm,
+        y + 10.5 * mm,
         172 * mm,
-        tamanho=6.5,
-        entrelinha=7.5,
+        tamanho=7.3,
+        entrelinha=8,
         max_linhas=3,
     )
 
@@ -922,7 +826,7 @@ def desenhar_total(
         x + 5 * mm,
         y + 9.5 * mm,
         "TOTAL DA PROPOSTA",
-        tamanho=6.5,
+        tamanho=7.5,
         fonte="Helvetica-Bold",
         cor=BRANCO,
     )
@@ -955,7 +859,7 @@ def desenhar_condicoes(
         margem,
         y_topo,
         "CONDIÇÕES COMERCIAIS",
-        tamanho=8.5,
+        tamanho=9.5,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
@@ -1003,7 +907,7 @@ def desenhar_condicoes(
             margem + 5 * mm,
             y_linha,
             titulo,
-            tamanho=6.4,
+            tamanho=7.4,
             fonte="Helvetica-Bold",
         )
 
@@ -1012,7 +916,7 @@ def desenhar_condicoes(
             margem + 62 * mm,
             y_linha,
             valor,
-            tamanho=6.4,
+            tamanho=7.4,
         )
 
         y_linha -= 4.8 * mm
@@ -1046,7 +950,7 @@ def desenhar_rodape(
         margem,
         y + 3.5 * mm,
         "RESPONSÁVEL PELA PROPOSTA",
-        tamanho=5.7,
+        tamanho=6.4,
         fonte="Helvetica-Bold",
         cor=CINZA_MEDIO,
     )
@@ -1056,7 +960,7 @@ def desenhar_rodape(
         margem,
         y - 0.5 * mm,
         "Arthur - Comercial / Técnico",
-        tamanho=6.5,
+        tamanho=7.2,
     )
 
     texto_direita(
@@ -1064,7 +968,7 @@ def desenhar_rodape(
         largura_pagina - margem,
         y + 3.5 * mm,
         EMPRESA_NOME,
-        tamanho=5.7,
+        tamanho=6.4,
         fonte="Helvetica-Bold",
         cor=CINZA_MEDIO,
     )
@@ -1074,7 +978,7 @@ def desenhar_rodape(
         largura_pagina - margem,
         y - 0.5 * mm,
         EMPRESA_CONTATO,
-        tamanho=6.3,
+        tamanho=7.0,
     )
 
 
@@ -1097,9 +1001,7 @@ def gerar_pdf_teste():
         "Proposta Comercial Jefferson - Página 1"
     )
 
-    # ========================================================
     # CABEÇALHO
-    # ========================================================
 
     y = desenhar_cabecalho(
         c,
@@ -1107,9 +1009,7 @@ def gerar_pdf_teste():
         altura_pagina,
     )
 
-    # ========================================================
     # PROPOSTA / DATA
-    # ========================================================
 
     y = desenhar_proposta_data(
         c,
@@ -1117,9 +1017,7 @@ def gerar_pdf_teste():
         y,
     )
 
-    # ========================================================
     # CLIENTE
-    # ========================================================
 
     y = desenhar_cliente(
         c,
@@ -1127,9 +1025,7 @@ def gerar_pdf_teste():
         y - 3 * mm,
     )
 
-    # ========================================================
     # RESUMO
-    # ========================================================
 
     y = titulo_secao(
         c,
@@ -1142,18 +1038,14 @@ def gerar_pdf_teste():
         y,
     )
 
-    # ========================================================
     # OBSERVAÇÕES
-    # ========================================================
 
     y = desenhar_observacoes(
         c,
         y - 5 * mm,
     )
 
-    # ========================================================
     # TOTAL
-    # ========================================================
 
     y = desenhar_total(
         c,
@@ -1161,18 +1053,14 @@ def gerar_pdf_teste():
         y - 4 * mm,
     )
 
-    # ========================================================
     # CONDIÇÕES COMERCIAIS
-    # ========================================================
 
     desenhar_condicoes(
         c,
         y - 6 * mm,
     )
 
-    # ========================================================
     # RODAPÉ
-    # ========================================================
 
     desenhar_rodape(
         c,
