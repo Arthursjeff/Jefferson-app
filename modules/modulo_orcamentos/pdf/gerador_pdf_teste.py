@@ -263,31 +263,12 @@ def desenhar_cabecalho(
             str(caminho_logo),
             margem,
             y_topo - 22 * mm,
-            width=22 * mm,
-            height=22 * mm,
+            width=50 * mm,
+            height=50 * mm,
             preserveAspectRatio=True,
             mask="auto",
         )
 
-    texto(
-        c,
-        margem + 28 * mm,
-        y_topo - 8 * mm,
-        "JEFFERSON",
-        tamanho=17,
-        fonte="Helvetica-Bold",
-        cor=COR_PRINCIPAL_ESCURA,
-    )
-
-    texto(
-        c,
-        margem + 28 * mm,
-        y_topo - 14 * mm,
-        "SOLENOID VALVES",
-        tamanho=6.5,
-        fonte="Helvetica",
-        cor=CINZA_MEDIO,
-    )
 
     # --------------------------------------------------------
     # DADOS DA EMPRESA
