@@ -235,7 +235,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 3 * mm,
         EMPRESA_NOME,
-        tamanho=10,
+        tamanho=8,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
