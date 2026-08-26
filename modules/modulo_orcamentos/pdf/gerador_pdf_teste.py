@@ -160,11 +160,11 @@ def desenhar_cabecalho(
 ):
     margem = 14 * mm
 
-    y_topo = altura_pagina - 15 * mm
+    y_topo = altura_pagina - 12 * mm
 
-    # --------------------------------------------------------
-    # LOGO
-    # --------------------------------------------------------
+    # ========================================================
+    # LOGO - ESQUERDA
+    # ========================================================
 
     caminho_logo = Path(
         "assets/Logo_Jefferson.png"
@@ -172,58 +172,56 @@ def desenhar_cabecalho(
 
     if caminho_logo.exists():
 
-        # Logo maior
         c.drawImage(
             str(caminho_logo),
+
+            # posição horizontal
             margem,
-            y_topo - 27 * mm,
-            width=70 * mm,
-            height=24 * mm,
+
+            # posição vertical - logo mais alta
+            y_topo - 24 * mm,
+
+            # tamanho da logo
+            width=82 * mm,
+            height=26 * mm,
+
             preserveAspectRatio=True,
             mask="auto",
         )
 
-        # Texto abaixo da logo
-        texto(
-            c,
-            margem,
-            y_topo - 31 * mm,
-            "VÁLVULAS SOLENOIDES",
-            tamanho=7.5,
-            fonte="Helvetica-Bold",
-            cor=COR_PRINCIPAL_ESCURA,
-        )
-
-    # --------------------------------------------------------
-    # DADOS DA EMPRESA
-    # --------------------------------------------------------
+    # ========================================================
+    # DADOS DA EMPRESA - DIREITA
+    # ========================================================
 
     direita = largura_pagina - margem
 
     texto_direita(
         c,
         direita,
-        y_topo - 3 * mm,
+        y_topo - 2 * mm,
         EMPRESA_NOME,
         tamanho=8.5,
         fonte="Helvetica-Bold",
+        cor=PRETO,
     )
 
     texto_direita(
         c,
         direita,
-        y_topo - 8 * mm,
+        y_topo - 7 * mm,
         EMPRESA_CNPJ,
         tamanho=7.4,
+        fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
 
     texto_direita(
         c,
         direita,
-        y_topo - 12 * mm,
+        y_topo - 11.5 * mm,
         EMPRESA_IE,
         tamanho=7.4,
+        fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
 
@@ -233,19 +231,41 @@ def desenhar_cabecalho(
         y_topo - 16 * mm,
         EMPRESA_ENDERECO,
         tamanho=7.4,
+        fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
 
     texto_direita(
         c,
         direita,
-        y_topo - 20 * mm,
+        y_topo - 20.5 * mm,
         EMPRESA_CONTATO,
         tamanho=7.4,
+        fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
 
-    y_linha = y_topo - 28 * mm
+    # ========================================================
+    # TEXTO ABAIXO DA LOGO
+    # ========================================================
+
+    y_subtitulo = y_topo - 34 * mm
+
+    texto(
+        c,
+        margem,
+        y_subtitulo,
+        "VÁLVULAS SOLENOIDES",
+        tamanho=9.5,
+        fonte="Helvetica-Bold",
+        cor=COR_PRINCIPAL_ESCURA,
+    )
+
+    # ========================================================
+    # LINHA VERDE
+    # ========================================================
+
+    y_linha = y_topo - 38 * mm
 
     c.setStrokeColor(COR_PRINCIPAL)
     c.setLineWidth(1.2)
@@ -258,7 +278,6 @@ def desenhar_cabecalho(
     )
 
     return y_linha
-
 
 # ============================================================
 # PROPOSTA E DATA
