@@ -1188,7 +1188,7 @@ def desenhar_pagina_tecnica_teste(
     altura_imagem = 48 * mm
 
     # Um pouco mais altas para melhorar leitura
-    altura_linha = 6.8 * mm
+   altura_observacao = altura_linha * 3
 
     quantidade_linhas = 20
 
@@ -1355,9 +1355,18 @@ def desenhar_pagina_tecnica_teste(
         quantidade_linhas
     ):
 
-        y -= altura_linha
-
         campo, valores = dados_teste[numero_linha]
+
+        # ----------------------------------------------------
+        # ALTURA DA LINHA
+        # ----------------------------------------------------
+
+        if campo == "OBSERVAÇÃO":
+            altura_atual = altura_linha * 3
+        else:
+            altura_atual = altura_linha
+
+        y -= altura_atual
 
         fundo = (
             CINZA_ALTERNADO
@@ -1375,7 +1384,7 @@ def desenhar_pagina_tecnica_teste(
             margem,
             y,
             largura_util,
-            altura_linha,
+            altura_atual,
             fill=1,
             stroke=0,
         )
@@ -1387,7 +1396,7 @@ def desenhar_pagina_tecnica_teste(
         texto(
             c,
             margem + 3 * mm,
-            y + 2.15 * mm,
+            y + (altura_atual / 2) - 1.2 * mm,
             campo,
             tamanho=6.4,
             fonte="Helvetica-Bold",
@@ -1404,7 +1413,7 @@ def desenhar_pagina_tecnica_teste(
             x_inicio_valores,
             y,
             x_inicio_valores,
-            y + altura_linha,
+            y + altura_atual,
         )
 
         # ====================================================
@@ -1421,7 +1430,7 @@ def desenhar_pagina_tecnica_teste(
             texto_centro(
                 c,
                 x + largura_valor / 2,
-                y + 2.15 * mm,
+                y + (altura_atual / 2) - 1.2 * mm,
                 valores[indice],
                 tamanho=6.8,
                 fonte="Helvetica",
@@ -1435,7 +1444,7 @@ def desenhar_pagina_tecnica_teste(
                     x + largura_valor,
                     y,
                     x + largura_valor,
-                    y + altura_linha,
+                    y + altura_atual,
                 )
 
         # ====================================================
