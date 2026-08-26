@@ -284,7 +284,7 @@ def desenhar_cabecalho(
     # LINHA VERDE
     # ========================================================
 
-    y_linha = y_topo - 31.5 * mm
+    y_linha = y_topo - 27 * mm
 
     c.setStrokeColor(COR_PRINCIPAL_ESCURA)
     c.setLineWidth(1.2)
