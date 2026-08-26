@@ -210,7 +210,7 @@ def desenhar_cabecalho(
         centro_pagina,
         y_topo - 11 * mm,
         "Válvulas e soluções para",
-        tamanho=7.5,
+        tamanho=9,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
@@ -220,7 +220,7 @@ def desenhar_cabecalho(
         centro_pagina,
         y_topo - 15.5 * mm,
         "controle de fluidos",
-        tamanho=7.5,
+        tamanho=9,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
@@ -237,7 +237,7 @@ def desenhar_cabecalho(
         EMPRESA_NOME,
         tamanho=8.5,
         fonte="Helvetica-Bold",
-        cor=PRETO,
+        cor=COR_PRINCIPAL_ESCURA,
     )
 
     texto_direita(
