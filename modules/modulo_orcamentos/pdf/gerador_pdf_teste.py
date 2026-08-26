@@ -852,7 +852,59 @@ def desenhar_observacoes(
 
     return y
 
+# ============================================================
+# VENDEDOR
+# ============================================================
 
+def desenhar_vendedor(
+    c,
+    y_topo,
+):
+    margem = 14 * mm
+
+    largura = 72 * mm
+    altura = 15 * mm
+
+    x = margem
+    y = y_topo - altura
+
+    # Fundo
+    c.setFillColor(CINZA_FUNDO)
+
+    c.roundRect(
+        x,
+        y,
+        largura,
+        altura,
+        2 * mm,
+        fill=1,
+        stroke=0,
+    )
+
+    # Título
+    texto(
+        c,
+        x + 5 * mm,
+        y + 9.5 * mm,
+        "VENDEDOR RESPONSÁVEL",
+        tamanho=7.0,
+        fonte="Helvetica-Bold",
+        cor=CINZA_MEDIO,
+    )
+
+    # Nome do vendedor
+    texto(
+        c,
+        x + 5 * mm,
+        y + 3 * mm,
+        RESPONSAVEL,
+        tamanho=10,
+        fonte="Helvetica-Bold",
+        cor=COR_PRINCIPAL_ESCURA,
+    )
+
+    return y
+    
 # ============================================================
 # TOTAL
 # ============================================================
@@ -1639,12 +1691,20 @@ def gerar_pdf_teste():
 
     # TOTAL
 
+    # VENDEDOR + TOTAL
+
+    y_bloco = y - 4 * mm
+
+    desenhar_vendedor(
+        c,
+        y_bloco,
+    )
+
     y = desenhar_total(
         c,
         largura_pagina,
-        y - 4 * mm,
+        y_bloco,
     )
-
     # CONDIÇÕES COMERCIAIS
 
     desenhar_condicoes(
