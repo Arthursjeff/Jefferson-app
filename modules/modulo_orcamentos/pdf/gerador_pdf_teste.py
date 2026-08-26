@@ -172,14 +172,26 @@ def desenhar_cabecalho(
 
     if caminho_logo.exists():
 
+        # Logo maior
         c.drawImage(
             str(caminho_logo),
             margem,
-            y_topo - 22 * mm,
-            width=75 * mm,
+            y_topo - 27 * mm,
+            width=70 * mm,
             height=24 * mm,
             preserveAspectRatio=True,
             mask="auto",
+        )
+
+        # Texto abaixo da logo
+        texto(
+            c,
+            margem,
+            y_topo - 31 * mm,
+            "VÁLVULAS SOLENOIDES",
+            tamanho=7.5,
+            fonte="Helvetica-Bold",
+            cor=COR_PRINCIPAL_ESCURA,
         )
 
     # --------------------------------------------------------
