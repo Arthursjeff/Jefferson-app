@@ -198,18 +198,17 @@ def desenhar_cabecalho(
     texto_centro(
         c,
         centro_pagina,
-        y_topo - 10 * mm,
+        y_topo - 4 * mm,
         "PROPOSTA COMERCIAL",
         tamanho=13,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
 
-    # Subtítulo em duas linhas
     texto_centro(
         c,
         centro_pagina,
-        y_topo - 17 * mm,
+        y_topo - 11 * mm,
         "Válvulas e soluções para",
         tamanho=7.5,
         fonte="Helvetica",
@@ -219,24 +218,12 @@ def desenhar_cabecalho(
     texto_centro(
         c,
         centro_pagina,
-        y_topo - 21.5 * mm,
+        y_topo - 15.5 * mm,
         "controle de fluidos",
         tamanho=7.5,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
-
-    # Pequeno detalhe verde abaixo do subtítulo
-    c.setStrokeColor(COR_PRINCIPAL_ESCURA)
-    c.setLineWidth(1.2)
-
-    c.line(
-        centro_pagina - 8 * mm,
-        y_topo - 26 * mm,
-        centro_pagina + 8 * mm,
-        y_topo - 26 * mm,
-    )
-
     # ========================================================
     # DADOS DA EMPRESA - DIREITA
     # ========================================================
@@ -291,22 +278,6 @@ def desenhar_cabecalho(
         tamanho=7.2,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
-    )
-
-    # ========================================================
-    # VÁLVULAS SOLENOIDES - MAIS PARA CIMA
-    # ========================================================
-
-    y_subtitulo = y_topo - 34 * mm
-
-    texto(
-        c,
-        margem,
-        y_subtitulo,
-        "VÁLVULAS SOLENOIDES",
-        tamanho=9.5,
-        fonte="Helvetica-Bold",
-        cor=COR_PRINCIPAL_ESCURA,
     )
 
     # ========================================================
