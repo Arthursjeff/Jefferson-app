@@ -176,7 +176,7 @@ def desenhar_cabecalho(
             str(caminho_logo),
 
             # posição horizontal
-            margem,
+            margem - 8 * mm,
 
             # posição vertical - logo mais alta
             y_topo - 24 * mm,
