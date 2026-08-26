@@ -1187,8 +1187,8 @@ def desenhar_pagina_tecnica_teste(
     altura_codigo = 11 * mm
     altura_imagem = 48 * mm
 
-    # Um pouco mais altas para melhorar leitura
-   altura_observacao = altura_linha * 3
+    # Altura padrão das linhas técnicas
+    altura_linha = 6.8 * mm
 
     quantidade_linhas = 20
 
@@ -1466,8 +1466,8 @@ def desenhar_pagina_tecnica_teste(
     # ========================================================
 
     altura_total_dados = (
-        quantidade_linhas
-        * altura_linha
+        (quantidade_linhas - 1) * altura_linha
+        + (altura_linha * 3)
     )
 
     c.setStrokeColor(CINZA_LINHA)
