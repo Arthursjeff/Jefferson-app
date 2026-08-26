@@ -177,7 +177,7 @@ def desenhar_cabecalho(
 
             # joga um pouco para a esquerda para compensar
             # o espaço transparente da imagem
-            margem - 8 * mm,
+            margem - 12 * mm,
 
             # deixa a logo mais alta
             y_topo - 25 * mm,
@@ -235,7 +235,7 @@ def desenhar_cabecalho(
         direita,
         y_topo - 3 * mm,
         EMPRESA_NOME,
-        tamanho=8.5,
+        tamanho=13,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
@@ -1134,7 +1134,7 @@ def desenhar_cabecalho_tecnico(
 
             # joga um pouco para a esquerda para compensar
             # o espaço transparente da imagem
-            margem - 10 * mm,
+            margem - 12 * mm,
 
             # deixa a logo mais alta
             y_topo - 25 * mm,
