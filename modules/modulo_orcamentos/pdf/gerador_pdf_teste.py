@@ -150,7 +150,7 @@ def texto_quebrado(
 
 
 # ============================================================
-# CABEÇALHO
+# CABEÇALHO - PÁGINA 1
 # ============================================================
 
 def desenhar_cabecalho(
@@ -175,19 +175,67 @@ def desenhar_cabecalho(
         c.drawImage(
             str(caminho_logo),
 
-            # posição horizontal
+            # joga um pouco para a esquerda para compensar
+            # o espaço transparente da imagem
             margem - 8 * mm,
 
-            # posição vertical - logo mais alta
-            y_topo - 24 * mm,
+            # deixa a logo mais alta
+            y_topo - 25 * mm,
 
-            # tamanho da logo
             width=82 * mm,
-            height=26 * mm,
+            height=27 * mm,
 
             preserveAspectRatio=True,
             mask="auto",
         )
+
+    # ========================================================
+    # TÍTULO CENTRAL
+    # ========================================================
+
+    centro_pagina = largura_pagina / 2
+
+    texto_centro(
+        c,
+        centro_pagina,
+        y_topo - 10 * mm,
+        "PROPOSTA COMERCIAL",
+        tamanho=13,
+        fonte="Helvetica-Bold",
+        cor=COR_PRINCIPAL_ESCURA,
+    )
+
+    # Subtítulo em duas linhas
+    texto_centro(
+        c,
+        centro_pagina,
+        y_topo - 17 * mm,
+        "Válvulas e soluções para",
+        tamanho=7.5,
+        fonte="Helvetica",
+        cor=CINZA_ESCURO,
+    )
+
+    texto_centro(
+        c,
+        centro_pagina,
+        y_topo - 21.5 * mm,
+        "controle de fluidos",
+        tamanho=7.5,
+        fonte="Helvetica",
+        cor=CINZA_ESCURO,
+    )
+
+    # Pequeno detalhe verde abaixo do subtítulo
+    c.setStrokeColor(COR_PRINCIPAL_ESCURA)
+    c.setLineWidth(1.2)
+
+    c.line(
+        centro_pagina - 8 * mm,
+        y_topo - 26 * mm,
+        centro_pagina + 8 * mm,
+        y_topo - 26 * mm,
+    )
 
     # ========================================================
     # DADOS DA EMPRESA - DIREITA
@@ -198,7 +246,7 @@ def desenhar_cabecalho(
     texto_direita(
         c,
         direita,
-        y_topo - 2 * mm,
+        y_topo - 3 * mm,
         EMPRESA_NOME,
         tamanho=8.5,
         fonte="Helvetica-Bold",
@@ -208,9 +256,9 @@ def desenhar_cabecalho(
     texto_direita(
         c,
         direita,
-        y_topo - 7 * mm,
+        y_topo - 8 * mm,
         EMPRESA_CNPJ,
-        tamanho=7.4,
+        tamanho=7.2,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
@@ -218,9 +266,9 @@ def desenhar_cabecalho(
     texto_direita(
         c,
         direita,
-        y_topo - 11.5 * mm,
+        y_topo - 12.5 * mm,
         EMPRESA_IE,
-        tamanho=7.4,
+        tamanho=7.2,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
@@ -228,9 +276,9 @@ def desenhar_cabecalho(
     texto_direita(
         c,
         direita,
-        y_topo - 16 * mm,
+        y_topo - 17 * mm,
         EMPRESA_ENDERECO,
-        tamanho=7.4,
+        tamanho=7.2,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
@@ -238,15 +286,15 @@ def desenhar_cabecalho(
     texto_direita(
         c,
         direita,
-        y_topo - 20.5 * mm,
+        y_topo - 21.5 * mm,
         EMPRESA_CONTATO,
-        tamanho=7.4,
+        tamanho=7.2,
         fonte="Helvetica",
         cor=CINZA_ESCURO,
     )
 
     # ========================================================
-    # TEXTO ABAIXO DA LOGO
+    # VÁLVULAS SOLENOIDES - MAIS PARA CIMA
     # ========================================================
 
     y_subtitulo = y_topo - 34 * mm
@@ -267,7 +315,7 @@ def desenhar_cabecalho(
 
     y_linha = y_topo - 38 * mm
 
-    c.setStrokeColor(COR_PRINCIPAL)
+    c.setStrokeColor(COR_PRINCIPAL_ESCURA)
     c.setLineWidth(1.2)
 
     c.line(
@@ -278,7 +326,6 @@ def desenhar_cabecalho(
     )
 
     return y_linha
-
 # ============================================================
 # PROPOSTA E DATA
 # ============================================================
