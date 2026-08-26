@@ -1119,9 +1119,9 @@ def desenhar_cabecalho_tecnico(
     margem = 14 * mm
     y_topo = altura_pagina - 12 * mm
 
-    # --------------------------------------------------------
-    # LOGO
-    # --------------------------------------------------------
+    # ========================================================
+    # LOGO - ESQUERDA
+    # ========================================================
 
     caminho_logo = Path(
         "assets/Logo_Jefferson.png"
@@ -1131,13 +1131,52 @@ def desenhar_cabecalho_tecnico(
 
         c.drawImage(
             str(caminho_logo),
-            margem,
-            y_topo - 18 * mm,
-            width=60 * mm,
-            height=18 * mm,
+
+            # joga um pouco para a esquerda para compensar
+            # o espaço transparente da imagem
+            margem - 10 * mm,
+
+            # deixa a logo mais alta
+            y_topo - 25 * mm,
+
+            width=82 * mm,
+            height=27 * mm,
+
             preserveAspectRatio=True,
             mask="auto",
         )
+
+        centro_pagina = largura_pagina / 2
+
+    texto_centro(
+        c,
+        centro_pagina,
+        y_topo - 4 * mm,
+        "PROPOSTA COMERCIAL",
+        tamanho=13,
+        fonte="Helvetica-Bold",
+        cor=COR_PRINCIPAL_ESCURA,
+    )
+
+    texto_centro(
+        c,
+        centro_pagina,
+        y_topo - 11 * mm,
+        "Válvulas e soluções para",
+        tamanho=9,
+        fonte="Helvetica",
+        cor=CINZA_ESCURO,
+    )
+
+    texto_centro(
+        c,
+        centro_pagina,
+        y_topo - 15.5 * mm,
+        "controle de fluidos",
+        tamanho=9,
+        fonte="Helvetica",
+        cor=CINZA_ESCURO,
+    )
 
     # --------------------------------------------------------
     # TÍTULO
