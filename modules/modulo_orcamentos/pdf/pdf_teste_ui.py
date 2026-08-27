@@ -1,11 +1,18 @@
 import streamlit as st
+from datetime import date
 
 from modules.modulo_orcamentos.pdf.gerador_pdf_teste import (
-    gerar_pdf_teste,
+    gerar_pdf_orcamento,
 )
 
 
-def mostrar_teste_pdf():
+def mostrar_teste_pdf(
+    numero_orcamento,
+    cliente,
+    itens,
+    observacao_geral,
+    responsavel,
+):
 
     st.divider()
 
@@ -20,7 +27,16 @@ def mostrar_teste_pdf():
         use_container_width=True,
     ):
 
-        pdf_bytes = gerar_pdf_teste()
+        pdf_bytes = gerar_pdf_orcamento(
+            numero_orcamento=numero_orcamento,
+            data_orcamento=date.today().strftime(
+            "%d/%m/%Y"
+            ),
+            cliente=cliente,
+            itens=itens,
+            observacao_geral=observacao_geral,
+            responsavel=responsavel,
+        )
 
         st.session_state["pdf_teste_bytes"] = pdf_bytes
 
