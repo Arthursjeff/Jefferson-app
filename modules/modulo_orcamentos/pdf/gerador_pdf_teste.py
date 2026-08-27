@@ -35,13 +35,6 @@ EMPRESA_IE = "IE: 635.344.003.112"
 EMPRESA_ENDERECO = "São Bernardo do Campo - SP"
 EMPRESA_CONTATO = "+55 11 4336.7033 | WhatsApp +55 11 94761.9089"
 
-PROPOSTA_NUMERO = "3288/26"
-PROPOSTA_DATA = "24/08/2026"
-
-CLIENTE = "METROVAL"
-CLIENTE_CNPJ = "58.762.956/0001-00"
-CLIENTE_CODIGO = "106"
-RESPONSAVEL = "ARTHUR"
 
 
 # ============================================================
@@ -305,6 +298,8 @@ def desenhar_proposta_data(
     c,
     largura_pagina,
     y_topo,
+    numero_orcamento,
+    data_orcamento,
 ):
     margem = 14 * mm
 
@@ -353,7 +348,7 @@ def desenhar_proposta_data(
         c,
         margem + 6 * mm,
         y + 1.7 * mm,
-        PROPOSTA_NUMERO,
+        numero_orcamento,
         tamanho=10.5,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
@@ -375,7 +370,7 @@ def desenhar_proposta_data(
         c,
         meio + 6 * mm,
         y + 1.7 * mm,
-        PROPOSTA_DATA,
+        data_orcamento,
         tamanho=10.5,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
@@ -392,6 +387,8 @@ def desenhar_cliente(
     c,
     largura_pagina,
     y_topo,
+    cliente,
+    responsavel,
 ):
     margem = 14 * mm
 
@@ -413,10 +410,14 @@ def desenhar_cliente(
     ]
 
     valores = [
-        CLIENTE,
-        CLIENTE_CNPJ,
-        CLIENTE_CODIGO,
-        RESPONSAVEL,
+        (
+            cliente.get("razao_social")
+            or cliente.get("nome_fantasia")
+            or "-"
+        ),
+        cliente.get("cnpj_cpf") or "-",
+        cliente.get("codigo_cliente") or "-",
+        responsavel or "-",
     ]
 
     x = margem
@@ -517,6 +518,7 @@ def titulo_secao(
 def desenhar_resumo(
     c,
     y_topo,
+    itens,
 ):
     margem = 14 * mm
 
@@ -570,85 +572,7 @@ def desenhar_resumo(
 
         x += largura
 
-    # ======================================================
-    # ITENS DE TESTE
-    # ======================================================
-
-    itens = [
-        {
-            "item": "01",
-            "codigo": "Z1335BA04T",
-            "tensao": "110 V / 60 Hz",
-            "qtd": "4",
-            "unitario": "R$ 1.500,00",
-            "total": "R$ 6.000,00",
-            "prazo": "IMEDIATO",
-        },
-        {
-            "item": "02",
-            "codigo": "2088LA12LT",
-            "tensao": "110 V / 60 Hz",
-            "qtd": "8",
-            "unitario": "R$ 8.200,00",
-            "total": "R$ 65.600,00",
-            "prazo": "30 A 45 DIAS",
-        },
-        {
-            "item": "03",
-            "codigo": "2088LA16RT",
-            "tensao": "110 V / 60 Hz",
-            "qtd": "2",
-            "unitario": "R$ 7.790,00",
-            "total": "R$ 15.580,00",
-            "prazo": "30 A 45 DIAS",
-        },
-        {
-            "item": "04",
-            "codigo": "2036BV04",
-            "tensao": "220 V / 60 Hz",
-            "qtd": "3",
-            "unitario": "R$ 980,00",
-            "total": "R$ 2.940,00",
-            "prazo": "15 DIAS",
-        },
-        {
-            "item": "05",
-            "codigo": "1323BA20C",
-            "tensao": "24 VCC",
-            "qtd": "5",
-            "unitario": "R$ 720,00",
-            "total": "R$ 3.600,00",
-            "prazo": "IMEDIATO",
-        },
-        {
-            "item": "06",
-            "codigo": "1342BA08T",
-            "tensao": "220 V / 60 Hz",
-            "qtd": "1",
-            "unitario": "R$ 1.450,00",
-            "total": "R$ 1.450,00",
-            "prazo": "20 DIAS",
-        },
-        {
-            "item": "07",
-            "codigo": "1335BA06",
-            "tensao": "110 V / 60 Hz",
-            "qtd": "6",
-            "unitario": "R$ 850,00",
-            "total": "R$ 5.100,00",
-            "prazo": "10 DIAS",
-        },
-        {
-            "item": "08",
-            "codigo": "2036BE06",
-            "tensao": "24 VCC",
-            "qtd": "2",
-            "unitario": "R$ 1.180,00",
-            "total": "R$ 2.360,00",
-            "prazo": "30 DIAS",
-        },
-    ]
-
+  
     # ======================================================
     # LINHAS DOS ITENS
     # ======================================================
@@ -681,7 +605,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            item["item"],
+            f"{indice + 1:02d}",
             tamanho=7.5,
             fonte="Helvetica-Bold",
         )
@@ -722,7 +646,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            item["qtd"],
+            item["quantidade"],
             tamanho=7.5,
             fonte="Helvetica-Bold",
         )
@@ -736,7 +660,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            item["unitario"],
+            f"R$ {item['valor_unitario']:,.2f}",
             tamanho=7.0,
         )
 
@@ -749,7 +673,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            item["total"],
+            f"R$ {(item['quantidade'] * item['valor_unitario']):,.2f}",
             tamanho=7.0,
             fonte="Helvetica-Bold",
         )
@@ -804,6 +728,7 @@ def desenhar_resumo(
 def desenhar_observacoes(
     c,
     y_topo,
+    observacao_geral,
 ):
     margem = 14 * mm
 
@@ -833,12 +758,10 @@ def desenhar_observacoes(
     )
 
     observacao = (
-        "Os modelos ofertados foram selecionados conforme as condições "
-        "informadas pelo cliente. Confirmar tensão, pressão de trabalho "
-        "e conexão antes da emissão do pedido. Este espaço será utilizado "
-        "para observações técnicas ou comerciais específicas."
+        observacao_geral
+        or "Sem observações adicionais."
     )
-
+    
     texto_quebrado(
         c,
         observacao,
@@ -859,6 +782,7 @@ def desenhar_observacoes(
 def desenhar_vendedor(
     c,
     y_topo,
+    responsavel,
 ):
     margem = 14 * mm
 
@@ -897,7 +821,7 @@ def desenhar_vendedor(
         c,
         x + 5 * mm,
         y + 3 * mm,
-        RESPONSAVEL,
+        responsavel,
         tamanho=10,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
@@ -913,6 +837,7 @@ def desenhar_total(
     c,
     largura_pagina,
     y_topo,
+    itens,
 ):
     margem = 14 * mm
 
@@ -934,6 +859,12 @@ def desenhar_total(
         stroke=0,
     )
 
+    total_orcamento = sum(
+        item["quantidade"]
+        * item["valor_unitario"]
+        for item in itens
+    )
+    
     texto(
         c,
         x + 5 * mm,
@@ -948,7 +879,7 @@ def desenhar_total(
         c,
         x + largura - 5 * mm,
         y + 3 * mm,
-        "R$ 87.180,00",
+        "f"R$ {total_orcamento:,.2f}",
         tamanho=12,
         fonte="Helvetica-Bold",
         cor=BRANCO,
@@ -1114,6 +1045,7 @@ def desenhar_cabecalho_tecnico(
     c,
     largura_pagina,
     altura_pagina,
+    numero_orcamento,
     numero_pagina=2,
 ):
     margem = 14 * mm
@@ -1196,7 +1128,7 @@ def desenhar_cabecalho_tecnico(
         c,
         largura_pagina - margem,
         y_topo - 11 * mm,
-        f"Proposta {PROPOSTA_NUMERO}",
+        f"Proposta {numero_orcamento}",
         tamanho=8,
         cor=CINZA_MEDIO,
     )
@@ -1668,7 +1600,14 @@ def desenhar_pagina_tecnica_teste(
 # GERADOR PRINCIPAL
 # ============================================================
 
-def gerar_pdf_teste():
+def gerar_pdf_orcamento(
+    numero_orcamento,
+    data_orcamento,
+    cliente,
+    itens,
+    observacao_geral,
+    responsavel,
+):
 
     buffer = BytesIO()
 
@@ -1697,6 +1636,8 @@ def gerar_pdf_teste():
         c,
         largura_pagina,
         y,
+        numero_orcamento,
+        data_orcamento,
     )
 
     # CLIENTE
@@ -1705,6 +1646,8 @@ def gerar_pdf_teste():
         c,
         largura_pagina,
         y - 3 * mm,
+        cliente,
+        responsavel,
     )
 
     # RESUMO
@@ -1719,6 +1662,7 @@ def gerar_pdf_teste():
     y = desenhar_resumo(
         c,
         y,
+        itens,
     )
 
     # OBSERVAÇÕES
@@ -1726,8 +1670,8 @@ def gerar_pdf_teste():
     y = desenhar_observacoes(
         c,
         y - 5 * mm,
+        observacao_geral,
     )
-
     # TOTAL
 
     # VENDEDOR + TOTAL
@@ -1737,12 +1681,14 @@ def gerar_pdf_teste():
     desenhar_vendedor(
         c,
         y_bloco,
+        responsavel,
     )
 
     y = desenhar_total(
         c,
         largura_pagina,
         y_bloco,
+        itens,
     )
     # CONDIÇÕES COMERCIAIS
 
