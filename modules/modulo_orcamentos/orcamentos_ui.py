@@ -622,7 +622,7 @@ def pagina_orcamentos():
 
     with st.form(
         "form_adicionar_item",
-        clear_on_submit=True,
+        clear_on_submit=False,
     ):
 
 
@@ -632,9 +632,8 @@ def pagina_orcamentos():
 
         codigo = st.text_input(
             "Código do produto",
-            placeholder=(
-                "Ex.: 1335BA04T"
-            ),
+            placeholder="Ex.: 1335BA04T",
+            key="rascunho_codigo",
         )
 
 
@@ -647,9 +646,8 @@ def pagina_orcamentos():
                 "Tensão",
                 options=OPCOES_TENSAO,
                 index=None,
-                placeholder=(
-                    "Digite para buscar..."
-                ),
+                placeholder="Digite para buscar...",
+                key="rascunho_tensao",
             )
         )
 
@@ -665,6 +663,7 @@ def pagina_orcamentos():
                     "Digite a tensão "
                     "manualmente"
                 ),
+                key="rascunho_tensao_outro",
             )
 
         else:
@@ -690,6 +689,7 @@ def pagina_orcamentos():
                     min_value=1,
                     value=1,
                     step=1,
+                    key="rascunho_quantidade",
                 )
             )
 
@@ -703,6 +703,7 @@ def pagina_orcamentos():
                     value=0.0,
                     step=0.01,
                     format="%.2f",
+                    key="rascunho_valor",
                 )
             )
 
@@ -716,9 +717,8 @@ def pagina_orcamentos():
                 "Prazo",
                 options=OPCOES_PRAZO,
                 index=None,
-                placeholder=(
-                    "Digite para buscar..."
-                ),
+                placeholder="Digite para buscar...",
+                key="rascunho_prazo",
             )
         )
 
@@ -734,6 +734,7 @@ def pagina_orcamentos():
                     "Digite o prazo "
                     "manualmente"
                 ),
+                key="rascunho_prazo_outro",
             )
 
         else:
@@ -751,9 +752,8 @@ def pagina_orcamentos():
         observacao = st.text_area(
             "Observação do item",
             placeholder="Opcional",
+            key="rascunho_observacao",
         )
-
-
         # =====================================================
         # BOTÃO
         # =====================================================
