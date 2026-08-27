@@ -61,6 +61,63 @@ def pagina_orcamentos():
 
 
     # =========================================================
+    # LIMPAR ORÇAMENTO
+    # =========================================================
+
+    with st.expander(
+        "🗑️ Limpar orçamento"
+    ):
+
+        st.warning(
+            "Esta ação apaga todos os dados "
+            "do orçamento atual da tela."
+        )
+
+        confirmar_limpeza = (
+            st.checkbox(
+                "Confirmar limpeza",
+                key="confirmar_limpeza_orcamento",
+            )
+        )
+
+        if st.button(
+            "Apagar tudo",
+            disabled=(
+                not confirmar_limpeza
+            ),
+            use_container_width=True,
+        ):
+
+            chaves_para_limpar = [
+                "orcamento_itens",
+                "orcamento_cliente_selecionado",
+                "orcamento_numero",
+                "orcamento_busca_cliente",
+                "orcamento_cliente_select",
+                "orcamento_observacao_geral",
+                "rascunho_codigo",
+                "rascunho_tensao",
+                "rascunho_tensao_outro",
+                "rascunho_quantidade",
+                "rascunho_valor",
+                "rascunho_prazo",
+                "rascunho_prazo_outro",
+                "rascunho_observacao",
+                "pdf_teste_bytes",
+                "confirmar_limpeza_orcamento",
+            ]
+
+            for chave in chaves_para_limpar:
+
+                if chave in st.session_state:
+
+                    del st.session_state[
+                        chave
+                    ]
+
+            st.rerun()
+    
+    # =========================================================
     # INICIALIZAÇÃO DO SESSION STATE
     # =========================================================
 
