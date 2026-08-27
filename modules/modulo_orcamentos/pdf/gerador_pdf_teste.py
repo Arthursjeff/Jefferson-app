@@ -1201,6 +1201,7 @@ def desenhar_pagina_tecnica_teste(
     c,
     largura_pagina,
     altura_pagina,
+    numero_orcamento,
 ):
     margem = 14 * mm
 
@@ -1212,6 +1213,7 @@ def desenhar_pagina_tecnica_teste(
         c,
         largura_pagina,
         altura_pagina,
+        numero_orcamento,
         numero_pagina=2,
     )
 
@@ -1719,6 +1721,7 @@ def gerar_pdf_orcamento(
         c,
         largura_pagina,
         altura_pagina,
+        numero_orcamento,
     )
 
     c.showPage()
