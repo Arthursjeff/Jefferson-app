@@ -879,7 +879,7 @@ def desenhar_total(
         c,
         x + largura - 5 * mm,
         y + 3 * mm,
-        "f"R$ {total_orcamento:,.2f}",
+        f"R$ {total_orcamento:,.2f}",
         tamanho=12,
         fonte="Helvetica-Bold",
         cor=BRANCO,
