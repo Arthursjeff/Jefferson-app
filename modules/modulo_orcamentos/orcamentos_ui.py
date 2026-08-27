@@ -12,6 +12,10 @@ from motor_descricao import (
     processar_produto,
 )
 
+from modules.modulo_orcamentos.imagens_repository import (
+    obter_url_imagem,
+)
+
 from modules.modulo_orcamentos.pdf.pdf_teste_ui import (
     mostrar_teste_pdf,
 )
@@ -585,7 +589,31 @@ def pagina_orcamentos():
                                     "V17"
                                 )
                             )
+                            nome_imagem = (
+                                variaveis.get(
+                                    "V17"
+                                )
+                            )
 
+                            if nome_imagem:
+
+                                url_imagem = (
+                                    obter_url_imagem(
+                                        nome_imagem
+                                    )
+                                )
+
+                                st.image(
+                                    url_imagem,
+                                    width=300,
+                                )
+
+                            else:
+
+                                st.info(
+                                    "Imagem não identificada "
+                                    "para este produto."
+                                )
 
                 
                 # =============================================
