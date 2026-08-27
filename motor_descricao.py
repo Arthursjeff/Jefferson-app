@@ -4637,7 +4637,8 @@ def gerar_variaveis_descricao(
     codigo_conexao = resultado["codigo_conexao"]
     letra_especial = resultado["letra_especial"]
     codigo_vedacao = resultado["codigo_vedacao"]
-    bloco_numeros = resultado["bloco_numeros"]	
+    bloco_numeros = resultado["bloco_numeros"]
+
 
     # V01 - Tipo de produto
     v01 = definir_v01(
@@ -4645,12 +4646,14 @@ def gerar_variaveis_descricao(
     )
 
 
+    # V02 - Tipo de atuação
     v02 = definir_v02(
         familia,
         letra_especial,
-    	sufixos,
-    	codigo_conexao
+        sufixos,
+        codigo_conexao
     )
+
 
     # V03 - Número de vias
     v03 = definir_v03(
@@ -4658,38 +4661,47 @@ def gerar_variaveis_descricao(
         sufixos
     )
 
+
     # V04 - Estado / posição
     v04 = definir_v04(
         v03,
         sufixos
     )
 
+
+    # V05 - Material do corpo
     v05 = definir_v05(
         codigo_corpo
     )
 
 
+    # V06 - Material da vedação
     v06 = definir_v06(
         codigo_vedacao
     )
 
 
+    # V07 - Tamanho da conexão
     v07 = definir_v07(
         codigo_conexao
     )
 
 
+    # V08 - Tipo de rosca
     v08 = definir_v08(
         sufixos
     )
 
 
+    # V09 - Orifício interno
     v09 = definir_v09(
         familia,
         bloco_numeros,
         letra_especial
     )
 
+
+    # V10 - Pressão mínima
     v10 = definir_v10(
         familia,
         sufixos,
@@ -4698,6 +4710,8 @@ def gerar_variaveis_descricao(
         codigo_vedacao
     )
 
+
+    # V11 - Pressão máxima
     v11 = definir_v11(
         familia,
         sufixos,
@@ -4707,17 +4721,23 @@ def gerar_variaveis_descricao(
         codigo_vedacao
     )
 
+
+    # V12 - Temperatura
     v12 = definir_v12(
         familia,
         codigo_vedacao,
         sufixos
     )
 
+
+    # V13 - Dados da bobina
     v13 = definir_v13(
         familia,
         resultado["prefixos"]
     )
 
+
+    # V14 - Potência da bobina
     v14 = definir_v14(
         familia,
         resultado["prefixos"],
@@ -4725,6 +4745,8 @@ def gerar_variaveis_descricao(
         tipo_alimentacao
     )
 
+
+    # V15 - Prefixos e sufixos extras
     v15 = definir_v15(
         familia,
         resultado["prefixos"],
@@ -4732,42 +4754,46 @@ def gerar_variaveis_descricao(
         v14
     )
 
+
+    # V16 - Kv
     v16 = definir_v16(
         familia,
         bloco_numeros,
         letra_especial
     )
 
-	v17 = definir_v17(
+
+    # V17 - Imagem
+    v17 = definir_v17(
         familia,
         resultado["prefixos"],
         sufixos,
         letra_especial,
         codigo_corpo,
         codigo_vedacao,
-        codigo_conexao,
+        codigo_conexao
     )
+
 
     return {
         "V01": v01,
-	"V02": v02,
+        "V02": v02,
         "V03": v03,
         "V04": v04,
         "V05": v05,
-	"V06": v06,
+        "V06": v06,
         "V07": v07,
         "V08": v08,
-	"V09": v09,
-	"V10": v10,
-	"V11": v11,
+        "V09": v09,
+        "V10": v10,
+        "V11": v11,
         "V12": v12,
-	"V13": v13,
+        "V13": v13,
         "V14": v14,
-	"V15": v15,
-	"V16": v16,
-	"V17": v17,	
+        "V15": v15,
+        "V16": v16,
+        "V17": v17,
     }
-
 # =============================================================
 # IDENTIFICAR TIPO DE ALIMENTAÇÃO
 # =============================================================
