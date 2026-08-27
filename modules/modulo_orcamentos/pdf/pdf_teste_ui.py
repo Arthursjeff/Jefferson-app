@@ -1,4 +1,5 @@
 import streamlit as st
+
 from datetime import date
 
 from modules.modulo_orcamentos.pdf.gerador_pdf_teste import (
@@ -16,21 +17,24 @@ def mostrar_teste_pdf(
 
     st.divider()
 
-    st.subheader("Protótipo visual do PDF")
-
-    st.caption(
-        "Esta versão usa dados fictícios apenas para desenvolvimento do layout."
+    st.subheader(
+        "Gerar PDF do orçamento"
     )
 
+
+    # =========================================================
+    # GERAR PDF
+    # =========================================================
+
     if st.button(
-        "Gerar protótipo PDF",
+        "Gerar PDF",
         use_container_width=True,
     ):
 
         pdf_bytes = gerar_pdf_orcamento(
             numero_orcamento=numero_orcamento,
             data_orcamento=date.today().strftime(
-            "%d/%m/%Y"
+                "%d/%m/%Y"
             ),
             cliente=cliente,
             itens=itens,
@@ -38,21 +42,155 @@ def mostrar_teste_pdf(
             responsavel=responsavel,
         )
 
-        st.session_state["pdf_teste_bytes"] = pdf_bytes
+
+        # =====================================================
+        # GUARDAR PDF NO SESSION STATE
+        # =====================================================
+
+        st.session_state[
+            "pdf_teste_bytes"
+        ] = pdf_bytes
 
 
-    if "pdf_teste_bytes" in st.session_state:
+    # =========================================================
+    # PDF GERADO
+    # =========================================================
 
-        pdf_bytes = st.session_state["pdf_teste_bytes"]
+    if (
+        "pdf_teste_bytes"
+        in st.session_state
+    ):
 
-        st.success(
-            "PDF gerado. Use o botão abaixo para abrir ou baixar."
+        pdf_bytes = (
+            st.session_state[
+                "pdf_teste_bytes"
+            ]
         )
 
+
+        # =====================================================
+        # NÚMERO DO ORÇAMENTO
+        # =====================================================
+        #
+        # Exemplo:
+        #
+        # 3288/26
+        #
+        # vira:
+        #
+        # 3288-26
+        #
+        # Isso evita problema com "/" no nome do arquivo.
+        # =====================================================
+
+        numero_arquivo = (
+            str(
+                numero_orcamento
+                or "ORCAMENTO"
+            )
+            .strip()
+            .replace(
+                "/",
+                "-"
+            )
+            .replace(
+                "\\",
+                "-"
+            )
+        )
+
+
+        # =====================================================
+        # NOME DO CLIENTE
+        # =====================================================
+        #
+        # Prioridade:
+        #
+        # 1. Razão social
+        # 2. Nome fantasia
+        # 3. CLIENTE
+        #
+        # Depois pegamos somente a primeira palavra.
+        # =====================================================
+
+        nome_cliente = (
+            cliente.get(
+                "razao_social"
+            )
+            or cliente.get(
+                "nome_fantasia"
+            )
+            or "CLIENTE"
+        )
+
+
+        primeiro_nome_cliente = (
+            str(
+                nome_cliente
+            )
+            .strip()
+            .split()[0]
+        )
+
+
+        # =====================================================
+        # NOME DO VENDEDOR
+        # =====================================================
+        #
+        # Também pegamos somente o primeiro nome.
+        # =====================================================
+
+        if responsavel:
+
+            nome_vendedor = (
+                str(
+                    responsavel
+                )
+                .strip()
+                .split()[0]
+            )
+
+        else:
+
+            nome_vendedor = (
+                "VENDEDOR"
+            )
+
+
+        # =====================================================
+        # NOME FINAL DO ARQUIVO
+        # =====================================================
+        #
+        # Formato:
+        #
+        # Número orçamento - Cliente - Vendedor.pdf
+        #
+        # Exemplo:
+        #
+        # 3288-26 - METROVAL - Arthur.pdf
+        #
+        # =====================================================
+
+        nome_arquivo = (
+            f"{numero_arquivo} - "
+            f"{primeiro_nome_cliente} - "
+            f"{nome_vendedor}.pdf"
+        )
+
+
+        # =====================================================
+        # RESULTADO
+        # =====================================================
+
+        st.success(
+            "PDF gerado com sucesso."
+        )
+
+
         st.download_button(
-            "Abrir / Baixar protótipo PDF",
+            "Abrir / Baixar PDF",
             data=pdf_bytes,
-            file_name="proposta_jefferson_v3_teste.pdf",
+            file_name=nome_arquivo,
             mime="application/pdf",
             use_container_width=True,
         )
