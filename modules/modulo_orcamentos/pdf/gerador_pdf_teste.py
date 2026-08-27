@@ -526,6 +526,7 @@ def desenhar_resumo(
     c,
     y_topo,
     itens,
+    numero_item_inicial=1,
 ):
     margem = 14 * mm
 
@@ -612,7 +613,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            f"{indice + 1:02d}",
+            f"{numero_item_inicial + indice:02d}",
             tamanho=7.5,
             fonte="Helvetica-Bold",
         )
@@ -845,6 +846,8 @@ def desenhar_total(
     largura_pagina,
     y_topo,
     itens,
+    mostrar_total=True,
+    pagina_total=None,
 ):
     margem = 14 * mm
 
@@ -881,12 +884,24 @@ def desenhar_total(
         fonte="Helvetica-Bold",
         cor=BRANCO,
     )
+    
+    if mostrar_total:
 
+        valor_exibido = (
+            f"R$ {total_orcamento:,.2f}"
+        )
+
+    else:
+
+        valor_exibido = (
+            f"Consultar página {pagina_total}"
+        )
+        
     texto_direita(
         c,
         x + largura - 5 * mm,
         y + 3 * mm,
-        f"R$ {total_orcamento:,.2f}",
+        valor_exibido,
         tamanho=12,
         fonte="Helvetica-Bold",
         cor=BRANCO,
@@ -1066,26 +1081,21 @@ def desenhar_cabecalho_tecnico(
         "assets/Logo_Jefferson.png"
     )
 
+    centro_pagina = (
+        largura_pagina / 2
+    )
+
     if caminho_logo.exists():
 
         c.drawImage(
             str(caminho_logo),
-
-            # joga um pouco para a esquerda para compensar
-            # o espaço transparente da imagem
             margem - 12 * mm,
-
-            # deixa a logo mais alta
             y_topo - 25 * mm,
-
             width=82 * mm,
             height=27 * mm,
-
             preserveAspectRatio=True,
             mask="auto",
         )
-
-        centro_pagina = largura_pagina / 2
 
     texto_centro(
         c,
@@ -1288,6 +1298,8 @@ def desenhar_pagina_tecnica_teste(
     altura_pagina,
     numero_orcamento,
     itens,
+    numero_pagina,
+    numero_item_inicial,
 ):
 
     margem = 14 * mm
@@ -1302,7 +1314,7 @@ def desenhar_pagina_tecnica_teste(
         largura_pagina,
         altura_pagina,
         numero_orcamento,
-        numero_pagina=2,
+        numero_pagina=numero_pagina,
     )
 
     y_topo -= 5 * mm
@@ -1317,7 +1329,7 @@ def desenhar_pagina_tecnica_teste(
     # ========================================================
 
     itens_pagina = list(
-        itens[:3]
+        itens
     )
 
 
@@ -1417,7 +1429,8 @@ def desenhar_pagina_tecnica_teste(
         if item:
 
             titulo_item = (
-                f"ITEM {indice + 1:02d}"
+                f"ITEM "
+                f"{numero_item_inicial + indice:02d}"
             )
 
         else:
@@ -2077,10 +2090,148 @@ def desenhar_pagina_tecnica_teste(
         c,
         largura_pagina / 2,
         6 * mm,
-        "2",
+        str(numero_pagina),
         tamanho=7,
         cor=CINZA_MEDIO,
     )
+
+# ============================================================
+# DIVIDIR LISTA EM BLOCOS
+# ============================================================
+
+def dividir_em_blocos(
+    lista,
+    tamanho,
+):
+
+    return [
+        lista[indice:indice + tamanho]
+        for indice in range(
+            0,
+            len(lista),
+            tamanho,
+        )
+    ]
+
+# ============================================================
+# DESENHAR UMA PÁGINA COMERCIAL
+# ============================================================
+
+def desenhar_pagina_comercial(
+    c,
+    largura_pagina,
+    altura_pagina,
+    numero_orcamento,
+    data_orcamento,
+    cliente,
+    itens_pagina,
+    todos_itens,
+    observacao_geral,
+    responsavel,
+    numero_item_inicial,
+    eh_ultima_pagina,
+    numero_ultima_pagina_comercial,
+):
+
+    # CABEÇALHO
+
+    y = desenhar_cabecalho(
+        c,
+        largura_pagina,
+        altura_pagina,
+    )
+
+
+    # PROPOSTA / DATA
+
+    y = desenhar_proposta_data(
+        c,
+        largura_pagina,
+        y,
+        numero_orcamento,
+        data_orcamento,
+    )
+
+
+    # CLIENTE
+
+    y = desenhar_cliente(
+        c,
+        largura_pagina,
+        y - 3 * mm,
+        cliente,
+        responsavel,
+    )
+
+
+    # RESUMO
+
+    y = titulo_secao(
+        c,
+        y - 7 * mm,
+        "RESUMO DA PROPOSTA",
+        largura_pagina,
+    )
+
+
+    y = desenhar_resumo(
+        c,
+        y,
+        itens_pagina,
+        numero_item_inicial,
+    )
+
+
+    # OBSERVAÇÕES
+
+    y = desenhar_observacoes(
+        c,
+        y - 5 * mm,
+        observacao_geral,
+    )
+
+
+    # VENDEDOR + TOTAL
+
+    y_bloco = (
+        y - 4 * mm
+    )
+
+
+    desenhar_vendedor(
+        c,
+        y_bloco,
+        responsavel,
+    )
+
+
+    y = desenhar_total(
+        c,
+        largura_pagina,
+        y_bloco,
+        todos_itens,
+        mostrar_total=eh_ultima_pagina,
+        pagina_total=(
+            numero_ultima_pagina_comercial
+        ),
+    )
+
+
+    # CONDIÇÕES COMERCIAIS
+
+    desenhar_condicoes(
+        c,
+        y - 6 * mm,
+    )
+
+
+    # RODAPÉ
+
+    desenhar_rodape(
+        c,
+        largura_pagina,
+    )
+
 
 # ============================================================
 # GERADOR PRINCIPAL
@@ -2099,125 +2250,136 @@ def gerar_pdf_orcamento(
 
     largura_pagina, altura_pagina = A4
 
+
     c = canvas.Canvas(
         buffer,
         pagesize=A4,
     )
 
+
     c.setTitle(
-        "Proposta Comercial Jefferson - Página 1"
+        "Proposta Comercial Jefferson"
     )
 
-    # CABEÇALHO
 
-    y = desenhar_cabecalho(
-        c,
-        largura_pagina,
-        altura_pagina,
+    # ========================================================
+    # DIVIDIR ITENS
+    # ========================================================
+
+    paginas_comerciais = (
+        dividir_em_blocos(
+            itens,
+            8,
+        )
     )
 
-    # PROPOSTA / DATA
 
-    y = desenhar_proposta_data(
-        c,
-        largura_pagina,
-        y,
-        numero_orcamento,
-        data_orcamento,
+    paginas_tecnicas = (
+        dividir_em_blocos(
+            itens,
+            3,
+        )
     )
 
-    # CLIENTE
 
-    y = desenhar_cliente(
-        c,
-        largura_pagina,
-        y - 3 * mm,
-        cliente,
-        responsavel,
+    quantidade_paginas_comerciais = (
+        len(
+            paginas_comerciais
+        )
     )
 
-    # RESUMO
 
-    y = titulo_secao(
-        c,
-        y - 7 * mm,
-        "RESUMO DA PROPOSTA",
-        largura_pagina,
-    )
+    # ========================================================
+    # PÁGINAS COMERCIAIS
+    # ========================================================
 
-    y = desenhar_resumo(
-        c,
-        y,
-        itens,
-    )
-
-    # OBSERVAÇÕES
-
-    y = desenhar_observacoes(
-        c,
-        y - 5 * mm,
-        observacao_geral,
-    )
-    # TOTAL
-
-    # VENDEDOR + TOTAL
-
-    y_bloco = y - 4 * mm
-
-    desenhar_vendedor(
-        c,
-        y_bloco,
-        responsavel,
-    )
-
-    y = desenhar_total(
-        c,
-        largura_pagina,
-        y_bloco,
-        itens,
-    )
-    # CONDIÇÕES COMERCIAIS
-
-    desenhar_condicoes(
-        c,
-        y - 6 * mm,
-    )
-
-    # RODAPÉ
-
-    desenhar_rodape(
-        c,
-        largura_pagina,
-    )
-
-# ============================================================
-# FINALIZA PÁGINA 1
-# ============================================================
-
-    c.showPage()
+    numero_item_inicial = 1
 
 
-# ============================================================
-# PÁGINA 2 - DADOS TÉCNICOS
-# ============================================================
+    for indice_pagina, itens_pagina in enumerate(
+        paginas_comerciais
+    ):
 
-    desenhar_pagina_tecnica_teste(
-        c,
-        largura_pagina,
-        altura_pagina,
-        numero_orcamento,
-        itens,
-    )
-
-    c.showPage()
+        eh_ultima_pagina = (
+            indice_pagina
+            == quantidade_paginas_comerciais - 1
+        )
 
 
-# ============================================================
-# FINALIZA PDF
-# ============================================================
+        desenhar_pagina_comercial(
+            c,
+            largura_pagina,
+            altura_pagina,
+            numero_orcamento,
+            data_orcamento,
+            cliente,
+            itens_pagina,
+            itens,
+            observacao_geral,
+            responsavel,
+            numero_item_inicial,
+            eh_ultima_pagina,
+            quantidade_paginas_comerciais,
+        )
+
+
+        c.showPage()
+
+
+        numero_item_inicial += (
+            len(
+                itens_pagina
+            )
+        )
+
+
+    # ========================================================
+    # PÁGINAS TÉCNICAS
+    # ========================================================
+
+    numero_item_inicial = 1
+
+
+    for indice_tecnico, itens_pagina in enumerate(
+        paginas_tecnicas
+    ):
+
+        numero_pagina_pdf = (
+            quantidade_paginas_comerciais
+            + indice_tecnico
+            + 1
+        )
+
+
+        desenhar_pagina_tecnica_teste(
+            c,
+            largura_pagina,
+            altura_pagina,
+            numero_orcamento,
+            itens_pagina,
+            numero_pagina_pdf,
+            numero_item_inicial,
+        )
+
+
+        c.showPage()
+
+
+        numero_item_inicial += (
+            len(
+                itens_pagina
+            )
+        )
+
+
+    # ========================================================
+    # FINALIZA PDF
+    # ========================================================
 
     c.save()
 
-    buffer.seek(0)
+    buffer.seek(
+        0
+    )
 
     return buffer.getvalue()
