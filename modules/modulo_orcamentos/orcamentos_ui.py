@@ -55,14 +55,49 @@ OPCOES_PRAZO = [
 
 def pagina_orcamentos():
 
-    st.title("📄 Novo Orçamento")
+    st.title(
+        "📄 Novo Orçamento"
+    )
+
+
+    # =========================================================
+    # INICIALIZAÇÃO DO SESSION STATE
+    # =========================================================
+
+    if (
+        "orcamento_itens"
+        not in st.session_state
+    ):
+
+        st.session_state.orcamento_itens = []
+
+
+    if (
+        "orcamento_cliente_selecionado"
+        not in st.session_state
+    ):
+
+        st.session_state[
+            "orcamento_cliente_selecionado"
+        ] = None
+
+
+    responsavel = (
+        st.session_state.get(
+            "nome"
+        )
+        or "-"
+    )
 
 
     # =========================================================
     # DADOS DO ORÇAMENTO
     # =========================================================
 
-    st.subheader("Dados do orçamento")
+    st.subheader(
+        "Dados do orçamento"
+    )
+
 
     numero_orcamento = st.text_input(
         "Número do orçamento",
@@ -75,7 +110,10 @@ def pagina_orcamentos():
     # CLIENTE
     # =========================================================
 
-    st.subheader("Cliente")
+    st.subheader(
+        "Cliente"
+    )
+
 
     busca_cliente = st.text_input(
         "Buscar cliente",
@@ -86,8 +124,17 @@ def pagina_orcamentos():
         key="orcamento_busca_cliente",
     )
 
-    cliente_selecionado = None
 
+    cliente_selecionado = (
+        st.session_state.get(
+            "orcamento_cliente_selecionado"
+        )
+    )
+
+
+    # =========================================================
+    # BUSCAR CLIENTES
+    # =========================================================
 
     if busca_cliente.strip():
 
@@ -97,15 +144,18 @@ def pagina_orcamentos():
                 busca_cliente
             )
 
+
             if not clientes:
 
                 st.warning(
                     "Nenhum cliente encontrado."
                 )
 
+
             else:
 
                 opcoes_clientes = {}
+
 
                 for cliente in clientes:
 
@@ -115,6 +165,7 @@ def pagina_orcamentos():
                         )
                         or ""
                     )
+
 
                     razao = (
                         cliente.get(
@@ -126,6 +177,7 @@ def pagina_orcamentos():
                         or ""
                     )
 
+
                     documento = (
                         cliente.get(
                             "cnpj_cpf"
@@ -133,11 +185,13 @@ def pagina_orcamentos():
                         or ""
                     )
 
+
                     label = (
                         f"{codigo_cliente} | "
                         f"{razao} | "
                         f"{documento}"
                     )
+
 
                     opcoes_clientes[
                         label
@@ -152,11 +206,17 @@ def pagina_orcamentos():
                     key="orcamento_cliente_select",
                 )
 
+
                 cliente_selecionado = (
                     opcoes_clientes[
                         escolha_cliente
                     ]
                 )
+
+
+                st.session_state[
+                    "orcamento_cliente_selecionado"
+                ] = cliente_selecionado
 
 
         except Exception as erro:
@@ -176,7 +236,10 @@ def pagina_orcamentos():
             "Cliente selecionado."
         )
 
-        c1, c2, c3 = st.columns(3)
+
+        c1, c2, c3 = st.columns(
+            3
+        )
 
 
         with c1:
@@ -276,15 +339,6 @@ def pagina_orcamentos():
 
 
     # =========================================================
-    # INICIALIZAR ITENS
-    # =========================================================
-
-    if "orcamento_itens" not in st.session_state:
-
-        st.session_state.orcamento_itens = []
-
-
-    # =========================================================
     # ITENS JÁ ADICIONADOS
     # =========================================================
 
@@ -293,6 +347,7 @@ def pagina_orcamentos():
         st.write(
             "### Itens adicionados"
         )
+
 
         total_orcamento = 0
 
@@ -305,6 +360,7 @@ def pagina_orcamentos():
                 item["quantidade"]
                 * item["valor_unitario"]
             )
+
 
             total_orcamento += (
                 total_item
@@ -365,7 +421,9 @@ def pagina_orcamentos():
                     )
 
 
-                    if item["observacao"]:
+                    if item.get(
+                        "observacao"
+                    ):
 
                         st.write(
                             f"**Observação:** "
@@ -374,13 +432,7 @@ def pagina_orcamentos():
 
 
                     # =========================================
-                    # TESTE TEMPORÁRIO DO MOTOR
-                    # =========================================
-                    #
-                    # Aqui conseguimos confirmar que o item
-                    # realmente trouxe V01 até V16.
-                    #
-                    # Depois podemos retirar esse expander.
+                    # DADOS TÉCNICOS DO MOTOR
                     # =========================================
 
                     if item.get(
@@ -393,9 +445,14 @@ def pagina_orcamentos():
                             ]
                         )
 
+
                         with st.expander(
                             "Ver dados técnicos gerados"
                         ):
+
+                            # ===============================
+                            # V01
+                            # ===============================
 
                             st.write(
                                 "**V01 - Tipo:**",
@@ -404,12 +461,22 @@ def pagina_orcamentos():
                                 )
                             )
 
+
+                            # ===============================
+                            # V02
+                            # ===============================
+
                             st.write(
                                 "**V02 - Atuação:**",
                                 variaveis.get(
                                     "V02"
                                 )
                             )
+
+
+                            # ===============================
+                            # V03
+                            # ===============================
 
                             st.write(
                                 "**V03 - Vias:**",
@@ -418,12 +485,22 @@ def pagina_orcamentos():
                                 )
                             )
 
+
+                            # ===============================
+                            # V04
+                            # ===============================
+
                             st.write(
                                 "**V04 - Estado:**",
                                 variaveis.get(
                                     "V04"
                                 )
                             )
+
+
+                            # ===============================
+                            # V05
+                            # ===============================
 
                             st.write(
                                 "**V05 - Corpo:**",
@@ -432,12 +509,22 @@ def pagina_orcamentos():
                                 )
                             )
 
+
+                            # ===============================
+                            # V06
+                            # ===============================
+
                             st.write(
                                 "**V06 - Vedação:**",
                                 variaveis.get(
                                     "V06"
                                 )
                             )
+
+
+                            # ===============================
+                            # V07
+                            # ===============================
 
                             st.write(
                                 "**V07 - Conexão:**",
@@ -446,12 +533,22 @@ def pagina_orcamentos():
                                 )
                             )
 
+
+                            # ===============================
+                            # V08
+                            # ===============================
+
                             st.write(
                                 "**V08 - Rosca:**",
                                 variaveis.get(
                                     "V08"
                                 )
                             )
+
+
+                            # ===============================
+                            # V09
+                            # ===============================
 
                             st.write(
                                 "**V09 - Orifício:**",
@@ -460,6 +557,11 @@ def pagina_orcamentos():
                                 )
                             )
 
+
+                            # ===============================
+                            # V10
+                            # ===============================
+
                             st.write(
                                 "**V10 - Pressão mínima:**",
                                 variaveis.get(
@@ -467,12 +569,22 @@ def pagina_orcamentos():
                                 )
                             )
 
+
+                            # ===============================
+                            # V11
+                            # ===============================
+
                             st.write(
                                 "**V11 - Pressão máxima:**",
                                 variaveis.get(
                                     "V11"
                                 )
                             )
+
+
+                            # ===============================
+                            # V12
+                            # ===============================
 
                             st.write(
                                 "**V12 - Temperatura:**",
@@ -482,9 +594,9 @@ def pagina_orcamentos():
                             )
 
 
-                            # =================================
-                            # V13 É UM DICIONÁRIO
-                            # =================================
+                            # ===============================
+                            # V13
+                            # ===============================
 
                             v13 = (
                                 variaveis.get(
@@ -493,12 +605,14 @@ def pagina_orcamentos():
                                 or {}
                             )
 
+
                             st.write(
                                 "**V13 - Tipo da bobina:**",
                                 v13.get(
                                     "tipo_bobina"
                                 )
                             )
+
 
                             st.write(
                                 "**V13 - Classe térmica:**",
@@ -507,6 +621,7 @@ def pagina_orcamentos():
                                 )
                             )
 
+
                             st.write(
                                 "**V13 - Proteção:**",
                                 v13.get(
@@ -514,12 +629,14 @@ def pagina_orcamentos():
                                 )
                             )
 
+
                             st.write(
                                 "**V13 - Conexão elétrica:**",
                                 v13.get(
                                     "conexao_eletrica"
                                 )
                             )
+
 
                             st.write(
                                 "**V13 - Certificação:**",
@@ -529,6 +646,10 @@ def pagina_orcamentos():
                             )
 
 
+                            # ===============================
+                            # V14
+                            # ===============================
+
                             st.write(
                                 "**V14 - Potência:**",
                                 variaveis.get(
@@ -537,9 +658,9 @@ def pagina_orcamentos():
                             )
 
 
-                            # =================================
-                            # V15 É ESTRUTURADA
-                            # =================================
+                            # ===============================
+                            # V15
+                            # ===============================
 
                             v15 = (
                                 variaveis.get(
@@ -548,6 +669,7 @@ def pagina_orcamentos():
                                 or {}
                             )
 
+
                             extras = (
                                 v15.get(
                                     "extras"
@@ -555,9 +677,11 @@ def pagina_orcamentos():
                                 or []
                             )
 
+
                             st.write(
                                 "**V15 - Extras:**"
                             )
+
 
                             if extras:
 
@@ -569,12 +693,17 @@ def pagina_orcamentos():
                                         f"{extra.get('texto')}"
                                     )
 
+
                             else:
 
                                 st.write(
                                     "Nenhum extra."
                                 )
 
+
+                            # ===============================
+                            # V16
+                            # ===============================
 
                             st.write(
                                 "**V16 - Kv:**",
@@ -583,17 +712,23 @@ def pagina_orcamentos():
                                 )
                             )
 
-                            st.write(
-                                "**V17 - Imagem:**",
-                                variaveis.get(
-                                    "V17"
-                                )
-                            )
+
+                            # ===============================
+                            # V17
+                            # ===============================
+
                             nome_imagem = (
                                 variaveis.get(
                                     "V17"
                                 )
                             )
+
+
+                            st.write(
+                                "**V17 - Imagem:**",
+                                nome_imagem
+                            )
+
 
                             if nome_imagem:
 
@@ -603,10 +738,12 @@ def pagina_orcamentos():
                                     )
                                 )
 
+
                                 st.image(
                                     url_imagem,
                                     width=300,
                                 )
+
 
                             else:
 
@@ -615,7 +752,7 @@ def pagina_orcamentos():
                                     "para este produto."
                                 )
 
-                
+
                 # =============================================
                 # EXCLUIR ITEM
                 # =============================================
@@ -638,11 +775,16 @@ def pagina_orcamentos():
                         st.rerun()
 
 
+        # =====================================================
+        # TOTAL
+        # =====================================================
+
         st.metric(
             "Total do orçamento",
             f"R$ "
             f"{total_orcamento:,.2f}"
         )
+
 
         st.divider()
 
@@ -702,6 +844,7 @@ def pagina_orcamentos():
                 key="rascunho_tensao_outro",
             )
 
+
         else:
 
             tensao = (
@@ -714,7 +857,9 @@ def pagina_orcamentos():
         # QUANTIDADE / VALOR
         # =====================================================
 
-        c1, c2 = st.columns(2)
+        c1, c2 = st.columns(
+            2
+        )
 
 
         with c1:
@@ -773,6 +918,7 @@ def pagina_orcamentos():
                 key="rascunho_prazo_outro",
             )
 
+
         else:
 
             prazo = (
@@ -790,6 +936,8 @@ def pagina_orcamentos():
             placeholder="Opcional",
             key="rascunho_observacao",
         )
+
+
         # =====================================================
         # BOTÃO
         # =====================================================
@@ -843,6 +991,7 @@ def pagina_orcamentos():
                 .upper()
             )
 
+
             tensao_normalizada = (
                 tensao
                 .strip()
@@ -875,7 +1024,7 @@ def pagina_orcamentos():
 
 
             # =================================================
-            # VERIFICAR RESULTADO DO MOTOR
+            # VERIFICAR RESULTADO
             # =================================================
 
             if produto_processado:
@@ -896,9 +1045,6 @@ def pagina_orcamentos():
                     )
 
 
-                    # Mostra alertas do parser,
-                    # caso existam.
-
                     parser = (
                         produto_processado.get(
                             "parser"
@@ -906,12 +1052,14 @@ def pagina_orcamentos():
                         or {}
                     )
 
+
                     alertas = (
                         parser.get(
                             "alertas"
                         )
                         or []
                     )
+
 
                     for alerta in alertas:
 
@@ -939,7 +1087,6 @@ def pagina_orcamentos():
 
                     novo_item = {
 
-                        # Dados comerciais
                         "codigo":
                             codigo_normalizado,
 
@@ -962,35 +1109,19 @@ def pagina_orcamentos():
                         "observacao":
                             observacao.strip(),
 
-
-                        # =====================================
-                        # DADOS TÉCNICOS DO MOTOR
-                        # =====================================
-                        #
-                        # Ficam no session_state.
-                        #
-                        # O repository atual NÃO salva esse
-                        # campo no Supabase.
-                        #
-                        # =====================================
-
                         "variaveis":
                             variaveis,
                     }
 
 
                     # =========================================
-                    # ADICIONAR À LISTA
+                    # ADICIONAR
                     # =========================================
 
                     st.session_state.orcamento_itens.append(
                         novo_item
                     )
 
-
-                    # =========================================
-                    # RECARREGAR TELA
-                    # =========================================
 
                     st.rerun()
 
@@ -1000,6 +1131,7 @@ def pagina_orcamentos():
     # =========================================================
 
     st.divider()
+
 
     st.subheader(
         "Observações gerais"
@@ -1013,9 +1145,7 @@ def pagina_orcamentos():
                 "Informações gerais que "
                 "devem constar no orçamento..."
             ),
-            key=(
-                "orcamento_observacao_geral"
-            ),
+            key="orcamento_observacao_geral",
         )
     )
 
@@ -1086,7 +1216,7 @@ def pagina_orcamentos():
                                 .orcamento_itens
                             ),
                             criado_por=(
-                                st.session_state.nome
+                                responsavel
                             ),
                             observacao_geral=(
                                 observacao_geral
@@ -1111,7 +1241,50 @@ def pagina_orcamentos():
 
 
     # =========================================================
-    # PDF DE TESTE
+    # GERAR PDF
+    # =========================================================
+    #
+    # AQUI APENAS CHAMAMOS A FUNÇÃO.
+    #
+    # A programação do PDF fica em:
+    #
+    # pdf/pdf_teste_ui.py
+    # pdf/gerador_pdf_teste.py
+    #
     # =========================================================
 
-    mostrar_teste_pdf()
+    if (
+        numero_orcamento.strip()
+        and cliente_selecionado
+        and st.session_state.orcamento_itens
+    ):
+
+        mostrar_teste_pdf(
+            numero_orcamento=(
+                numero_orcamento
+            ),
+            cliente=(
+                cliente_selecionado
+            ),
+            itens=(
+                st.session_state
+                .orcamento_itens
+            ),
+            observacao_geral=(
+                observacao_geral
+            ),
+            responsavel=(
+                responsavel
+            ),
+        )
+
+
+    else:
+
+        st.divider()
+
+        st.caption(
+            "Preencha o número do orçamento, "
+            "selecione um cliente e adicione "
+            "pelo menos um item para gerar o PDF."
+        )
