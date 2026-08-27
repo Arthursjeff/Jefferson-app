@@ -1,5 +1,12 @@
 from io import BytesIO
 from pathlib import Path
+from urllib.request import urlopen
+
+from reportlab.lib.utils import ImageReader
+
+from modules.modulo_orcamentos.imagens_repository import (
+    obter_url_imagem,
+)
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -1192,22 +1199,103 @@ def desenhar_celula_tecnica(
         stroke=1,
     )
 
+# ============================================================
+# AUXILIARES - PÁGINA TÉCNICA
+# ============================================================
 
-# ============================================================
-# PÁGINA TÉCNICA COMPLETA
-# ============================================================
+def valor_tecnico(valor):
+
+    if valor is None:
+        return "—"
+
+    valor = str(valor).strip()
+
+    if not valor:
+        return "—"
+
+    return valor
+
+
+def texto_extras_v15(v15):
+
+    if not isinstance(
+        v15,
+        dict,
+    ):
+        return "—"
+
+    extras = (
+        v15.get("extras")
+        or []
+    )
+
+    if not extras:
+        return "—"
+
+    textos = []
+
+    for extra in extras:
+
+        texto_extra = (
+            extra.get("texto")
+            or ""
+        ).strip()
+
+        if texto_extra:
+            textos.append(
+                texto_extra
+            )
+
+    if not textos:
+        return "—"
+
+    return " | ".join(
+        textos
+    )
+
+
+def carregar_imagem_produto(
+    nome_imagem,
+):
+
+    if not nome_imagem:
+        return None
+
+    try:
+
+        url = obter_url_imagem(
+            nome_imagem
+        )
+
+        resposta = urlopen(
+            url,
+            timeout=10,
+        )
+
+        dados = resposta.read()
+
+        return ImageReader(
+            BytesIO(dados)
+        )
+
+    except Exception:
+
+        return None
 
 def desenhar_pagina_tecnica_teste(
     c,
     largura_pagina,
     altura_pagina,
     numero_orcamento,
+    itens,
 ):
+
     margem = 14 * mm
 
-    # --------------------------------------------------------
+
+    # ========================================================
     # CABEÇALHO
-    # --------------------------------------------------------
+    # ========================================================
 
     y_topo = desenhar_cabecalho_tecnico(
         c,
@@ -1219,66 +1307,84 @@ def desenhar_pagina_tecnica_teste(
 
     y_topo -= 5 * mm
 
+
     # ========================================================
-    # DIMENSÕES GERAIS
+    # SOMENTE OS 3 PRIMEIROS ITENS
+    # ========================================================
+    #
+    # A paginação para mais de 3 itens será feita depois.
+    #
     # ========================================================
 
-    largura_util = largura_pagina - 2 * margem
+    itens_pagina = list(
+        itens[:3]
+    )
 
-    # 3 colunas iguais
-    largura_coluna = largura_util / 3
 
-    x1 = margem
-    x2 = margem + largura_coluna
-    x3 = margem + largura_coluna * 2
+    # Completa as três posições com None.
+    #
+    # Assim:
+    #
+    # 1 produto -> 1 coluna preenchida
+    # 2 produtos -> 2 colunas preenchidas
+    # 3 produtos -> 3 colunas preenchidas
+
+    while len(itens_pagina) < 3:
+
+        itens_pagina.append(
+            None
+        )
+
+
+    # ========================================================
+    # DIMENSÕES
+    # ========================================================
+
+    largura_util = (
+        largura_pagina
+        - 2 * margem
+    )
+
+    largura_coluna = (
+        largura_util / 3
+    )
 
     colunas_x = [
-        x1,
-        x2,
-        x3,
+        margem,
+        margem + largura_coluna,
+        margem + largura_coluna * 2,
     ]
 
-    itens = [
-        {
-            "item": "ITEM 01",
-            "codigo": "Z1335BA04T",
-        },
-        {
-            "item": "ITEM 02",
-            "codigo": "2088LA12LT",
-        },
-        {
-            "item": "ITEM 03",
-            "codigo": "2036BV04",
-        },
-    ]
-
-    # ========================================================
-    # ALTURAS
-    # ========================================================
 
     altura_item = 9 * mm
     altura_codigo = 11 * mm
     altura_imagem = 48 * mm
-
-    # Altura padrão das linhas técnicas
-    altura_linha = 6.8 * mm
-
-    quantidade_linhas = 20
+    altura_linha = 6.3 * mm
 
     y = y_topo
-    
+
+
     # ========================================================
     # LINHA 1 - ITEM
     # ========================================================
 
     y -= altura_item
 
+
     for indice in range(3):
 
         x = colunas_x[indice]
 
-        c.setFillColor(COR_PRINCIPAL_ESCURA)
+        item = (
+            itens_pagina[
+                indice
+            ]
+        )
+
+
+        c.setFillColor(
+            COR_PRINCIPAL_ESCURA
+        )
 
         c.rect(
             x,
@@ -1289,8 +1395,14 @@ def desenhar_pagina_tecnica_teste(
             stroke=0,
         )
 
-        c.setStrokeColor(BRANCO)
-        c.setLineWidth(0.4)
+
+        c.setStrokeColor(
+            BRANCO
+        )
+
+        c.setLineWidth(
+            0.4
+        )
 
         c.rect(
             x,
@@ -1301,15 +1413,28 @@ def desenhar_pagina_tecnica_teste(
             stroke=1,
         )
 
+
+        if item:
+
+            titulo_item = (
+                f"ITEM {indice + 1:02d}"
+            )
+
+        else:
+
+            titulo_item = ""
+
+
         texto_centro(
             c,
             x + largura_coluna / 2,
             y + 3.1 * mm,
-            itens[indice]["item"],
+            titulo_item,
             tamanho=8.5,
             fonte="Helvetica-Bold",
             cor=BRANCO,
         )
+
 
     # ========================================================
     # LINHA 2 - CÓDIGO
@@ -1317,9 +1442,17 @@ def desenhar_pagina_tecnica_teste(
 
     y -= altura_codigo
 
+
     for indice in range(3):
 
         x = colunas_x[indice]
+
+        item = (
+            itens_pagina[
+                indice
+            ]
+        )
+
 
         desenhar_celula_tecnica(
             c,
@@ -1330,15 +1463,24 @@ def desenhar_pagina_tecnica_teste(
             fundo=CINZA_FUNDO,
         )
 
+
+        codigo = (
+            item.get("codigo")
+            if item
+            else ""
+        )
+
+
         texto_centro(
             c,
             x + largura_coluna / 2,
             y + 4.1 * mm,
-            itens[indice]["codigo"],
+            codigo,
             tamanho=9,
             fonte="Helvetica-Bold",
             cor=PRETO,
         )
+
 
     # ========================================================
     # LINHA 3 - IMAGEM
@@ -1346,9 +1488,17 @@ def desenhar_pagina_tecnica_teste(
 
     y -= altura_imagem
 
+
     for indice in range(3):
 
         x = colunas_x[indice]
+
+        item = (
+            itens_pagina[
+                indice
+            ]
+        )
+
 
         desenhar_celula_tecnica(
             c,
@@ -1359,88 +1509,337 @@ def desenhar_pagina_tecnica_teste(
             fundo=BRANCO,
         )
 
-        # Área interna da imagem
-        margem_interna = 5 * mm
 
-        c.setStrokeColor(CINZA_LINHA)
-        c.setLineWidth(0.5)
+        if not item:
+            continue
 
-        c.roundRect(
-            x + margem_interna,
-            y + 5 * mm,
-            largura_coluna - 2 * margem_interna,
-            altura_imagem - 10 * mm,
-            2 * mm,
-            fill=0,
-            stroke=1,
+
+        variaveis = (
+            item.get(
+                "variaveis"
+            )
+            or {}
         )
 
-        texto_centro(
-            c,
-            x + largura_coluna / 2,
-            y + altura_imagem / 2,
-            "IMAGEM",
-            tamanho=8,
-            fonte="Helvetica-Bold",
-            cor=CINZA_MEDIO,
+
+        nome_imagem = (
+            variaveis.get(
+                "V17"
+            )
         )
 
+
+        imagem = (
+            carregar_imagem_produto(
+                nome_imagem
+            )
+        )
+
+
+        margem_interna = (
+            4 * mm
+        )
+
+
+        if imagem:
+
+            c.drawImage(
+                imagem,
+                x + margem_interna,
+                y + margem_interna,
+                largura_coluna
+                - 2 * margem_interna,
+                altura_imagem
+                - 2 * margem_interna,
+                preserveAspectRatio=True,
+                anchor="c",
+                mask="auto",
+            )
+
+
+        else:
+
+            texto_centro(
+                c,
+                x
+                + largura_coluna / 2,
+                y
+                + altura_imagem / 2,
+                "IMAGEM NÃO DISPONÍVEL",
+                tamanho=6.5,
+                fonte="Helvetica-Bold",
+                cor=CINZA_MEDIO,
+            )
+
+
     # ========================================================
-    # LINHAS TÉCNICAS
+    # PREPARAR DADOS REAIS
     # ========================================================
 
-    dados_teste = [
-        ("OPERAÇÃO", ["Ação direta", "Servo operada", "Ação combinada"]),
-        ("VIAS", ["2 vias", "2 vias", "3 vias"]),
-        ("POSIÇÃO", ["NF", "NF", "NA"]),
-        ("CORPO", ["Latão", "Bronze", "Inox 316"]),
-        ("VEDAÇÃO", ["Buna-N", "Viton", "EPDM"]),
-        ("CONEXÃO", ['1/2" BSP', '1" NPT', '3/4" BSP']),
-        ("ORIFÍCIO", ["18 mm", "26 mm", "12 mm"]),
-        ("PRESSÃO MÍN.", ["0 bar", "0,2 bar", "0 bar"]),
-        ("PRESSÃO MÁX.", ["7 bar", "15 bar", "10 bar"]),
-        ("TEMPERATURA", ["80 °C", "150 °C", "145 °C"]),
-        ("BOBINA", ["Encapsulada", "Carretel", "Encapsulada"]),
-        ("CLASSE TÉRMICA", ["H - 180 °C", "H - 180 °C", "H - 180 °C"]),
-        ("PROTEÇÃO", ["IP65", "IP65", "IP65"]),
-        ("CONEXÃO ELÉTR.", ["Plug-in PG9", "Caixa geral", "Plug-in PG9"]),
-        ("POTÊNCIA", ["13 W", "30 W", "19 W"]),
-        ("TENSÃO", ["220 V / 60 Hz", "24 VCC", "110 V / 60 Hz"]),
-        ("CERTIFICAÇÃO", ["—", "Área classificada", "—"]),
-        ("PROTEÇÃO EX", ["—", "Ex db IIC T4 Gb", "—"]),
-        ("ENTRADA ELÉTR.", ['PG9', '1/2" NPT', "PG9"]),
-        ("OBSERVAÇÃO", ["Padrão", "Especial", "Padrão"]),
+    dados_produtos = []
+
+
+    for item in itens_pagina:
+
+        if not item:
+
+            dados_produtos.append(
+                {}
+            )
+
+            continue
+
+
+        variaveis = (
+            item.get(
+                "variaveis"
+            )
+            or {}
+        )
+
+
+        v13 = (
+            variaveis.get(
+                "V13"
+            )
+            or {}
+        )
+
+
+        v15 = (
+            variaveis.get(
+                "V15"
+            )
+            or {}
+        )
+
+
+        conexao = (
+            f"{valor_tecnico(variaveis.get('V07'))} "
+            f"{valor_tecnico(variaveis.get('V08'))}"
+        ).strip()
+
+
+        dados_produtos.append(
+            {
+
+                "TIPO":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V01"
+                        )
+                    ),
+
+                "OPERAÇÃO":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V02"
+                        )
+                    ),
+
+                "VIAS":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V03"
+                        )
+                    ),
+
+                "POSIÇÃO":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V04"
+                        )
+                    ),
+
+                "CORPO":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V05"
+                        )
+                    ),
+
+                "VEDAÇÃO":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V06"
+                        )
+                    ),
+
+                "CONEXÃO":
+                    conexao,
+
+                "ORIFÍCIO":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V09"
+                        )
+                    ),
+
+                "PRESSÃO MÍN.":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V10"
+                        )
+                    ),
+
+                "PRESSÃO MÁX.":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V11"
+                        )
+                    ),
+
+                "TEMPERATURA":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V12"
+                        )
+                    ),
+
+                "BOBINA":
+                    valor_tecnico(
+                        v13.get(
+                            "tipo_bobina"
+                        )
+                    ),
+
+                "CLASSE TÉRMICA":
+                    valor_tecnico(
+                        v13.get(
+                            "classe_termica"
+                        )
+                    ),
+
+                "PROTEÇÃO":
+                    valor_tecnico(
+                        v13.get(
+                            "protecao"
+                        )
+                    ),
+
+                "CONEXÃO ELÉTR.":
+                    valor_tecnico(
+                        v13.get(
+                            "conexao_eletrica"
+                        )
+                    ),
+
+                "CERTIFICAÇÃO":
+                    valor_tecnico(
+                        v13.get(
+                            "certificacao"
+                        )
+                    ),
+
+                "POTÊNCIA":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V14"
+                        )
+                    ),
+
+                "TENSÃO":
+                    valor_tecnico(
+                        item.get(
+                            "tensao"
+                        )
+                    ),
+
+                "KV":
+                    valor_tecnico(
+                        variaveis.get(
+                            "V16"
+                        )
+                    ),
+
+                "OBSERVAÇÃO":
+                    (
+                        item.get(
+                            "observacao"
+                        )
+                        or texto_extras_v15(
+                            v15
+                        )
+                        or "—"
+                    ),
+            }
+        )
+
+
+    # ========================================================
+    # CAMPOS DA TABELA
+    # ========================================================
+
+    campos = [
+        "TIPO",
+        "OPERAÇÃO",
+        "VIAS",
+        "POSIÇÃO",
+        "CORPO",
+        "VEDAÇÃO",
+        "CONEXÃO",
+        "ORIFÍCIO",
+        "PRESSÃO MÍN.",
+        "PRESSÃO MÁX.",
+        "TEMPERATURA",
+        "BOBINA",
+        "CLASSE TÉRMICA",
+        "PROTEÇÃO",
+        "CONEXÃO ELÉTR.",
+        "CERTIFICAÇÃO",
+        "POTÊNCIA",
+        "TENSÃO",
+        "KV",
+        "OBSERVAÇÃO",
     ]
 
-    # --------------------------------------------------------
-    # LARGURAS
-    # --------------------------------------------------------
 
-    largura_util = largura_pagina - 2 * margem
+    quantidade_linhas = len(
+        campos
+    )
 
-    # Coluna única com o nome do parâmetro
-    largura_campo = 38 * mm
 
-    # O restante é dividido igualmente entre os 3 produtos
-    largura_valores = largura_util - largura_campo
-    largura_valor = largura_valores / 3
+    # ========================================================
+    # LARGURAS DA TABELA
+    # ========================================================
 
-    for numero_linha in range(
-        quantidade_linhas
+    largura_campo = (
+        38 * mm
+    )
+
+    largura_valores = (
+        largura_util
+        - largura_campo
+    )
+
+    largura_valor = (
+        largura_valores / 3
+    )
+
+
+    # ========================================================
+    # DESENHAR DADOS
+    # ========================================================
+
+    for numero_linha, campo in enumerate(
+        campos
     ):
 
-        campo, valores = dados_teste[numero_linha]
-
-        # ----------------------------------------------------
-        # ALTURA DA LINHA
-        # ----------------------------------------------------
-
         if campo == "OBSERVAÇÃO":
-            altura_atual = altura_linha * 3
+
+            altura_atual = (
+                altura_linha * 2
+            )
+
         else:
-            altura_atual = altura_linha
+
+            altura_atual = (
+                altura_linha
+            )
+
 
         y -= altura_atual
+
 
         fundo = (
             CINZA_ALTERNADO
@@ -1448,11 +1847,11 @@ def desenhar_pagina_tecnica_teste(
             else BRANCO
         )
 
-        # ====================================================
-        # FUNDO DA LINHA INTEIRA
-        # ====================================================
 
-        c.setFillColor(fundo)
+        c.setFillColor(
+            fundo
+        )
+
 
         c.rect(
             margem,
@@ -1463,25 +1862,40 @@ def desenhar_pagina_tecnica_teste(
             stroke=0,
         )
 
+
         # ====================================================
-        # NOME DO PARÂMETRO - APARECE UMA ÚNICA VEZ
+        # NOME DO CAMPO
         # ====================================================
 
         texto(
             c,
             margem + 3 * mm,
-            y + (altura_atual / 2) - 1.2 * mm,
+            y
+            + (
+                altura_atual / 2
+            )
+            - 1.2 * mm,
             campo,
-            tamanho=6.4,
+            tamanho=6.2,
             fonte="Helvetica-Bold",
             cor=CINZA_ESCURO,
         )
 
-        # Linha vertical depois do campo
-        c.setStrokeColor(CINZA_LINHA)
-        c.setLineWidth(0.4)
 
-        x_inicio_valores = margem + largura_campo
+        x_inicio_valores = (
+            margem
+            + largura_campo
+        )
+
+
+        c.setStrokeColor(
+            CINZA_LINHA
+        )
+
+        c.setLineWidth(
+            0.4
+        )
+
 
         c.line(
             x_inicio_valores,
@@ -1490,62 +1904,120 @@ def desenhar_pagina_tecnica_teste(
             y + altura_atual,
         )
 
+
         # ====================================================
-        # VALORES DOS 3 PRODUTOS
+        # VALORES
         # ====================================================
 
         for indice in range(3):
 
             x = (
                 x_inicio_valores
-                + indice * largura_valor
+                + indice
+                * largura_valor
             )
 
-            texto_centro(
-                c,
-                x + largura_valor / 2,
-                y + (altura_atual / 2) - 1.2 * mm,
-                valores[indice],
-                tamanho=6.8,
-                fonte="Helvetica",
-                cor=PRETO,
+
+            produto = (
+                dados_produtos[
+                    indice
+                ]
             )
 
-            # Separação vertical entre produtos
+
+            valor = (
+                produto.get(
+                    campo,
+                    ""
+                )
+                if produto
+                else ""
+            )
+
+
+            if (
+                campo
+                == "OBSERVAÇÃO"
+            ):
+
+                texto_quebrado(
+                    c,
+                    valor,
+                    x + 2 * mm,
+                    y
+                    + altura_atual
+                    - 4 * mm,
+                    largura_valor
+                    - 4 * mm,
+                    tamanho=5.8,
+                    entrelinha=6.5,
+                    max_linhas=2,
+                )
+
+
+            else:
+
+                texto_centro(
+                    c,
+                    x
+                    + largura_valor / 2,
+                    y
+                    + (
+                        altura_atual / 2
+                    )
+                    - 1.2 * mm,
+                    valor,
+                    tamanho=6.2,
+                    fonte="Helvetica",
+                    cor=PRETO,
+                )
+
+
             if indice < 2:
 
                 c.line(
-                    x + largura_valor,
+                    x
+                    + largura_valor,
                     y,
-                    x + largura_valor,
-                    y + altura_atual,
+                    x
+                    + largura_valor,
+                    y
+                    + altura_atual,
                 )
 
-        # ====================================================
-        # LINHA HORIZONTAL
-        # ====================================================
-
-        c.setStrokeColor(CINZA_LINHA)
-        c.setLineWidth(0.35)
 
         c.line(
             margem,
             y,
-            margem + largura_util,
+            margem
+            + largura_util,
             y,
         )
 
+
     # ========================================================
-    # BORDA GERAL DAS LINHAS TÉCNICAS
+    # BORDA GERAL
     # ========================================================
 
     altura_total_dados = (
-        (quantidade_linhas - 1) * altura_linha
-        + (altura_linha * 3)
+        (
+            quantidade_linhas
+            - 1
+        )
+        * altura_linha
+        + altura_linha
+        * 2
     )
 
-    c.setStrokeColor(CINZA_LINHA)
-    c.setLineWidth(0.6)
+
+    c.setStrokeColor(
+        CINZA_LINHA
+    )
+
+    c.setLineWidth(
+        0.6
+    )
+
 
     c.rect(
         margem,
@@ -1555,39 +2027,51 @@ def desenhar_pagina_tecnica_teste(
         fill=0,
         stroke=1,
     )
-            
+
+
     # ========================================================
     # RODAPÉ
     # ========================================================
 
-    c.setStrokeColor(CINZA_LINHA)
-    c.setLineWidth(0.5)
+    c.setStrokeColor(
+        CINZA_LINHA
+    )
+
+    c.setLineWidth(
+        0.5
+    )
+
 
     c.line(
         margem,
         17 * mm,
-        largura_pagina - margem,
+        largura_pagina
+        - margem,
         17 * mm,
     )
+
 
     texto(
         c,
         margem,
         11 * mm,
-        "JEFFERSON SOLENOIDBRAS LIMITADA",
+        EMPRESA_NOME,
         tamanho=6.5,
         fonte="Helvetica-Bold",
         cor=CINZA_MEDIO,
     )
 
+
     texto_direita(
         c,
-        largura_pagina - margem,
+        largura_pagina
+        - margem,
         11 * mm,
         "Dados técnicos da proposta",
         tamanho=6.5,
         cor=CINZA_MEDIO,
     )
+
 
     texto_centro(
         c,
@@ -1722,6 +2206,7 @@ def gerar_pdf_orcamento(
         largura_pagina,
         altura_pagina,
         numero_orcamento,
+        itens,
     )
 
     c.showPage()
