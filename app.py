@@ -881,10 +881,7 @@ if st.session_state.show_cancelar_modal:
 
 with st.sidebar:
     st.markdown("## Jefferson App")
-    st.caption(
-        f"{st.session_state.nome} "
-        f"({st.session_state.setor})"
-    )
+    st.caption(f"{st.session_state.nome} ({st.session_state.setor})")
 
     if st.session_state.setor == "ADMINISTRADOR":
         paginas = [
@@ -951,10 +948,7 @@ elif pagina == "Orçamentos":
         "ADMINISTRADOR",
         "MONTAGEM",
     ]:
-        st.error(
-            "Você não possui permissão "
-            "para acessar esta página."
-        )
+        st.error("Você não possui permissão para acessar esta página.")
         st.stop()
 
     pagina_orcamentos()
