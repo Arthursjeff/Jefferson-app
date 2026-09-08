@@ -52,6 +52,7 @@ SUFIXOS_FIXOS = [
     "G",
     "H",
     "I",
+	"S",
     "K",
     "N",
     "M",
