@@ -1006,7 +1006,7 @@ def definir_v04(
     # REGRA ESPECIAL - 1323 / 1365
     # =========================================================
 
-    if familia in ["1323", "1365"]:
+    if familia == "1323":
 
         if "C" in sufixos:
             return "normalmente fechada"
@@ -1165,10 +1165,10 @@ def definir_v07(
 ):
 
     # =========================================================
-    # REGRA ESPECIAL - 1323
+    # REGRA ESPECIAL - 1323 e 1365
     # =========================================================
 
-    if familia == "1323":
+    if familia in ["1323", "1365"]:
 
         if (
             bloco_numeros
