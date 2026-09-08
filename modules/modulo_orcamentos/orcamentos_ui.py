@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 
 from modules.modulo_orcamentos.clientes_repository import (
     buscar_clientes,
@@ -97,6 +98,36 @@ def converter_valor(valor):
     except (ValueError, TypeError):
 
         return None
+
+
+def focar_campo_codigo():
+
+    components.html(
+        """
+        <script>
+        const inputs =
+            window.parent.document.querySelectorAll(
+                'input'
+            );
+
+        for (const input of inputs) {
+
+            const ariaLabel =
+                input.getAttribute('aria-label');
+
+            if (
+                ariaLabel === 'Código'
+            ) {
+
+                input.focus();
+                input.select();
+                break;
+            }
+        }
+        </script>
+        """,
+        height=0,
+    )
 
 
 # =============================================================
@@ -213,6 +244,10 @@ def pagina_orcamentos():
         st.session_state[
             "limpar_novo_item"
         ] = False
+
+        st.session_state[
+            "focar_codigo"
+        ] = True
     
     if (
         "orcamento_cliente_selecionado"
@@ -1113,6 +1148,17 @@ def pagina_orcamentos():
             )
         )
 
+    if st.session_state.get(
+        "focar_codigo",
+        False,
+    ):
+
+        focar_campo_codigo()
+
+        st.session_state[
+            "focar_codigo"
+        ] = False
+    
     # =========================================================
     # PROCESSAR NOVO ITEM
     # =========================================================
