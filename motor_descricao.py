@@ -41,6 +41,7 @@ SUFIXOS_FIXOS = [
     "VB",
     "LB",
     "AR",
+	"CI",
     "-M",
     "T",
     "A",
@@ -1120,11 +1121,30 @@ REGRAS_V06_MATERIAL_VEDACAO = {
 }
 
 
-def definir_v06(codigo_vedacao):
-    """
-    Define a V06 - material da vedação
-    usando o código da vedação identificado pelo parser.
-    """
+def definir_v06(
+    familia,
+    bloco_numeros,
+    codigo_vedacao
+):
+
+    # =========================================================
+    # REGRA ESPECIAL - 3073
+    # =========================================================
+
+    if familia == "3073":
+
+        if bloco_numeros in ["06", "08"]:
+            return "Hytrel"
+
+        if bloco_numeros in ["12", "16"]:
+            return "Buna-N reforçada"
+
+        return None
+
+
+    # =========================================================
+    # REGRA STANDARD
+    # =========================================================
 
     return REGRAS_V06_MATERIAL_VEDACAO.get(
         codigo_vedacao
@@ -1225,7 +1245,22 @@ def definir_v07(
 #
 # =============================================================
 
-def definir_v08(sufixos):
+def definir_v08(
+    familia,
+    sufixos
+):
+
+    # =========================================================
+    # REGRA ESPECIAL - 3073 + CI
+    # =========================================================
+
+    if familia == "3073" and "CI" in sufixos:
+        return "Engate rápido Tri-Clamp"
+
+
+    # =========================================================
+    # REGRA STANDARD
+    # =========================================================
 
     # FLANGE
     if "B" in sufixos:
@@ -1237,7 +1272,6 @@ def definir_v08(sufixos):
 
     # STANDARD
     return "BSP"
-
 
 # =============================================================
 # V09 - ORIFÍCIO INTERNO
@@ -1674,6 +1708,18 @@ REGRAS_V09_ORIFICIO = {
         "24": "76 mm",
     },
 
+# ---------------------------------------------------------
+# 3073
+# ---------------------------------------------------------
+
+	"3073": {
+    	"06": "29 mm",
+	    "08": "29 mm",
+    	"12": "50,8 mm",
+    	"16": "63,4 mm",
+	},
+
+	
 }
 
 # =============================================================
@@ -2360,6 +2406,8 @@ def definir_v10(
         return "0 bar"
 
 
+
+	
     # =========================================================
     # 2073
     # =========================================================
@@ -4762,7 +4810,9 @@ def gerar_variaveis_descricao(
 
     # V06 - Material da vedação
     v06 = definir_v06(
-        codigo_vedacao
+    	familia,
+	   	bloco_numeros,
+    	codigo_vedacao
     )
 
 
@@ -4776,7 +4826,8 @@ def gerar_variaveis_descricao(
 
     # V08 - Tipo de rosca
     v08 = definir_v08(
-        sufixos
+        sufixos,
+		familia
     )
 
 
