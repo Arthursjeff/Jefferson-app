@@ -50,6 +50,56 @@ OPCOES_PRAZO = [
 
 
 # =============================================================
+# FUNÇÕES AUXILIARES DO FORMULÁRIO DE ITENS
+# =============================================================
+
+def converter_quantidade(valor):
+
+    try:
+
+        quantidade = int(
+            str(valor).strip()
+        )
+
+        if quantidade <= 0:
+            return None
+
+        return quantidade
+
+    except (ValueError, TypeError):
+
+        return None
+
+
+def converter_valor(valor):
+
+    try:
+
+        texto = (
+            str(valor)
+            .strip()
+            .replace(".", "")
+            .replace(",", ".")
+        )
+
+        if not texto:
+            return None
+
+        valor_convertido = float(
+            texto
+        )
+
+        if valor_convertido < 0:
+            return None
+
+        return valor_convertido
+
+    except (ValueError, TypeError):
+
+        return None
+
+
+# =============================================================
 # PÁGINA DE ORÇAMENTOS
 # =============================================================
 
@@ -128,7 +178,42 @@ def pagina_orcamentos():
 
         st.session_state.orcamento_itens = []
 
+    # =========================================================
+    # LIMPEZA DO FORMULÁRIO APÓS ADICIONAR ITEM
+    # =========================================================
 
+    if st.session_state.get(
+        "limpar_novo_item",
+        False,
+    ):
+
+        # Campos que devem ser limpos
+        st.session_state[
+            "rascunho_codigo"
+        ] = ""
+
+        st.session_state[
+            "rascunho_quantidade"
+        ] = ""
+
+        st.session_state[
+            "rascunho_valor"
+        ] = ""
+
+        st.session_state[
+            "rascunho_observacao"
+        ] = ""
+
+
+        # Tensão NÃO é limpa.
+        # Prazo NÃO é limpo.
+
+
+        # Desliga a solicitação de limpeza
+        st.session_state[
+            "limpar_novo_item"
+        ] = False
+    
     if (
         "orcamento_cliente_selecionado"
         not in st.session_state
@@ -862,30 +947,100 @@ def pagina_orcamentos():
 
 
         # =====================================================
+        # LINHA PRINCIPAL
+        # =====================================================
+
+        (
+            coluna_codigo,
+            coluna_tensao,
+            coluna_quantidade,
+            coluna_valor,
+            coluna_prazo,
+        ) = st.columns(
+            [3.2, 2.0, 1.0, 1.7, 2.0]
+        )
+
+
+        # =====================================================
         # CÓDIGO
         # =====================================================
 
-        codigo = st.text_input(
-            "Código do produto",
-            placeholder="Ex.: 1335BA04T",
-            key="rascunho_codigo",
-        )
+        with coluna_codigo:
+
+            codigo = st.text_input(
+                "Código",
+                placeholder="Ex.: 1335BA04T",
+                key="rascunho_codigo",
+            )
 
 
         # =====================================================
         # TENSÃO
         # =====================================================
 
-        tensao_selecionada = (
-            st.selectbox(
-                "Tensão",
-                options=OPCOES_TENSAO,
-                index=None,
-                placeholder="Digite para buscar...",
-                key="rascunho_tensao",
-            )
-        )
+        with coluna_tensao:
 
+            tensao_selecionada = (
+                st.selectbox(
+                    "Tensão",
+                    options=OPCOES_TENSAO,
+                    index=None,
+                    placeholder="Selecione...",
+                    key="rascunho_tensao",
+                )
+            )
+
+
+        # =====================================================
+        # QUANTIDADE
+        # =====================================================
+
+        with coluna_quantidade:
+
+            quantidade_digitada = (
+                st.text_input(
+                    "Qtd.",
+                    placeholder="1",
+                    key="rascunho_quantidade",
+                )
+            )
+
+
+        # =====================================================
+        # VALOR UNITÁRIO
+        # =====================================================
+
+        with coluna_valor:
+
+            valor_digitado = (
+                st.text_input(
+                    "Valor unit.",
+                    placeholder="0,00",
+                    key="rascunho_valor",
+                )
+            )
+
+
+        # =====================================================
+        # PRAZO
+        # =====================================================
+
+        with coluna_prazo:
+
+            prazo_selecionado = (
+                st.selectbox(
+                    "Prazo",
+                    options=OPCOES_PRAZO,
+                    index=None,
+                    placeholder="Selecione...",
+                    key="rascunho_prazo",
+                )
+            )
+
+
+        # =====================================================
+        # OUTRA TENSÃO
+        # =====================================================
 
         if (
             tensao_selecionada
@@ -901,7 +1056,6 @@ def pagina_orcamentos():
                 key="rascunho_tensao_outro",
             )
 
-
         else:
 
             tensao = (
@@ -911,55 +1065,8 @@ def pagina_orcamentos():
 
 
         # =====================================================
-        # QUANTIDADE / VALOR
+        # OUTRO PRAZO
         # =====================================================
-
-        c1, c2 = st.columns(
-            2
-        )
-
-
-        with c1:
-
-            quantidade = (
-                st.number_input(
-                    "Quantidade",
-                    min_value=1,
-                    value=1,
-                    step=1,
-                    key="rascunho_quantidade",
-                )
-            )
-
-
-        with c2:
-
-            valor_unitario = (
-                st.number_input(
-                    "Valor unitário (R$)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.01,
-                    format="%.2f",
-                    key="rascunho_valor",
-                )
-            )
-
-
-        # =====================================================
-        # PRAZO
-        # =====================================================
-
-        prazo_selecionado = (
-            st.selectbox(
-                "Prazo",
-                options=OPCOES_PRAZO,
-                index=None,
-                placeholder="Digite para buscar...",
-                key="rascunho_prazo",
-            )
-        )
-
 
         if (
             prazo_selecionado
@@ -975,7 +1082,6 @@ def pagina_orcamentos():
                 key="rascunho_prazo_outro",
             )
 
-
         else:
 
             prazo = (
@@ -988,7 +1094,7 @@ def pagina_orcamentos():
         # OBSERVAÇÃO
         # =====================================================
 
-        observacao = st.text_area(
+        observacao = st.text_input(
             "Observação do item",
             placeholder="Opcional",
             key="rascunho_observacao",
@@ -1007,14 +1113,30 @@ def pagina_orcamentos():
             )
         )
 
-
     # =========================================================
     # PROCESSAR NOVO ITEM
     # =========================================================
 
     if adicionar_item:
 
+        
+        # =====================================================
+        # CONVERTER QUANTIDADE
+        # =====================================================
 
+        quantidade = converter_quantidade(
+            quantidade_digitada
+        )
+
+
+        # =====================================================
+        # CONVERTER VALOR
+        # =====================================================
+
+        valor_unitario = converter_valor(
+            valor_digitado
+        )
+        
         # =====================================================
         # VALIDAÇÕES DO FORMULÁRIO
         # =====================================================
@@ -1030,6 +1152,20 @@ def pagina_orcamentos():
 
             st.warning(
                 "Informe a tensão."
+            )
+
+
+        elif quantidade is None:
+
+            st.warning(
+                "Informe uma quantidade válida."
+            )
+
+
+        elif valor_unitario is None:
+
+            st.warning(
+                "Informe um valor unitário válido."
             )
 
 
@@ -1179,6 +1315,9 @@ def pagina_orcamentos():
                         novo_item
                     )
 
+                    st.session_state[
+                        "limpar_novo_item"
+                    ] = True
 
                     st.rerun()
 
