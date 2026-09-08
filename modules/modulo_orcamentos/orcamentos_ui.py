@@ -525,9 +525,39 @@ def pagina_orcamentos():
             "### Itens adicionados"
         )
 
-
         total_orcamento = 0
 
+
+        # =====================================================
+        # CABEÇALHO
+        # =====================================================
+
+        (
+            col_item,
+            col_codigo,
+            col_tensao,
+            col_qtd,
+            col_valor,
+            col_total,
+            col_prazo,
+            col_acao,
+        ) = st.columns(
+            [0.5, 2.0, 1.4, 0.6, 1.2, 1.2, 1.2, 0.8]
+        )
+
+        col_item.markdown("**#**")
+        col_codigo.markdown("**Código**")
+        col_tensao.markdown("**Tensão**")
+        col_qtd.markdown("**Qtd.**")
+        col_valor.markdown("**Unitário**")
+        col_total.markdown("**Total**")
+        col_prazo.markdown("**Prazo**")
+        col_acao.markdown("**Ação**")
+
+
+        # =====================================================
+        # ITENS
+        # =====================================================
 
         for indice, item in enumerate(
             st.session_state.orcamento_itens
@@ -538,434 +568,297 @@ def pagina_orcamentos():
                 * item["valor_unitario"]
             )
 
+            total_orcamento += total_item
 
-            total_orcamento += (
-                total_item
+
+            (
+                col_item,
+                col_codigo,
+                col_tensao,
+                col_qtd,
+                col_valor,
+                col_total,
+                col_prazo,
+                col_acao,
+            ) = st.columns(
+                [0.5, 2.0, 1.4, 0.6, 1.2, 1.2, 1.2, 0.8]
             )
 
 
-            with st.container(
-                border=True
+            col_item.write(
+                indice + 1
+            )
+
+            col_codigo.write(
+                item["codigo"]
+            )
+
+            col_tensao.write(
+                item["tensao"]
+            )
+
+            col_qtd.write(
+                item["quantidade"]
+            )
+
+            col_valor.write(
+                f"R$ {item['valor_unitario']:,.2f}"
+            )
+
+            col_total.write(
+                f"R$ {total_item:,.2f}"
+            )
+
+            col_prazo.write(
+                item["prazo"]
+            )
+
+
+            # =================================================
+            # EXCLUIR
+            # =================================================
+
+            with col_acao:
+
+                if st.button(
+                    "🗑️",
+                    key=(
+                        f"excluir_item_"
+                        f"{indice}"
+                    ),
+                    help="Excluir item",
+                    use_container_width=True,
+                ):
+
+                    st.session_state.orcamento_itens.pop(
+                        indice
+                    )
+
+                    st.rerun()
+
+
+            # =================================================
+            # DETALHES DO ITEM
+            # =================================================
+
+            with st.expander(
+                f"Detalhes — {item['codigo']}"
             ):
 
-                c1, c2 = st.columns(
-                    [5, 1]
+                if item.get(
+                    "observacao"
+                ):
+
+                    st.write(
+                        "**Observação:**",
+                        item["observacao"],
+                    )
+
+
+                variaveis = (
+                    item.get(
+                        "variaveis"
+                    )
+                    or {}
                 )
 
 
-                # =============================================
-                # DADOS DO ITEM
-                # =============================================
+                if variaveis:
 
-                with c1:
-
-                    st.markdown(
-                        f"### Item "
-                        f"{indice + 1} — "
-                        f"{item['codigo']}"
+                    c1, c2, c3 = st.columns(
+                        3
                     )
 
 
-                    st.write(
-                        f"**Tensão:** "
-                        f"{item['tensao']}"
-                    )
+                    # =========================================
+                    # COLUNA 1
+                    # =========================================
 
-
-                    st.write(
-                        f"**Quantidade:** "
-                        f"{item['quantidade']}"
-                    )
-
-
-                    st.write(
-                        f"**Valor unitário:** "
-                        f"R$ "
-                        f"{item['valor_unitario']:,.2f}"
-                    )
-
-
-                    st.write(
-                        f"**Total do item:** "
-                        f"R$ "
-                        f"{total_item:,.2f}"
-                    )
-
-
-                    st.write(
-                        f"**Prazo:** "
-                        f"{item['prazo']}"
-                    )
-
-
-                    if item.get(
-                        "observacao"
-                    ):
+                    with c1:
 
                         st.write(
-                            f"**Observação:** "
-                            f"{item['observacao']}"
+                            "**Tipo:**",
+                            variaveis.get("V01"),
+                        )
+
+                        st.write(
+                            "**Atuação:**",
+                            variaveis.get("V02"),
+                        )
+
+                        st.write(
+                            "**Vias:**",
+                            variaveis.get("V03"),
+                        )
+
+                        st.write(
+                            "**Estado:**",
+                            variaveis.get("V04"),
+                        )
+
+                        st.write(
+                            "**Corpo:**",
+                            variaveis.get("V05"),
+                        )
+
+                        st.write(
+                            "**Vedação:**",
+                            variaveis.get("V06"),
                         )
 
 
                     # =========================================
-                    # DADOS TÉCNICOS DO MOTOR
+                    # COLUNA 2
                     # =========================================
 
-                    if item.get(
-                        "variaveis"
-                    ):
+                    with c2:
 
-                        variaveis = (
-                            item[
-                                "variaveis"
-                            ]
+                        st.write(
+                            "**Conexão:**",
+                            variaveis.get("V07"),
+                        )
+
+                        st.write(
+                            "**Rosca:**",
+                            variaveis.get("V08"),
+                        )
+
+                        st.write(
+                            "**Orifício:**",
+                            variaveis.get("V09"),
+                        )
+
+                        st.write(
+                            "**Pressão mínima:**",
+                            variaveis.get("V10"),
+                        )
+
+                        st.write(
+                            "**Pressão máxima:**",
+                            variaveis.get("V11"),
+                        )
+
+                        st.write(
+                            "**Temperatura:**",
+                            variaveis.get("V12"),
                         )
 
 
-                        with st.expander(
-                            "Ver dados técnicos gerados"
-                        ):
+                    # =========================================
+                    # COLUNA 3
+                    # =========================================
 
-                            # ===============================
-                            # V01
-                            # ===============================
+                    with c3:
 
-                            st.write(
-                                "**V01 - Tipo:**",
-                                variaveis.get(
-                                    "V01"
-                                )
-                            )
+                        v13 = (
+                            variaveis.get("V13")
+                            or {}
+                        )
 
+                        st.write(
+                            "**Bobina:**",
+                            v13.get("tipo_bobina"),
+                        )
 
-                            # ===============================
-                            # V02
-                            # ===============================
+                        st.write(
+                            "**Classe térmica:**",
+                            v13.get("classe_termica"),
+                        )
 
-                            st.write(
-                                "**V02 - Atuação:**",
-                                variaveis.get(
-                                    "V02"
-                                )
-                            )
+                        st.write(
+                            "**Proteção:**",
+                            v13.get("protecao"),
+                        )
 
+                        st.write(
+                            "**Conexão elétrica:**",
+                            v13.get("conexao_eletrica"),
+                        )
 
-                            # ===============================
-                            # V03
-                            # ===============================
+                        st.write(
+                            "**Certificação:**",
+                            v13.get("certificacao"),
+                        )
 
-                            st.write(
-                                "**V03 - Vias:**",
-                                variaveis.get(
-                                    "V03"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V04
-                            # ===============================
-
-                            st.write(
-                                "**V04 - Estado:**",
-                                variaveis.get(
-                                    "V04"
-                                )
-                            )
+                        st.write(
+                            "**Potência:**",
+                            variaveis.get("V14"),
+                        )
 
 
-                            # ===============================
-                            # V05
-                            # ===============================
+                    # =========================================
+                    # EXTRAS
+                    # =========================================
 
-                            st.write(
-                                "**V05 - Corpo:**",
-                                variaveis.get(
-                                    "V05"
-                                )
-                            )
+                    v15 = (
+                        variaveis.get("V15")
+                        or {}
+                    )
 
+                    extras = (
+                        v15.get("extras")
+                        or []
+                    )
 
-                            # ===============================
-                            # V06
-                            # ===============================
+                    if extras:
+
+                        st.write(
+                            "**Extras:**"
+                        )
+
+                        for extra in extras:
 
                             st.write(
-                                "**V06 - Vedação:**",
-                                variaveis.get(
-                                    "V06"
-                                )
+                                f"- "
+                                f"{extra.get('codigo')}: "
+                                f"{extra.get('texto')}"
                             )
 
 
-                            # ===============================
-                            # V07
-                            # ===============================
+                    # =========================================
+                    # KV
+                    # =========================================
 
-                            st.write(
-                                "**V07 - Conexão:**",
-                                variaveis.get(
-                                    "V07"
-                                )
-                            )
+                    st.write(
+                        "**Kv:**",
+                        variaveis.get("V16"),
+                    )
 
 
-                            # ===============================
-                            # V08
-                            # ===============================
+                    # =========================================
+                    # IMAGEM
+                    # =========================================
 
-                            st.write(
-                                "**V08 - Rosca:**",
-                                variaveis.get(
-                                    "V08"
-                                )
-                            )
+                    nome_imagem = (
+                        variaveis.get("V17")
+                    )
 
+                    if nome_imagem:
 
-                            # ===============================
-                            # V09
-                            # ===============================
-
-                            st.write(
-                                "**V09 - Orifício:**",
-                                variaveis.get(
-                                    "V09"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V10
-                            # ===============================
-
-                            st.write(
-                                "**V10 - Pressão mínima:**",
-                                variaveis.get(
-                                    "V10"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V11
-                            # ===============================
-
-                            st.write(
-                                "**V11 - Pressão máxima:**",
-                                variaveis.get(
-                                    "V11"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V12
-                            # ===============================
-
-                            st.write(
-                                "**V12 - Temperatura:**",
-                                variaveis.get(
-                                    "V12"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V13
-                            # ===============================
-
-                            v13 = (
-                                variaveis.get(
-                                    "V13"
-                                )
-                                or {}
-                            )
-
-
-                            st.write(
-                                "**V13 - Tipo da bobina:**",
-                                v13.get(
-                                    "tipo_bobina"
-                                )
-                            )
-
-
-                            st.write(
-                                "**V13 - Classe térmica:**",
-                                v13.get(
-                                    "classe_termica"
-                                )
-                            )
-
-
-                            st.write(
-                                "**V13 - Proteção:**",
-                                v13.get(
-                                    "protecao"
-                                )
-                            )
-
-
-                            st.write(
-                                "**V13 - Conexão elétrica:**",
-                                v13.get(
-                                    "conexao_eletrica"
-                                )
-                            )
-
-
-                            st.write(
-                                "**V13 - Certificação:**",
-                                v13.get(
-                                    "certificacao"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V14
-                            # ===============================
-
-                            st.write(
-                                "**V14 - Potência:**",
-                                variaveis.get(
-                                    "V14"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V15
-                            # ===============================
-
-                            v15 = (
-                                variaveis.get(
-                                    "V15"
-                                )
-                                or {}
-                            )
-
-
-                            extras = (
-                                v15.get(
-                                    "extras"
-                                )
-                                or []
-                            )
-
-
-                            st.write(
-                                "**V15 - Extras:**"
-                            )
-
-
-                            if extras:
-
-                                for extra in extras:
-
-                                    st.write(
-                                        f"- "
-                                        f"{extra.get('codigo')}: "
-                                        f"{extra.get('texto')}"
-                                    )
-
-
-                            else:
-
-                                st.write(
-                                    "Nenhum extra."
-                                )
-
-
-                            # ===============================
-                            # V16
-                            # ===============================
-
-                            st.write(
-                                "**V16 - Kv:**",
-                                variaveis.get(
-                                    "V16"
-                                )
-                            )
-
-
-                            # ===============================
-                            # V17
-                            # ===============================
-
-                            nome_imagem = (
-                                variaveis.get(
-                                    "V17"
-                                )
-                            )
-
-
-                            st.write(
-                                "**V17 - Imagem:**",
+                        url_imagem = (
+                            obter_url_imagem(
                                 nome_imagem
                             )
-
-
-                            if nome_imagem:
-
-                                url_imagem = (
-                                    obter_url_imagem(
-                                        nome_imagem
-                                    )
-                                )
-
-
-                                st.image(
-                                    url_imagem,
-                                    width=300,
-                                )
-
-
-                            else:
-
-                                st.info(
-                                    "Imagem não identificada "
-                                    "para este produto."
-                                )
-
-
-                # =============================================
-                # EXCLUIR ITEM
-                # =============================================
-
-                with c2:
-
-                    if st.button(
-                        "Excluir",
-                        key=(
-                            f"excluir_item_"
-                            f"{indice}"
-                        ),
-                        use_container_width=True,
-                    ):
-
-                        st.session_state.orcamento_itens.pop(
-                            indice
                         )
 
-                        st.rerun()
+                        st.image(
+                            url_imagem,
+                            width=250,
+                        )
 
 
         # =====================================================
-        # TOTAL
+        # TOTAL DO ORÇAMENTO
         # =====================================================
-
-        st.metric(
-            "Total do orçamento",
-            f"R$ "
-            f"{total_orcamento:,.2f}"
-        )
-
 
         st.divider()
 
+        st.metric(
+            "Total do orçamento",
+            f"R$ {total_orcamento:,.2f}"
+        )
 
+        st.divider()
     # =========================================================
     # ADICIONAR NOVO ITEM
     # =========================================================
