@@ -881,7 +881,10 @@ if st.session_state.show_cancelar_modal:
 
 with st.sidebar:
     st.markdown("## Jefferson App")
-    st.caption(f"{st.session_state.nome} ({st.session_state.setor})")
+    st.caption(
+        f"{st.session_state.nome} "
+        f"({st.session_state.setor})"
+    )
 
     if st.session_state.setor == "ADMINISTRADOR":
         paginas = [
@@ -895,6 +898,12 @@ with st.sidebar:
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
+        ]
+
+    elif st.session_state.setor == "MONTAGEM":
+        paginas = [
+            "Fila de Pedidos",
+            "Orçamentos",
         ]
 
     else:
@@ -937,8 +946,15 @@ elif pagina == "Importar Clientes":
 
 elif pagina == "Orçamentos":
 
-    if st.session_state.setor not in ["VENDAS", "ADMINISTRADOR"]:
-        st.error("Você não possui permissão para acessar esta página.")
+    if st.session_state.setor not in [
+        "VENDAS",
+        "ADMINISTRADOR",
+        "MONTAGEM",
+    ]:
+        st.error(
+            "Você não possui permissão "
+            "para acessar esta página."
+        )
         st.stop()
 
     pagina_orcamentos()
