@@ -995,7 +995,30 @@ def definir_v03(familia, sufixos):
 # =============================================================
 
 
-def definir_v04(numero_vias, sufixos):
+def definir_v04(
+    familia,
+    numero_vias,
+    sufixos,
+):
+
+
+    # =========================================================
+    # REGRA ESPECIAL - 1323 / 1365
+    # =========================================================
+
+    if familia in ["1323", "1365"]:
+
+        if "C" in sufixos:
+            return "normalmente fechada"
+
+        if "A" in sufixos:
+            return "normalmente aberta"
+
+        if "D" in sufixos:
+            return "divergente"
+
+        return None
+	
     """
     Define a V04 - posição/estado da válvula.
 
@@ -1135,7 +1158,49 @@ REGRAS_V07_TAMANHO_CONEXAO = {
 }
 
 
-def definir_v07(codigo_conexao):
+def definir_v07(
+    familia,
+    bloco_numeros,
+    codigo_conexao,
+):
+
+    # =========================================================
+    # REGRA ESPECIAL - 1323
+    # =========================================================
+
+    if familia == "1323":
+
+        if (
+            bloco_numeros
+            and len(bloco_numeros) == 2
+        ):
+            return '1/4"'
+
+        if (
+            bloco_numeros
+            and len(bloco_numeros) == 3
+            and bloco_numeros[-1] == "1"
+        ):
+            return '1/8"'
+
+        return None
+
+
+    # =========================================================
+    # REGRA STANDARD
+    # =========================================================
+
+    if codigo_conexao is None:
+        return None
+
+    codigo_normalizado = (
+        codigo_conexao.zfill(2)
+    )
+
+    return REGRAS_V07_TAMANHO_CONEXAO.get(
+        codigo_normalizado
+    )
+	
     """
     Define a V07 - tamanho da conexão.
 
@@ -1144,15 +1209,6 @@ def definir_v07(codigo_conexao):
     "2"  -> normaliza para "02" -> 1/4"
     "10" -> 1 1/4"
     """
-
-    if codigo_conexao is None:
-        return None
-
-    codigo_normalizado = codigo_conexao.zfill(2)
-
-    return REGRAS_V07_TAMANHO_CONEXAO.get(
-        codigo_normalizado
-    )
 
 # =============================================================
 # V08 - TIPO DE ROSCA / CONEXÃO
@@ -4691,8 +4747,9 @@ def gerar_variaveis_descricao(
 
     # V04 - Estado / posição
     v04 = definir_v04(
-        v03,
-        sufixos
+    	familia,
+    	v03,
+    	sufixos,
     )
 
 
@@ -4710,7 +4767,9 @@ def gerar_variaveis_descricao(
 
     # V07 - Tamanho da conexão
     v07 = definir_v07(
-        codigo_conexao
+    	familia,
+    	bloco_numeros,
+    	codigo_conexao,
     )
 
 
