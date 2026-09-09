@@ -4970,12 +4970,13 @@ def identificar_tipo_alimentacao(tensao):
 
 
 BOBINAS_ESPECIAIS = {
-    "GS",
     "GF06C",
     "SB254",
     "SB255",
     "SB292",
     "SB298",
+    "AD8W",
+    "AD17W",
 }
 
 
@@ -5030,6 +5031,60 @@ def observacao_pede_meia_npt(observacao):
     )
 
 
+def definir_imagem_bobina(
+    codigo,
+    tipo_bobina,
+    encapsulada,
+    prova_explosao
+):
+
+    # =========================================================
+    # IMAGENS POR CÓDIGO ESPECIAL
+    # =========================================================
+
+    imagens_especiais = {
+        "GF06C": "BOBINA_GF.png",
+        "SB254": "BOBINA_SB254.png",
+        "SB255": "BOBINA_SB255.png",
+    }
+
+    if codigo in imagens_especiais:
+        return imagens_especiais[codigo]
+
+
+    # =========================================================
+    # TIPO M
+    # =========================================================
+
+    if tipo_bobina == "M":
+
+        if prova_explosao:
+            return "BOBINA_M_Z.png"
+
+        if encapsulada:
+            return "BOBINA_M_C.png"
+
+        return "BOBINA_M.png"
+
+
+    # =========================================================
+    # TIPO S
+    # =========================================================
+
+    if tipo_bobina == "S":
+        return "BOBINA_S.png"
+
+
+    # =========================================================
+    # TIPO B
+    # =========================================================
+
+    if tipo_bobina == "B":
+        return "BOBINA_B.png"
+
+
+    return None
+
 def interpretar_bobina(
     codigo,
     tensao="",
@@ -5049,19 +5104,88 @@ def interpretar_bobina(
 
     if codigo in BOBINAS_ESPECIAIS:
 
-        return {
-            "sucesso": False,
-            "erro": (
-                f"A bobina especial {codigo} foi reconhecida, "
-                "mas suas regras técnicas ainda não foram cadastradas."
+        imagens_especiais = {
+            "GF06C": "BOBINA_GF.png",
+            "SB254": "BOBINA_SB254.png",
+            "SB255": "BOBINA_SB255.png",
+        }
+
+        imagem = imagens_especiais.get(
+            codigo
+        )
+
+        parser_bobina = {
+            "codigo_original": codigo,
+            "sucesso": True,
+            "status": "BOBINA ESPECIAL RECONHECIDA",
+            "classe_produto": "BOBINA",
+            "tipo_bobina": "ESPECIAL",
+            "potencia": None,
+            "classe_fio": None,
+            "encapsulada": None,
+            "prova_explosao": None,
+            "especial": True,
+        }
+
+        variaveis_bobina = {
+
+            "CLASSE_PRODUTO": "BOBINA",
+
+            "VB01": "ESPECIAL",
+            "VB02": None,
+            "VB03": None,
+            "VB04": None,
+            "VB05": None,
+            "VB06": None,
+            "VB07": None,
+
+            "TENSAO": (
+                str(tensao)
+                .strip()
+                .upper()
             ),
-            "parser": {
-                "codigo_original": codigo,
-                "classe_produto": "BOBINA",
-                "tipo_bobina": "ESPECIAL",
-                "especial": True,
+
+            "V01": "Bobina",
+
+            "V02": None,
+            "V03": None,
+            "V04": None,
+            "V05": None,
+            "V06": None,
+            "V07": None,
+            "V08": None,
+            "V09": None,
+            "V10": None,
+            "V11": None,
+            "V12": None,
+
+            "V13": {
+                "tipo_bobina": "Especial",
+                "construcao": None,
+                "classe_termica": None,
+                "protecao": None,
+                "conexao_eletrica": None,
+                "certificacao": None,
             },
-            "variaveis": None,
+
+            "V14": None,
+
+            "V15": {
+                "prefixos": [],
+                "sufixos": [],
+                "extras": [],
+            },
+
+            "V16": None,
+
+            "V17": imagem,
+        }
+
+        return {
+            "sucesso": True,
+            "erro": None,
+            "parser": parser_bobina,
+            "variaveis": variaveis_bobina,
         }
 
 
@@ -5187,6 +5311,16 @@ def interpretar_bobina(
 
 
     # =========================================================
+    # IMAGEM DA BOBINA
+    # =========================================================
+
+    imagem = definir_imagem_bobina(
+        codigo,
+        tipo_bobina,
+        encapsulada,
+        prova_explosao,
+    )
+    # =========================================================
     # PARSER DA BOBINA
     # =========================================================
 
@@ -5274,7 +5408,7 @@ def interpretar_bobina(
         },
 
         "V16": None,
-        "V17": None,
+        "V17": imagem,
     }
 
 
