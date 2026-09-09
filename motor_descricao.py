@@ -4964,7 +4964,326 @@ def identificar_tipo_alimentacao(tensao):
 
     return None
 
+# =============================================================
+# MOTOR DE BOBINAS AVULSAS
+# =============================================================
 
+
+BOBINAS_ESPECIAIS = {
+    "GS",
+    "GF06C",
+    "SB254",
+    "SB255",
+    "SB292",
+    "SB298",
+}
+
+
+def codigo_parece_bobina(codigo):
+
+    if not codigo:
+        return False
+
+    codigo = (
+        str(codigo)
+        .strip()
+        .upper()
+        .replace(" ", "")
+    )
+
+    # Bobinas especiais conhecidas
+    if codigo in BOBINAS_ESPECIAIS:
+        return True
+
+    # Bobinas standard começam com M, S ou B
+    if codigo[0] not in ["M", "S", "B"]:
+        return False
+
+    # Bobinas standard precisam possuir potência numérica
+    if not re.search(r"\d+", codigo):
+        return False
+
+    return True
+
+
+def observacao_pede_meia_npt(observacao):
+
+    if not observacao:
+        return False
+
+    texto = (
+        str(observacao)
+        .strip()
+        .upper()
+        .replace(" ", "")
+    )
+
+    padroes = [
+        '1/2"NPT',
+        "1/2NPT",
+        "1/2-NPT",
+    ]
+
+    return any(
+        padrao in texto
+        for padrao in padroes
+    )
+
+
+def interpretar_bobina(
+    codigo,
+    tensao="",
+    observacao=""
+):
+
+    codigo = (
+        str(codigo)
+        .strip()
+        .upper()
+        .replace(" ", "")
+    )
+
+    # =========================================================
+    # BOBINAS ESPECIAIS
+    # =========================================================
+
+    if codigo in BOBINAS_ESPECIAIS:
+
+        return {
+            "sucesso": False,
+            "erro": (
+                f"A bobina especial {codigo} foi reconhecida, "
+                "mas suas regras técnicas ainda não foram cadastradas."
+            ),
+            "parser": {
+                "codigo_original": codigo,
+                "classe_produto": "BOBINA",
+                "tipo_bobina": "ESPECIAL",
+                "especial": True,
+            },
+            "variaveis": None,
+        }
+
+
+    # =========================================================
+    # TIPO DA BOBINA
+    # =========================================================
+
+    tipo_bobina = codigo[0]
+
+    if tipo_bobina not in [
+        "M",
+        "S",
+        "B",
+    ]:
+
+        return {
+            "sucesso": False,
+            "erro": "Tipo de bobina não reconhecido.",
+            "parser": None,
+            "variaveis": None,
+        }
+
+
+    # =========================================================
+    # POTÊNCIA
+    # =========================================================
+
+    match_potencia = re.search(
+        r"\d+",
+        codigo
+    )
+
+    if not match_potencia:
+
+        return {
+            "sucesso": False,
+            "erro": "Potência da bobina não encontrada.",
+            "parser": None,
+            "variaveis": None,
+        }
+
+    potencia_numero = (
+        match_potencia.group()
+    )
+
+    potencia = (
+        f"{potencia_numero} W"
+    )
+
+
+    # =========================================================
+    # CLASSE DO FIO
+    # =========================================================
+
+    if "H" in codigo:
+
+        classe_fio = "H"
+        classe_termica = "Classe H"
+
+    elif "P" in codigo:
+
+        classe_fio = "P"
+        classe_termica = (
+            "Classe H com tratamento em poliéster"
+        )
+
+    else:
+
+        classe_fio = None
+        classe_termica = None
+
+
+    # =========================================================
+    # CONSTRUÇÃO
+    # =========================================================
+
+    termina_c = codigo.endswith("C")
+    termina_z = codigo.endswith("Z")
+
+    encapsulada = (
+        termina_c
+        or termina_z
+    )
+
+    prova_explosao = termina_z
+
+
+    if encapsulada:
+        construcao = "Encapsulada"
+        protecao = "IP65"
+
+        if observacao_pede_meia_npt(
+            observacao
+        ):
+
+            conexao_eletrica = '1/2" NPT'
+
+        else:
+
+            conexao_eletrica = (
+                "Conector plug-in com "
+                "prensa-cabo PG9"
+            )
+
+    else:
+
+        construcao = "Desencapsulada"
+        protecao = None
+        conexao_eletrica = None
+
+
+    # =========================================================
+    # CERTIFICAÇÃO / PROTEÇÃO ESPECIAL
+    # =========================================================
+
+    if prova_explosao:
+
+        versao = "À prova de explosão"
+
+    else:
+
+        versao = "Standard"
+
+
+    # =========================================================
+    # PARSER DA BOBINA
+    # =========================================================
+
+    parser_bobina = {
+        "codigo_original": codigo,
+        "sucesso": True,
+        "status": "BOBINA INTERPRETADA",
+        "classe_produto": "BOBINA",
+        "tipo_bobina": tipo_bobina,
+        "potencia": potencia,
+        "classe_fio": classe_fio,
+        "encapsulada": encapsulada,
+        "prova_explosao": prova_explosao,
+        "especial": False,
+    }
+
+
+    # =========================================================
+    # VARIÁVEIS PRÓPRIAS DA BOBINA
+    # =========================================================
+
+    variaveis_bobina = {
+
+        "CLASSE_PRODUTO": "BOBINA",
+
+        "VB01": tipo_bobina,
+
+        "VB02": potencia,
+
+        "VB03": classe_fio,
+
+        "VB04": construcao,
+
+        "VB05": protecao,
+
+        "VB06": conexao_eletrica,
+
+        "VB07": versao,
+
+        "TENSAO": (
+            str(tensao)
+            .strip()
+            .upper()
+        ),
+
+        # =====================================================
+        # COMPATIBILIDADE COM O FORMATO ATUAL DO ORÇAMENTO
+        # =====================================================
+
+        "V01": "Bobina",
+
+        "V02": None,
+        "V03": None,
+        "V04": None,
+        "V05": None,
+        "V06": None,
+        "V07": None,
+        "V08": None,
+        "V09": None,
+        "V10": None,
+        "V11": None,
+        "V12": None,
+
+        "V13": {
+            "tipo_bobina": (
+                f"Tipo {tipo_bobina}"
+            ),
+            "construcao": construcao,
+            "classe_termica": classe_termica,
+            "protecao": protecao,
+            "conexao_eletrica": conexao_eletrica,
+            "certificacao": (
+                "À prova de explosão"
+                if prova_explosao
+                else None
+            ),
+        },
+
+        "V14": potencia,
+
+        "V15": {
+            "prefixos": [],
+            "sufixos": [],
+            "extras": [],
+        },
+
+        "V16": None,
+        "V17": None,
+    }
+
+
+    return {
+        "sucesso": True,
+        "erro": None,
+        "parser": parser_bobina,
+        "variaveis": variaveis_bobina,
+    }
 
 # =============================================================
 # FUNÇÃO FINAL PARA USO NO APP
@@ -4972,21 +5291,45 @@ def identificar_tipo_alimentacao(tensao):
 
 def processar_produto(
     codigo,
-    tensao
+    tensao,
+    observacao=""
 ):
 
-    # ---------------------------------------------------------
-    # 1. INTERPRETAR CÓDIGO
-    # ---------------------------------------------------------
-
-    resultado = interpretar_codigo(
-        codigo
+    codigo_normalizado = (
+        str(codigo)
+        .strip()
+        .upper()
+        .replace(" ", "")
     )
 
 
-    # ---------------------------------------------------------
-    # 2. ERRO GRAVE DO PARSER
-    # ---------------------------------------------------------
+    # =========================================================
+    # 1. VERIFICAR SE É BOBINA AVULSA
+    # =========================================================
+
+    if codigo_parece_bobina(
+        codigo_normalizado
+    ):
+
+        return interpretar_bobina(
+            codigo_normalizado,
+            tensao,
+            observacao,
+        )
+
+
+    # =========================================================
+    # 2. INTERPRETAR CÓDIGO DE VÁLVULA
+    # =========================================================
+
+    resultado = interpretar_codigo(
+        codigo_normalizado
+    )
+
+
+    # =========================================================
+    # 3. ERRO GRAVE DO PARSER
+    # =========================================================
 
     if resultado.get("erro"):
 
@@ -4998,32 +5341,36 @@ def processar_produto(
         }
 
 
-    # ---------------------------------------------------------
-    # 3. CÓDIGO NÃO INTERPRETADO COMPLETAMENTE
-    # ---------------------------------------------------------
+    # =========================================================
+    # 4. CÓDIGO NÃO INTERPRETADO COMPLETAMENTE
+    # =========================================================
 
     if not resultado.get("sucesso"):
 
         return {
             "sucesso": False,
-            "erro": "Código não interpretado completamente.",
+            "erro": (
+                "Código não interpretado completamente."
+            ),
             "parser": resultado,
             "variaveis": None,
         }
 
 
-    # ---------------------------------------------------------
-    # 4. IDENTIFICAR HZ / VCC PELA TENSÃO
-    # ---------------------------------------------------------
+    # =========================================================
+    # 5. IDENTIFICAR HZ / VCC
+    # =========================================================
 
-    tipo_alimentacao = identificar_tipo_alimentacao(
-        tensao
+    tipo_alimentacao = (
+        identificar_tipo_alimentacao(
+            tensao
+        )
     )
 
 
-    # ---------------------------------------------------------
-    # 5. GERAR V01 ATÉ V16
-    # ---------------------------------------------------------
+    # =========================================================
+    # 6. GERAR VARIÁVEIS DE VÁLVULA
+    # =========================================================
 
     variaveis = gerar_variaveis_descricao(
         resultado,
@@ -5031,9 +5378,9 @@ def processar_produto(
     )
 
 
-    # ---------------------------------------------------------
-    # 6. RESULTADO FINAL
-    # ---------------------------------------------------------
+    # =========================================================
+    # 7. RESULTADO FINAL
+    # =========================================================
 
     return {
         "sucesso": True,
