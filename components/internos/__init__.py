@@ -1,0 +1,1 @@
+# Regras dos componentes internos.
