@@ -72,6 +72,37 @@ def mover_pedido(pedido_id: int, origem: str, destino: str, usuario: str):
     return True
 
 
+
+def salvar_peso_volumes(pedido_id: int, peso_total: float, quantidade_volumes: int, usuario: str):
+    dados = {
+        "peso_total": peso_total,
+        "quantidade_volumes": quantidade_volumes,
+    }
+
+    response = (
+        supabase
+        .table(TABELA_PEDIDOS)
+        .update(dados)
+        .eq("id", pedido_id)
+        .execute()
+    )
+
+    if response.data:
+        registrar_movimentacao(
+            pedido_id=pedido_id,
+            origem="",
+            destino="",
+            usuario=usuario,
+            tipo_evento="PESO_VOLUMES",
+            observacao=(
+                f"Peso total {peso_total} kg e {quantidade_volumes} volume(s) "
+                f"registrados por {usuario}."
+            ),
+        )
+
+    return bool(response.data)
+
+
 def cancelar_pedido(pedido_id: int, usuario: str):
     response = (
         supabase
