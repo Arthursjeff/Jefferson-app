@@ -6,6 +6,7 @@ from core.pedidos import (
     registrar_nota_fiscal,
     cancelar_pedido,
     listar_movimentacoes,
+    salvar_peso_volumes,
 )
 
 from core.fotos import salvar_foto_pedido
@@ -131,16 +132,16 @@ def criar_novo_pedido(numero_pedido: str, cliente: str, usuario: str, setor_usua
 
     return True, "Pedido criado com sucesso."
 
-def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
+def obter_destino_pedido(pedido: dict):
     estado_atual = pedido.get("setor_atual")
 
     if estado_atual not in ESTADOS_FILA:
-        return False, "Estado atual inválido."
+        return None
 
     idx = ESTADOS_FILA.index(estado_atual)
 
     if idx >= len(ESTADOS_FILA) - 1:
-        return False, "Pedido já está no último estágio."
+        return None
 
     destino = ESTADOS_FILA[idx + 1]
 
@@ -156,8 +157,128 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
 
     if estado_atual in ["PROGRAMADO", "IMPORTACAO"]:
         destino = "MONTADOS"
+
+    return destino
+
+
+def dados_peso_volumes_validos(pedido: dict):
+    try:
+        peso = float(pedido.get("peso_total"))
+        volumes = int(pedido.get("quantidade_volumes"))
+    except (TypeError, ValueError):
+        return False
+
+    return peso > 0 and volumes > 0
+
+
+def registrar_peso_volumes(
+    pedido: dict,
+    peso_total,
+    quantidade_volumes,
+    usuario: str,
+    setor_usuario: str,
+):
+    if setor_usuario not in ["MONTAGEM", "ADMINISTRADOR"]:
+        return False, "Somente MONTAGEM ou ADMINISTRADOR pode informar peso e volumes."
+
+    try:
+        peso = float(peso_total)
+        volumes = int(quantidade_volumes)
+    except (TypeError, ValueError):
+        return False, "Informe peso e quantidade de volumes válidos."
+
+    if peso <= 0:
+        return False, "O peso total deve ser maior que zero."
+
+    if volumes <= 0:
+        return False, "A quantidade de volumes deve ser maior que zero."
+
+    estado_atual = pedido.get("setor_atual")
+    tipo = pedido.get("tipo_pedido")
+
+    pode_editar_antecipado = estado_atual == "PROGRAMADO" and tipo == "PROGRAMADO"
+    regularizacao_legado = estado_atual == "MONTADOS" and not dados_peso_volumes_validos(pedido)
+
+    if not pode_editar_antecipado and not regularizacao_legado:
+        return False, "Peso e volumes não podem ser editados neste estágio."
+
+    sucesso = salvar_peso_volumes(
+        pedido_id=pedido["id"],
+        peso_total=peso,
+        quantidade_volumes=volumes,
+        usuario=usuario,
+    )
+
+    if not sucesso:
+        return False, "Erro ao salvar peso e volumes."
+
+    return True, "Peso e volumes salvos com sucesso."
+
+
+def salvar_peso_volumes_e_avancar(
+    pedido: dict,
+    peso_total,
+    quantidade_volumes,
+    usuario: str,
+    setor_usuario: str,
+):
+    destino = obter_destino_pedido(pedido)
+
+    if destino != "MONTADOS":
+        return False, "Esta operação só pode ser usada ao avançar para Montados."
+
+    try:
+        peso = float(peso_total)
+        volumes = int(quantidade_volumes)
+    except (TypeError, ValueError):
+        return False, "Informe peso e quantidade de volumes válidos."
+
+    if peso <= 0:
+        return False, "O peso total deve ser maior que zero."
+
+    if volumes <= 0:
+        return False, "A quantidade de volumes deve ser maior que zero."
+
+    if not pode_mover(setor_usuario, pedido.get("setor_atual"), destino):
+        return False, "Usuário sem permissão para esta movimentação."
+
+    sucesso_dados = salvar_peso_volumes(
+        pedido_id=pedido["id"],
+        peso_total=peso,
+        quantidade_volumes=volumes,
+        usuario=usuario,
+    )
+
+    if not sucesso_dados:
+        return False, "Erro ao salvar peso e volumes."
+
+    pedido_atualizado = dict(pedido)
+    pedido_atualizado["peso_total"] = peso
+    pedido_atualizado["quantidade_volumes"] = volumes
+
+    return avancar_pedido(
+        pedido=pedido_atualizado,
+        usuario=usuario,
+        setor_usuario=setor_usuario,
+    )
+
+
+def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
+    estado_atual = pedido.get("setor_atual")
+
+    if estado_atual not in ESTADOS_FILA:
+        return False, "Estado atual inválido."
+
+    destino = obter_destino_pedido(pedido)
+
+    if destino is None:
+        return False, "Pedido já está no último estágio."
+
     if not pode_mover(setor_usuario, estado_atual, destino):
         return False, "Usuário sem permissão para esta movimentação."
+
+    if destino == "MONTADOS" and not dados_peso_volumes_validos(pedido):
+        return False, "Informe o peso total e a quantidade de volumes antes de avançar para Montados."
 
     sucesso = mover_pedido(
         pedido_id=pedido["id"],
