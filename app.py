@@ -28,6 +28,10 @@ from modules.modulo_01.service import (
     adicionar_mensagem,
     obter_mensagens,
     remover_mensagem,
+    obter_destino_pedido,
+    dados_peso_volumes_validos,
+    registrar_peso_volumes,
+    salvar_peso_volumes_e_avancar,
 )
 
 
@@ -120,6 +124,98 @@ def init_session():
     st.session_state.setdefault("filas_minimizadas", {})
     st.session_state.setdefault("show_trocar_operador", False)
     st.session_state.setdefault("pedido_nf", None)
+    st.session_state.setdefault("show_peso_volume_modal", False)
+    st.session_state.setdefault("pedido_peso_volume", None)
+    st.session_state.setdefault("peso_volume_avancar", False)
+
+def abrir_modal_peso_volume(pedido, avancar=False):
+    st.session_state.show_peso_volume_modal = True
+    st.session_state.pedido_peso_volume = pedido
+    st.session_state.peso_volume_avancar = avancar
+
+
+def fechar_modal_peso_volume():
+    st.session_state.show_peso_volume_modal = False
+    st.session_state.pedido_peso_volume = None
+    st.session_state.peso_volume_avancar = False
+
+
+@st.dialog("📦 Peso e volumes")
+def modal_peso_volume():
+    pedido = st.session_state.get("pedido_peso_volume")
+    avancar = st.session_state.get("peso_volume_avancar", False)
+
+    if not pedido:
+        st.error("Pedido não encontrado.")
+        return
+
+    st.write(f"Pedido: **{pedido.get('numero_pedido')} - {pedido.get('cliente')}**")
+
+    if avancar:
+        st.warning("Peso total e quantidade de volumes são obrigatórios para entrar em Montados.")
+    else:
+        st.caption("Você pode atualizar estes dados enquanto o pedido permanecer em Programados.")
+
+    peso_atual = pedido.get("peso_total")
+    volumes_atual = pedido.get("quantidade_volumes")
+
+    peso = st.number_input(
+        "Peso total (kg)",
+        min_value=0.0,
+        value=float(peso_atual) if peso_atual is not None else 0.0,
+        step=0.001,
+        format="%.3f",
+        key=f"peso_total_{pedido['id']}",
+    )
+
+    volumes = st.number_input(
+        "Quantidade de volumes",
+        min_value=1,
+        value=int(volumes_atual) if volumes_atual is not None and int(volumes_atual) > 0 else 1,
+        step=1,
+        key=f"quantidade_volumes_{pedido['id']}",
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Cancelar", key=f"cancelar_peso_volume_{pedido['id']}", use_container_width=True):
+            fechar_modal_peso_volume()
+            st.rerun()
+
+    with c2:
+        texto_botao = "Salvar e avançar" if avancar else "Salvar"
+        if st.button(
+            texto_botao,
+            key=f"salvar_peso_volume_{pedido['id']}",
+            type="primary",
+            use_container_width=True,
+        ):
+            if avancar:
+                sucesso, mensagem = salvar_peso_volumes_e_avancar(
+                    pedido=pedido,
+                    peso_total=peso,
+                    quantidade_volumes=volumes,
+                    usuario=st.session_state.nome,
+                    setor_usuario=st.session_state.setor,
+                )
+            else:
+                sucesso, mensagem = registrar_peso_volumes(
+                    pedido=pedido,
+                    peso_total=peso,
+                    quantidade_volumes=volumes,
+                    usuario=st.session_state.nome,
+                    setor_usuario=st.session_state.setor,
+                )
+
+            if sucesso:
+                fechar_modal_peso_volume()
+                st.session_state.pedido_aberto = None
+                st.success(mensagem)
+                st.rerun()
+            else:
+                st.warning(mensagem)
+
 
 def abrir_modal_nf(pedido):
     st.session_state.show_nf_modal = True
@@ -719,6 +815,42 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
                         st.info(f"🧾 Nota Fiscal: {pedido.get('nota_fiscal')}")
+
+                    if dados_peso_volumes_validos(pedido):
+                        peso_formatado = f"{float(pedido.get('peso_total')):.3f}".replace(".", ",")
+                        st.info(
+                            f"📦 Peso: {peso_formatado} kg | "
+                            f"Volumes: {int(pedido.get('quantidade_volumes'))}"
+                        )
+                    elif estado == "MONTADOS":
+                        st.warning("📦 Peso e volumes pendentes (pedido anterior à nova validação).")
+
+                    if (
+                        estado == "PROGRAMADO"
+                        and pedido.get("tipo_pedido") == "PROGRAMADO"
+                        and st.session_state.setor in ["MONTAGEM", "ADMINISTRADOR"]
+                    ):
+                        texto_peso = (
+                            "✏️ Editar peso e volumes"
+                            if dados_peso_volumes_validos(pedido)
+                            else "📦 Informar peso e volumes"
+                        )
+                        if st.button(texto_peso, key=f"peso_volume_programado_{pedido_id}", use_container_width=True):
+                            abrir_modal_peso_volume(pedido, avancar=False)
+                            st.rerun()
+
+                    if (
+                        estado == "MONTADOS"
+                        and not dados_peso_volumes_validos(pedido)
+                        and st.session_state.setor in ["MONTAGEM", "ADMINISTRADOR"]
+                    ):
+                        if st.button(
+                            "📦 Regularizar peso e volumes",
+                            key=f"regularizar_peso_volume_{pedido_id}",
+                            use_container_width=True,
+                        ):
+                            abrir_modal_peso_volume(pedido, avancar=False)
+                            st.rerun()
                     if contagens_alertas.get(pedido_id, 0) > 0:
                         st.error("🚨 Este pedido possui alerta ativo.")
 
@@ -813,6 +945,11 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                                     st.rerun()
 
                                 else:
+                                    destino = obter_destino_pedido(pedido)
+
+                                    if destino == "MONTADOS" and not dados_peso_volumes_validos(pedido):
+                                        abrir_modal_peso_volume(pedido, avancar=True)
+                                        st.rerun()
 
                                     sucesso, mensagem = avancar_pedido(
                                         pedido=pedido,
@@ -854,6 +991,9 @@ if not st.session_state.logado:
     st.stop()
 if st.session_state.show_nf_modal:
     modal_nota_fiscal()
+
+if st.session_state.show_peso_volume_modal and st.session_state.pedido_peso_volume:
+    modal_peso_volume()
 
 if st.session_state.show_trocar_operador:
     modal_trocar_operador()
