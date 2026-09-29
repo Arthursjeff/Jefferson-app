@@ -8,35 +8,48 @@ from core.database import supabase
 
 TABELA_MOVIMENTACOES = "fila_movimentacoes"
 
-LABEL_ETAPAS = {
-    "PEDIDO": "Pedido",
-    "EM_MONTAGEM": "Em Montagem",
-    "PROGRAMADO": "Programados",
-    "IMPORTACAO": "Importação",
-    "MONTADOS": "Montados",
-    "FATURADO": "Faturados",
-    "EMBALADO": "Embalados",
-    "RETIRADO": "Retirados",
+CLASSIFICACOES_MOVIMENTACAO = {
+    ("PEDIDO", "EM_MONTAGEM"): "Iniciou montagem",
+    ("EM_MONTAGEM", "MONTADOS"): "Finalizou montagem",
+    ("EM_MONTAGEM", "PROGRAMADO"): "Programou pedido",
+    ("EM_MONTAGEM", "IMPORTACAO"): "Programou importação",
+    ("PROGRAMADO", "MONTADOS"): "Recebeu programação",
+    ("IMPORTACAO", "MONTADOS"): "Recebeu importação",
+    ("MONTADOS", "FATURADO"): "Faturou pedido",
+    ("FATURADO", "EMBALADO"): "Embalou pedido",
+    ("EMBALADO", "RETIRADO"): "Liberou na porta",
 }
 
-
-def _label_etapa(etapa):
-    return LABEL_ETAPAS.get(etapa, str(etapa or "").replace("_", " ").title())
+ORDEM_INTERACOES = [
+    "Criou pedido",
+    "Iniciou montagem",
+    "Finalizou montagem",
+    "Programou pedido",
+    "Programou importação",
+    "Recebeu programação",
+    "Recebeu importação",
+    "Faturou pedido",
+    "Embalou pedido",
+    "Liberou na porta",
+]
 
 
 def _tipo_interacao(movimentacao):
     tipo_evento = movimentacao.get("tipo_evento")
 
     if tipo_evento == "CRIACAO":
-        return "Criação de pedido"
+        return "Criou pedido"
 
     if tipo_evento == "MOVIMENTACAO":
-        origem = movimentacao.get("origem")
-        destino = movimentacao.get("destino")
-        if origem and destino:
-            return f"{_label_etapa(origem)} → {_label_etapa(destino)}"
+        chave = (movimentacao.get("origem"), movimentacao.get("destino"))
+        return CLASSIFICACOES_MOVIMENTACAO.get(chave)
 
     return None
+
+
+def _ordenar_tipos(tipos):
+    ordem = {tipo: indice for indice, tipo in enumerate(ORDEM_INTERACOES)}
+    return sorted(tipos, key=lambda tipo: (ordem.get(tipo, 999), tipo))
 
 
 def listar_todas_movimentacoes():
@@ -79,7 +92,7 @@ def pagina_analises():
     st.caption("Módulo administrativo de indicadores do Jefferson App.")
 
     st.subheader("Interações operacionais da fila")
-    st.caption("Considera criação de pedidos e movimentações entre as etapas da fila.")
+    st.caption("Considera criação de pedidos e ações realizadas nas etapas da fila.")
 
     historico = listar_todas_movimentacoes()
 
@@ -138,7 +151,7 @@ def pagina_analises():
     usuarios_historico = sorted({
         str(m.get("usuario") or "Sem usuário") for m in filtradas_periodo
     })
-    tipos_historico = sorted({
+    tipos_historico = _ordenar_tipos({
         m["tipo_interacao"] for m in filtradas_periodo
     })
 
@@ -189,25 +202,24 @@ def pagina_analises():
 
     st.markdown("#### Interações por usuário")
     st.bar_chart(ranking.set_index("Usuário"))
-    st.dataframe(ranking, use_container_width=True, hide_index=True)
 
     matriz = defaultdict(Counter)
     for m in filtradas:
         usuario = str(m.get("usuario") or "Sem usuário")
         matriz[usuario][m["tipo_interacao"]] += 1
 
-    tipos_presentes = sorted({
-        tipo for contagem in matriz.values() for tipo in contagem
-    })
-
+    tipos_tabela = [tipo for tipo in tipos_sel if tipo in tipos_historico]
     composicao = []
-    for usuario, total_usuario in por_usuario.most_common():
+    for usuario in usuarios_sel:
+        total_usuario = sum(matriz[usuario][tipo] for tipo in tipos_tabela)
         linha = {"Usuário": usuario, "Total": total_usuario}
-        for tipo in tipos_presentes:
+        for tipo in tipos_tabela:
             linha[tipo] = matriz[usuario][tipo]
         composicao.append(linha)
 
-    st.markdown("#### Interações por usuário e etapa")
+    composicao.sort(key=lambda linha: (-linha["Total"], linha["Usuário"]))
+
+    st.markdown("#### Interações por usuário e classificação")
     st.dataframe(
         pd.DataFrame(composicao),
         use_container_width=True,
@@ -216,8 +228,8 @@ def pagina_analises():
 
     por_tipo = Counter(m["tipo_interacao"] for m in filtradas)
     df_tipos = pd.DataFrame([
-        {"Interação": tipo, "Quantidade": qtd}
-        for tipo, qtd in por_tipo.most_common()
+        {"Interação": tipo, "Quantidade": por_tipo[tipo]}
+        for tipo in tipos_tabela
     ])
 
     st.markdown("#### Distribuição das interações")
