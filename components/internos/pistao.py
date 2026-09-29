@@ -1,32 +1,22 @@
 """G3 - Conjunto pistão.
 
-O G3 é formado por:
-- pistão;
-- mola.
-
-Para o motor de componentes, pistão e mola são tratados como um conjunto:
-a mola acompanha o pistão e não é procurada separadamente em outra fonte.
+O G3 é formado por pistão e mola, tratados como conjunto inseparável.
 
 Regras validadas:
-- 1342 e 1390: família + tamanho + vedação + material do corpo
-  determinam a identidade do conjunto pistão;
+- 1342 e 1390: família + tamanho + vedação + material do corpo;
 - 2094: toda a família utiliza o mesmo conjunto pistão;
-- 2036: somente configurações com vedação em Teflon utilizam pistão.
-  Nesse caso, o tamanho determina o conjunto pistão. BSP/NPT e demais
-  características não criam outra identidade de pistão;
-- 2036 com outras vedações não utiliza G3: utiliza diafragma (G2).
+- 2036: somente Teflon utiliza pistão. 3/8" e 1/2" compartilham o mesmo
+  conjunto; os demais tamanhos são distintos. BSP/NPT não interfere;
+- 1314: utiliza pistão. Família + tamanho + vedação + variante normal/anclada
+  determinam o conjunto. O sufixo A identifica a variante anclada.
 
-Este módulo contém apenas regras de engenharia. Não consulta estoque,
-Supabase, orçamento ou interface.
+Este módulo contém apenas regras de engenharia.
 """
 
-FAMILIAS_PISTAO_VARIAVEL = {
-    "1342",
-    "1390",
-}
-
+FAMILIAS_PISTAO_VARIAVEL = {"1342", "1390"}
 FAMILIA_PISTAO_UNICO = "2094"
 FAMILIA_2036 = "2036"
+FAMILIA_1314 = "1314"
 
 
 def _normalizar(valor):
@@ -37,13 +27,25 @@ def _normalizar(valor):
 
 def _normalizar_vedacao(vedacao):
     valor = _normalizar(vedacao)
+    return {"PTFE": "TEFLON", "TEFLON": "TEFLON"}.get(valor, valor)
 
+
+def _normalizar_tamanho(tamanho):
+    valor = _normalizar(tamanho)
     equivalencias = {
-        "TEFLON": "TEFLON",
-        "PTFE": "TEFLON",
+        '3/8"': "3/8", "3/8": "3/8",
+        '1/2"': "1/2", "1/2": "1/2",
+        '3/4"': "3/4", "3/4": "3/4",
+        '1"': "1", "1": "1",
+        '1 1/2"': "1 1/2", "1 1/2": "1 1/2",
     }
-
     return equivalencias.get(valor, valor)
+
+
+def _grupo_pistao_2036(tamanho):
+    if tamanho in {"3/8", "1/2"}:
+        return "3/8_1/2"
+    return tamanho
 
 
 def usa_pistao(familia, vedacao=None):
@@ -53,13 +55,12 @@ def usa_pistao(familia, vedacao=None):
 
     if familia in FAMILIAS_PISTAO_VARIAVEL:
         return True
-
     if familia == FAMILIA_PISTAO_UNICO:
         return True
-
+    if familia == FAMILIA_1314:
+        return True
     if familia == FAMILIA_2036:
         return vedacao == "TEFLON"
-
     return False
 
 
@@ -68,21 +69,18 @@ def identificar_conjunto_pistao(
     tamanho=None,
     vedacao=None,
     material_corpo=None,
+    sufixos=None,
 ):
-    """Retorna a identidade lógica conhecida do G3.
-
-    Retorna None quando a configuração não utiliza pistão segundo as
-    regras atualmente validadas.
-    """
+    """Retorna a identidade lógica conhecida do G3."""
     familia = _normalizar(familia)
-    tamanho = _normalizar(tamanho)
+    tamanho = _normalizar_tamanho(tamanho)
     vedacao = _normalizar_vedacao(vedacao)
     material_corpo = _normalizar(material_corpo)
+    sufixos_normalizados = {
+        _normalizar(item) for item in (sufixos or []) if _normalizar(item)
+    }
 
-    if not usa_pistao(
-        familia=familia,
-        vedacao=vedacao,
-    ):
+    if not usa_pistao(familia=familia, vedacao=vedacao):
         return None
 
     if familia in FAMILIAS_PISTAO_VARIAVEL:
@@ -102,10 +100,19 @@ def identificar_conjunto_pistao(
 
     elif familia == FAMILIA_2036:
         identidade = {
-            "regra": "2036_TEFLON_POR_TAMANHO",
+            "regra": "2036_TEFLON_GRUPO_TAMANHO",
             "familia": familia,
             "vedacao": "TEFLON",
+            "grupo_tamanho": _grupo_pistao_2036(tamanho),
+        }
+
+    elif familia == FAMILIA_1314:
+        identidade = {
+            "regra": "1314_TAMANHO_VEDACAO_VARIANTE",
+            "familia": familia,
             "tamanho": tamanho,
+            "vedacao": vedacao,
+            "variante": "ANCLADO" if "A" in sufixos_normalizados else "NORMAL",
         }
 
     else:
