@@ -93,14 +93,10 @@ def _dias_uteis(data_inicio, data_fim):
     )
 
 
-def _medias_periodo(quantidade, dias_uteis):
+def _media_diaria(quantidade, dias_uteis):
     if dias_uteis <= 0:
-        return 0.0, 0.0, 0.0
-
-    media_diaria = quantidade / dias_uteis
-    media_semanal = media_diaria * 5
-    media_mensal = media_diaria * 21.75
-    return media_diaria, media_semanal, media_mensal
+        return 0.0
+    return quantidade / dias_uteis
 
 
 def pagina_analises():
@@ -209,19 +205,14 @@ def pagina_analises():
     k3.metric("Pedidos envolvidos", pedidos_envolvidos)
 
     dias_uteis = _dias_uteis(data_inicio, data_fim)
-    media_diaria, media_semanal, media_mensal = _medias_periodo(total, dias_uteis)
+    media_diaria = _media_diaria(total, dias_uteis)
 
-    st.markdown("#### Médias de produtividade")
-    st.caption(
-        "As médias consideram somente segunda a sexta-feira. "
-        "A média semanal equivale a 5 dias úteis e a mensal a 21,75 dias úteis."
-    )
+    st.markdown("#### Média diária de produtividade")
+    st.caption("A média diária considera somente segunda a sexta-feira.")
 
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2 = st.columns(2)
     m1.metric("Dias úteis no período", dias_uteis)
-    m2.metric("Média diária", f"{media_diaria:.2f}")
-    m3.metric("Média semanal", f"{media_semanal:.2f}")
-    m4.metric("Média mensal", f"{media_mensal:.2f}")
+    m2.metric("Média diária de interações", f"{media_diaria:.2f}")
 
     if not filtradas:
         st.warning("Nenhuma interação encontrada com os filtros selecionados.")
@@ -264,18 +255,16 @@ def pagina_analises():
     medias_usuarios = []
     for usuario in usuarios_sel:
         total_usuario = sum(matriz[usuario][tipo] for tipo in tipos_tabela)
-        diaria, semanal, mensal = _medias_periodo(total_usuario, dias_uteis)
+        diaria = _media_diaria(total_usuario, dias_uteis)
         medias_usuarios.append({
             "Usuário": usuario,
             "Total": total_usuario,
             "Média diária": round(diaria, 2),
-            "Média semanal": round(semanal, 2),
-            "Média mensal": round(mensal, 2),
         })
 
     medias_usuarios.sort(key=lambda linha: (-linha["Total"], linha["Usuário"]))
 
-    st.markdown("#### Médias por usuário")
+    st.markdown("#### Média diária por usuário")
     st.dataframe(
         pd.DataFrame(medias_usuarios),
         use_container_width=True,
@@ -295,16 +284,14 @@ def pagina_analises():
     medias_tipos = []
     for tipo in tipos_tabela:
         quantidade = por_tipo[tipo]
-        diaria, semanal, mensal = _medias_periodo(quantidade, dias_uteis)
+        diaria = _media_diaria(quantidade, dias_uteis)
         medias_tipos.append({
             "Interação": tipo,
             "Total": quantidade,
             "Média diária": round(diaria, 2),
-            "Média semanal": round(semanal, 2),
-            "Média mensal": round(mensal, 2),
         })
 
-    st.markdown("#### Médias por tipo de interação")
+    st.markdown("#### Média diária por tipo de interação")
     st.dataframe(
         pd.DataFrame(medias_tipos),
         use_container_width=True,
@@ -315,17 +302,15 @@ def pagina_analises():
     for usuario in usuarios_sel:
         for tipo in tipos_tabela:
             quantidade = matriz[usuario][tipo]
-            diaria, semanal, mensal = _medias_periodo(quantidade, dias_uteis)
+            diaria = _media_diaria(quantidade, dias_uteis)
             medias_usuario_tipo.append({
                 "Usuário": usuario,
                 "Interação": tipo,
                 "Total": quantidade,
                 "Média diária": round(diaria, 2),
-                "Média semanal": round(semanal, 2),
-                "Média mensal": round(mensal, 2),
             })
 
-    st.markdown("#### Médias detalhadas por usuário e interação")
+    st.markdown("#### Média diária por usuário e interação")
     st.dataframe(
         pd.DataFrame(medias_usuario_tipo),
         use_container_width=True,
