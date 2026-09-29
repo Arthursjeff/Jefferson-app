@@ -5,22 +5,38 @@ import pandas as pd
 import streamlit as st
 
 from core.database import supabase
-from core.auth import USUARIOS
 
 TABELA_MOVIMENTACOES = "fila_movimentacoes"
 
-LABEL_EVENTOS = {
-    "CRIACAO": "Criação de pedido",
-    "MOVIMENTACAO": "Movimentação na fila",
-    "PESO_VOLUMES": "Peso e volumes",
-    "CANCELAMENTO": "Cancelamento",
-    "NOTA_FISCAL": "Nota fiscal",
-    "EDICAO": "Edição de pedido",
+LABEL_ETAPAS = {
+    "PEDIDO": "Pedido",
+    "EM_MONTAGEM": "Em Montagem",
+    "PROGRAMADO": "Programados",
+    "IMPORTACAO": "Importação",
+    "MONTADOS": "Montados",
+    "FATURADO": "Faturados",
+    "EMBALADO": "Embalados",
+    "RETIRADO": "Retirados",
 }
 
 
-def _label_evento(tipo):
-    return LABEL_EVENTOS.get(tipo, str(tipo or "SEM_TIPO").replace("_", " ").title())
+def _label_etapa(etapa):
+    return LABEL_ETAPAS.get(etapa, str(etapa or "").replace("_", " ").title())
+
+
+def _tipo_interacao(movimentacao):
+    tipo_evento = movimentacao.get("tipo_evento")
+
+    if tipo_evento == "CRIACAO":
+        return "Criação de pedido"
+
+    if tipo_evento == "MOVIMENTACAO":
+        origem = movimentacao.get("origem")
+        destino = movimentacao.get("destino")
+        if origem and destino:
+            return f"{_label_etapa(origem)} → {_label_etapa(destino)}"
+
+    return None
 
 
 def listar_todas_movimentacoes():
@@ -62,14 +78,24 @@ def pagina_analises():
     st.title("📊 Análises")
     st.caption("Módulo administrativo de indicadores do Jefferson App.")
 
-    st.subheader("Movimentações da fila")
+    st.subheader("Interações operacionais da fila")
+    st.caption("Considera criação de pedidos e movimentações entre as etapas da fila.")
 
-    movimentacoes = listar_todas_movimentacoes()
-    if not movimentacoes:
-        st.info("Ainda não existem movimentações registradas.")
+    historico = listar_todas_movimentacoes()
+
+    interacoes = []
+    for registro in historico:
+        tipo_interacao = _tipo_interacao(registro)
+        if tipo_interacao:
+            item = dict(registro)
+            item["tipo_interacao"] = tipo_interacao
+            interacoes.append(item)
+
+    if not interacoes:
+        st.info("Ainda não existem interações operacionais registradas.")
         return
 
-    datas_validas = [_data_evento(m.get("criado_em")) for m in movimentacoes]
+    datas_validas = [_data_evento(m.get("criado_em")) for m in interacoes]
     datas_validas = [d for d in datas_validas if d]
     hoje = date.today()
     primeira_data = min(datas_validas) if datas_validas else hoje
@@ -105,12 +131,16 @@ def pagina_analises():
             return
 
     filtradas_periodo = [
-        m for m in movimentacoes
+        m for m in interacoes
         if (d := _data_evento(m.get("criado_em"))) and data_inicio <= d <= data_fim
     ]
 
-    usuarios_historico = sorted({str(m.get("usuario") or "Sem usuário") for m in filtradas_periodo})
-    tipos_historico = sorted({str(m.get("tipo_evento") or "SEM_TIPO") for m in filtradas_periodo})
+    usuarios_historico = sorted({
+        str(m.get("usuario") or "Sem usuário") for m in filtradas_periodo
+    })
+    tipos_historico = sorted({
+        m["tipo_interacao"] for m in filtradas_periodo
+    })
 
     f1, f2 = st.columns(2)
     with f1:
@@ -121,78 +151,95 @@ def pagina_analises():
         )
     with f2:
         tipos_sel = st.multiselect(
-            "Tipos de movimentação",
+            "Tipos de interação",
             tipos_historico,
             default=tipos_historico,
-            format_func=_label_evento,
         )
 
     filtradas = [
         m for m in filtradas_periodo
         if str(m.get("usuario") or "Sem usuário") in usuarios_sel
-        and str(m.get("tipo_evento") or "SEM_TIPO") in tipos_sel
+        and m["tipo_interacao"] in tipos_sel
     ]
 
     total = len(filtradas)
-    usuarios_ativos = len({m.get("usuario") for m in filtradas})
-    pedidos_movimentados = len({m.get("pedido_id") for m in filtradas if m.get("pedido_id") is not None})
+    usuarios_ativos = len({
+        str(m.get("usuario") or "Sem usuário") for m in filtradas
+    })
+    pedidos_envolvidos = len({
+        m.get("pedido_id") for m in filtradas if m.get("pedido_id") is not None
+    })
 
     k1, k2, k3 = st.columns(3)
-    k1.metric("Total de movimentações", total)
+    k1.metric("Total de interações", total)
     k2.metric("Usuários com atividade", usuarios_ativos)
-    k3.metric("Pedidos envolvidos", pedidos_movimentados)
+    k3.metric("Pedidos envolvidos", pedidos_envolvidos)
 
     if not filtradas:
-        st.warning("Nenhuma movimentação encontrada com os filtros selecionados.")
+        st.warning("Nenhuma interação encontrada com os filtros selecionados.")
         return
 
-    por_usuario = Counter(str(m.get("usuario") or "Sem usuário") for m in filtradas)
-    ranking = pd.DataFrame(
-        [{"Usuário": usuario, "Movimentações": qtd} for usuario, qtd in por_usuario.most_common()]
+    por_usuario = Counter(
+        str(m.get("usuario") or "Sem usuário") for m in filtradas
     )
+    ranking = pd.DataFrame([
+        {"Usuário": usuario, "Interações": qtd}
+        for usuario, qtd in por_usuario.most_common()
+    ])
 
-    st.markdown("#### Movimentações por usuário")
+    st.markdown("#### Interações por usuário")
     st.bar_chart(ranking.set_index("Usuário"))
     st.dataframe(ranking, use_container_width=True, hide_index=True)
 
     matriz = defaultdict(Counter)
     for m in filtradas:
         usuario = str(m.get("usuario") or "Sem usuário")
-        tipo = str(m.get("tipo_evento") or "SEM_TIPO")
-        matriz[usuario][tipo] += 1
+        matriz[usuario][m["tipo_interacao"]] += 1
 
-    tipos_presentes = sorted({tipo for contagem in matriz.values() for tipo in contagem})
+    tipos_presentes = sorted({
+        tipo for contagem in matriz.values() for tipo in contagem
+    })
+
     composicao = []
     for usuario, total_usuario in por_usuario.most_common():
         linha = {"Usuário": usuario, "Total": total_usuario}
         for tipo in tipos_presentes:
-            linha[_label_evento(tipo)] = matriz[usuario][tipo]
-        if matriz[usuario]:
-            tipo_mais, qtd_mais = matriz[usuario].most_common(1)[0]
-            linha["Tipo mais frequente"] = _label_evento(tipo_mais)
-            linha["Qtd. tipo mais frequente"] = qtd_mais
+            linha[tipo] = matriz[usuario][tipo]
         composicao.append(linha)
 
-    st.markdown("#### Tipos de movimentação por usuário")
-    st.dataframe(pd.DataFrame(composicao), use_container_width=True, hide_index=True)
-
-    eventos = Counter(str(m.get("tipo_evento") or "SEM_TIPO") for m in filtradas)
-    df_eventos = pd.DataFrame(
-        [{"Tipo": _label_evento(tipo), "Quantidade": qtd} for tipo, qtd in eventos.most_common()]
+    st.markdown("#### Interações por usuário e etapa")
+    st.dataframe(
+        pd.DataFrame(composicao),
+        use_container_width=True,
+        hide_index=True,
     )
-    st.markdown("#### Distribuição por tipo")
-    st.bar_chart(df_eventos.set_index("Tipo"))
 
-    with st.expander("Ver movimentações detalhadas"):
+    por_tipo = Counter(m["tipo_interacao"] for m in filtradas)
+    df_tipos = pd.DataFrame([
+        {"Interação": tipo, "Quantidade": qtd}
+        for tipo, qtd in por_tipo.most_common()
+    ])
+
+    st.markdown("#### Distribuição das interações")
+    st.bar_chart(df_tipos.set_index("Interação"))
+    st.dataframe(df_tipos, use_container_width=True, hide_index=True)
+
+    with st.expander("Ver interações detalhadas"):
         detalhes = []
-        for m in sorted(filtradas, key=lambda x: str(x.get("criado_em") or ""), reverse=True):
+        for m in sorted(
+            filtradas,
+            key=lambda x: str(x.get("criado_em") or ""),
+            reverse=True,
+        ):
             detalhes.append({
                 "Data/hora": m.get("criado_em"),
                 "Usuário": m.get("usuario"),
-                "Tipo": _label_evento(m.get("tipo_evento")),
+                "Interação": m.get("tipo_interacao"),
                 "Pedido ID": m.get("pedido_id"),
-                "Origem": m.get("origem"),
-                "Destino": m.get("destino"),
-                "Observação": m.get("observacao"),
             })
-        st.dataframe(pd.DataFrame(detalhes), use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            pd.DataFrame(detalhes),
+            use_container_width=True,
+            hide_index=True,
+        )
