@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 from core.admin import apagar_tudo
 from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_importar_clientes
+from modules.analises import pagina_analises
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
@@ -1029,6 +1030,7 @@ with st.sidebar:
             "Criar Pedido",
             "Orçamentos",
             "Importar Clientes",
+            "Análises",
         ]
 
     elif st.session_state.setor == "VENDAS":
@@ -1079,6 +1081,15 @@ elif pagina == "Importar Clientes":
         st.stop()
 
     pagina_importar_clientes()
+
+
+elif pagina == "Análises":
+
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("Esta página é exclusiva para administradores.")
+        st.stop()
+
+    pagina_analises()
 
 
 elif pagina == "Orçamentos":
