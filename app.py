@@ -18,6 +18,7 @@ from modules.modulo_01.service import (
     visualizar_notificacao,
     avancar_pedido,
     faturar_com_nota,
+    alterar_status_expedicao,
     cancelar,
     obter_contagens_mensagens,
     obter_contagens_alertas,
@@ -842,6 +843,9 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
 
             badges = ""
 
+            if estado in ["FATURADO", "EMBALADO"]:
+                badges += f" {pedido.get('_icone_expedicao', '⚪')}"
+
             if contagens_mensagens.get(pedido_id, 0) > 0:
                 badges += " 💬"
 
@@ -900,6 +904,45 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                         ):
                             abrir_modal_peso_volume(pedido, avancar=False)
                             st.rerun()
+                    if estado in ["FATURADO", "EMBALADO"]:
+                        status_atual = pedido.get("_status_expedicao", "PENDENTE")
+                        nomes_status = {
+                            "PENDENTE": "⚪ Pendente",
+                            "AGUARDANDO": "🟡 Aguardando",
+                            "LIBERADO": "🟢 Liberado",
+                        }
+                        st.info(f"Status de expedição: **{nomes_status.get(status_atual, '⚪ Pendente')}**")
+
+                        if st.session_state.setor in ["VENDAS", "ADMINISTRADOR"]:
+                            st.caption("Atualizar status de expedição")
+                            c_exp1, c_exp2, c_exp3 = st.columns(3)
+
+                            opcoes_expedicao = [
+                                (c_exp1, "⚪", "PENDENTE"),
+                                (c_exp2, "🟡", "AGUARDANDO"),
+                                (c_exp3, "🟢", "LIBERADO"),
+                            ]
+
+                            for coluna_exp, icone_exp, status_exp in opcoes_expedicao:
+                                with coluna_exp:
+                                    if st.button(
+                                        icone_exp,
+                                        key=f"status_expedicao_{status_exp}_{pedido_id}",
+                                        use_container_width=True,
+                                        disabled=status_atual == status_exp,
+                                    ):
+                                        sucesso, mensagem = alterar_status_expedicao(
+                                            pedido=pedido,
+                                            status_expedicao=status_exp,
+                                            usuario=st.session_state.nome,
+                                            setor_usuario=st.session_state.setor,
+                                        )
+                                        if sucesso:
+                                            st.success(mensagem)
+                                            st.rerun()
+                                        else:
+                                            st.warning(mensagem)
+
                     if contagens_alertas.get(pedido_id, 0) > 0:
                         st.error("🚨 Este pedido possui alerta ativo.")
 
