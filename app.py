@@ -11,6 +11,7 @@ from modules.modulo_01.service import (
     LABEL_ESTADOS,
     CORES_ESTADOS,
     obter_pedidos_por_estado,
+    pesquisar_historico_retirados,
     salvar_foto_e_avancar,
     criar_novo_pedido,
     obter_notificacoes_pendentes,
@@ -782,6 +783,53 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
             f"border-radius:8px;margin-bottom:10px'></div>",
             unsafe_allow_html=True,
         )
+
+        if estado == "RETIRADO":
+            st.caption("Exibindo retirados nos últimos 3 dias.")
+
+            with st.expander("🔎 Pesquisar histórico"):
+                with st.form("form_pesquisa_retirados"):
+                    termo_retirados = st.text_input(
+                        "Pedido, cliente ou nota fiscal",
+                        placeholder="Digite para pesquisar no histórico completo",
+                    )
+                    buscar_retirados = st.form_submit_button(
+                        "Buscar",
+                        use_container_width=True,
+                    )
+
+                if buscar_retirados:
+                    resultados_retirados = pesquisar_historico_retirados(termo_retirados)
+
+                    if not str(termo_retirados or "").strip():
+                        st.warning("Digite um pedido, cliente ou nota fiscal.")
+                    elif not resultados_retirados:
+                        st.info("Nenhum pedido retirado encontrado.")
+                    else:
+                        st.caption(f"{len(resultados_retirados)} resultado(s) encontrado(s).")
+
+                        for resultado in resultados_retirados:
+                            retirado_em = resultado.get("_retirado_em") or ""
+                            retirado_formatado = retirado_em
+
+                            try:
+                                from datetime import datetime
+                                data_retirada = datetime.fromisoformat(retirado_em)
+                                retirado_formatado = data_retirada.strftime("%d/%m/%Y às %H:%M")
+                            except (TypeError, ValueError):
+                                pass
+
+                            with st.container(border=True):
+                                st.markdown(
+                                    f"**Pedido {resultado.get('numero_pedido', '')} — "
+                                    f"{resultado.get('cliente', '')}**"
+                                )
+                                st.write(f"Nota Fiscal: {resultado.get('nota_fiscal') or 'Não informada'}")
+                                st.write(f"Retirado em: **{retirado_formatado}**")
+                                st.write(
+                                    f"Movimentado por: **{resultado.get('_retirado_por') or 'Não identificado'}**"
+                                )
+
         if minimizada:
             st.caption("Fila minimizada.")
             return
