@@ -118,6 +118,7 @@ STATUS_EXPEDICAO = {
     "PENDENTE": "⚪",
     "AGUARDANDO": "🟡",
     "LIBERADO": "🟢",
+    "BLOQUEADO": "🔴",
 }
 
 
@@ -489,6 +490,7 @@ def alterar_status_expedicao(
         "PENDENTE": "Pendente",
         "AGUARDANDO": "Aguardando",
         "LIBERADO": "Liberado",
+        "BLOQUEADO": "Bloqueado",
     }
 
     evento = registrar_movimentacao(
