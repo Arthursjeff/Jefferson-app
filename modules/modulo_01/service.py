@@ -7,6 +7,8 @@ from core.pedidos import (
     cancelar_pedido,
     listar_movimentacoes,
     listar_movimentacoes_destino,
+    listar_movimentacoes_tipo,
+    registrar_movimentacao,
     salvar_peso_volumes,
 )
 
@@ -112,6 +114,38 @@ def _enriquecer_retirado(pedido: dict, movimentacao: dict):
     return item
 
 
+STATUS_EXPEDICAO = {
+    "PENDENTE": "⚪",
+    "AGUARDANDO": "🟡",
+    "LIBERADO": "🟢",
+}
+
+
+def _mapa_status_expedicao():
+    movimentacoes = listar_movimentacoes_tipo("STATUS_EXPEDICAO")
+    mapa = {}
+
+    # A consulta vem da mais recente para a mais antiga.
+    for mov in movimentacoes:
+        pedido_id = mov.get("pedido_id")
+        if pedido_id not in mapa:
+            mapa[pedido_id] = mov
+
+    return mapa
+
+
+def _enriquecer_status_expedicao(pedido: dict, movimentacao: dict = None):
+    item = dict(pedido)
+    status = "PENDENTE"
+
+    if movimentacao and movimentacao.get("destino") in STATUS_EXPEDICAO:
+        status = movimentacao.get("destino")
+
+    item["_status_expedicao"] = status
+    item["_icone_expedicao"] = STATUS_EXPEDICAO[status]
+    return item
+
+
 def obter_pedidos_por_estado():
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
@@ -119,6 +153,7 @@ def obter_pedidos_por_estado():
     pedidos = obter_pedidos()
     agrupado = {estado: [] for estado in ESTADOS_FILA}
     retiradas = _mapa_retiradas()
+    status_expedicao = _mapa_status_expedicao()
     limite_retirados = datetime.now(ZoneInfo("America/Sao_Paulo")) - timedelta(days=3)
 
     for pedido in pedidos:
@@ -142,6 +177,13 @@ def obter_pedidos_por_estado():
                 continue
 
             agrupado[estado].append(_enriquecer_retirado(pedido, mov))
+        elif estado in ["FATURADO", "EMBALADO"]:
+            agrupado[estado].append(
+                _enriquecer_status_expedicao(
+                    pedido,
+                    status_expedicao.get(pedido.get("id")),
+                )
+            )
         else:
             agrupado[estado].append(pedido)
 
@@ -427,6 +469,43 @@ def remover_mensagem(mensagem_id: int):
 def quantidade_mensagens(pedido_id: int):
     return contar_mensagens_ativas(pedido_id)
 
+def alterar_status_expedicao(
+    pedido: dict,
+    status_expedicao: str,
+    usuario: str,
+    setor_usuario: str,
+):
+    if setor_usuario not in ["VENDAS", "ADMINISTRADOR"]:
+        return False, "Somente VENDAS ou ADMINISTRADOR pode alterar o status de expedição."
+
+    if pedido.get("setor_atual") not in ["FATURADO", "EMBALADO"]:
+        return False, "O status de expedição só pode ser alterado em Faturados ou Embalados."
+
+    status = str(status_expedicao or "").strip().upper()
+    if status not in STATUS_EXPEDICAO:
+        return False, "Status de expedição inválido."
+
+    nomes = {
+        "PENDENTE": "Pendente",
+        "AGUARDANDO": "Aguardando",
+        "LIBERADO": "Liberado",
+    }
+
+    evento = registrar_movimentacao(
+        pedido_id=pedido["id"],
+        origem=pedido.get("setor_atual", ""),
+        destino=status,
+        usuario=usuario,
+        tipo_evento="STATUS_EXPEDICAO",
+        observacao=f"Status de expedição alterado para {nomes[status]} por {usuario}.",
+    )
+
+    if not evento:
+        return False, "Erro ao atualizar status de expedição."
+
+    return True, f"Status de expedição atualizado para {STATUS_EXPEDICAO[status]} {nomes[status]}."
+
+
 def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario: str):
     if setor_usuario not in ["VENDAS", "ADMINISTRADOR"]:
         return False, "Somente VENDAS ou ADMINISTRADOR pode faturar pedidos."
@@ -455,6 +534,15 @@ def faturar_com_nota(pedido: dict, nota_fiscal: str, usuario: str, setor_usuario
    
     if not sucesso_mov:
         return False, "Nota registrada, mas erro ao mover para Faturados."
+
+    registrar_movimentacao(
+        pedido_id=pedido["id"],
+        origem="FATURADO",
+        destino="PENDENTE",
+        usuario=usuario,
+        tipo_evento="STATUS_EXPEDICAO",
+        observacao=f"Status de expedição iniciado como Pendente após faturamento por {usuario}.",
+    )
 
     criar_notificacao_para_setor(
         pedido_id=pedido["id"],
