@@ -158,6 +158,22 @@ def listar_movimentacoes(pedido_id: int):
     )
 
     return response.data or []
+
+def listar_movimentacoes_destino(destino: str, origem: str = None):
+    query = (
+        supabase
+        .table(TABELA_MOVIMENTACOES)
+        .select("*")
+        .eq("destino", destino)
+        .eq("tipo_evento", "MOVIMENTACAO")
+    )
+
+    if origem:
+        query = query.eq("origem", origem)
+
+    response = query.order("criado_em", desc=True).execute()
+    return response.data or []
+
     
 def registrar_nota_fiscal(pedido_id: int, nota_fiscal: str, usuario: str):
     nota = str(nota_fiscal).strip()
