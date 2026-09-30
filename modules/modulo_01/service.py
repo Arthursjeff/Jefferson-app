@@ -6,6 +6,7 @@ from core.pedidos import (
     registrar_nota_fiscal,
     cancelar_pedido,
     listar_movimentacoes,
+    listar_movimentacoes_destino,
     salvar_peso_volumes,
 )
 
@@ -90,16 +91,90 @@ def obter_pedidos():
     return listar_pedidos(status="ATIVO")
 
 
+def _mapa_retiradas():
+    movimentacoes = listar_movimentacoes_destino("RETIRADO", origem="EMBALADO")
+    mapa = {}
+
+    # A consulta vem da mais recente para a mais antiga. Mantemos a última
+    # movimentação EMBALADO -> RETIRADO de cada pedido.
+    for mov in movimentacoes:
+        pedido_id = mov.get("pedido_id")
+        if pedido_id not in mapa:
+            mapa[pedido_id] = mov
+
+    return mapa
+
+
+def _enriquecer_retirado(pedido: dict, movimentacao: dict):
+    item = dict(pedido)
+    item["_retirado_em"] = movimentacao.get("criado_em")
+    item["_retirado_por"] = movimentacao.get("usuario")
+    return item
+
+
 def obter_pedidos_por_estado():
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
     pedidos = obter_pedidos()
     agrupado = {estado: [] for estado in ESTADOS_FILA}
+    retiradas = _mapa_retiradas()
+    limite_retirados = datetime.now(ZoneInfo("America/Sao_Paulo")) - timedelta(days=3)
 
     for pedido in pedidos:
         estado = pedido.get("setor_atual")
-        if estado in agrupado:
+        if estado not in agrupado:
+            continue
+
+        if estado == "RETIRADO":
+            mov = retiradas.get(pedido.get("id"))
+            if not mov or not mov.get("criado_em"):
+                continue
+
+            try:
+                retirado_em = datetime.fromisoformat(mov["criado_em"])
+                if retirado_em.tzinfo is None:
+                    retirado_em = retirado_em.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+            except (TypeError, ValueError):
+                continue
+
+            if retirado_em < limite_retirados:
+                continue
+
+            agrupado[estado].append(_enriquecer_retirado(pedido, mov))
+        else:
             agrupado[estado].append(pedido)
 
     return agrupado
+
+
+def pesquisar_historico_retirados(termo: str):
+    termo = str(termo or "").strip().casefold()
+    if not termo:
+        return []
+
+    retiradas = _mapa_retiradas()
+    resultados = []
+
+    for pedido in obter_pedidos():
+        if pedido.get("setor_atual") != "RETIRADO":
+            continue
+
+        campos = (
+            pedido.get("numero_pedido"),
+            pedido.get("cliente"),
+            pedido.get("nota_fiscal"),
+        )
+
+        if not any(termo in str(valor or "").casefold() for valor in campos):
+            continue
+
+        mov = retiradas.get(pedido.get("id"))
+        if mov:
+            resultados.append(_enriquecer_retirado(pedido, mov))
+
+    resultados.sort(key=lambda p: p.get("_retirado_em") or "", reverse=True)
+    return resultados
 
 
 def criar_novo_pedido(numero_pedido: str, cliente: str, usuario: str, setor_usuario: str, tipo_pedido: str, data_prevista_faturamento):
