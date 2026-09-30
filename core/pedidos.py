@@ -159,6 +159,18 @@ def listar_movimentacoes(pedido_id: int):
 
     return response.data or []
 
+def listar_movimentacoes_tipo(tipo_evento: str):
+    response = (
+        supabase
+        .table(TABELA_MOVIMENTACOES)
+        .select("*")
+        .eq("tipo_evento", tipo_evento)
+        .order("criado_em", desc=True)
+        .execute()
+    )
+    return response.data or []
+
+
 def listar_movimentacoes_destino(destino: str, origem: str = None):
     query = (
         supabase
