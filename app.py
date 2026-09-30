@@ -910,6 +910,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                             "PENDENTE": "⚪ Pendente",
                             "AGUARDANDO": "🟡 Aguardando",
                             "LIBERADO": "🟢 Liberado",
+                            "BLOQUEADO": "🔴 Bloqueado",
                         }
                         st.info(f"Status de expedição: **{nomes_status.get(status_atual, '⚪ Pendente')}**")
 
@@ -918,9 +919,9 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                             c_exp1, c_exp2, c_exp3 = st.columns(3)
 
                             opcoes_expedicao = [
-                                (c_exp1, "⚪", "PENDENTE"),
-                                (c_exp2, "🟡", "AGUARDANDO"),
-                                (c_exp3, "🟢", "LIBERADO"),
+                                (c_exp1, "🟡", "AGUARDANDO"),
+                                (c_exp2, "🟢", "LIBERADO"),
+                                (c_exp3, "🔴", "BLOQUEADO"),
                             ]
 
                             for coluna_exp, icone_exp, status_exp in opcoes_expedicao:
