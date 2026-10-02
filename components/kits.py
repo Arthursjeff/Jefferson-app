@@ -201,3 +201,117 @@ def identificar_componentes_kit(codigo):
     preenchida quando as regras de conteúdo dos kits forem consolidadas.
     """
     return interpretar_codigo_kit(codigo)
+
+
+# =============================================================
+# APLICAÇÕES INICIAIS DOS KITS - PARA VALIDAÇÃO NO ORÇAMENTO
+# =============================================================
+#
+# O sequencial representa GRUPOS físicos de tamanho.
+# Só entram aqui agrupamentos já conhecidos. Lacunas permanecem pendentes.
+#
+
+GRUPOS_TAMANHO_KIT = {
+    "1335": {
+        # Regra atualmente validada para corpo em latão.
+        1: ["3/8\"", "1/2\""],
+        2: ["3/4\""],
+    },
+    "2036": {
+        1: ["3/8\"", "1/2\""],
+        2: ["3/4\""],
+        3: ["1\""],
+        4: ["1 1/2\""],
+    },
+}
+
+
+def _aplicacoes_por_sequencial(familia, sequencial):
+    return GRUPOS_TAMANHO_KIT.get(familia, {}).get(sequencial)
+
+
+def _descricao_tamanhos(tamanhos):
+    if not tamanhos:
+        return None
+    if len(tamanhos) == 1:
+        return tamanhos[0]
+    return " e ".join(tamanhos)
+
+
+def gerar_variaveis_kit(resultado):
+    """Converte o parser do kit em variáveis V para inspeção no orçamento."""
+    familia = resultado.get("familia")
+    sequencial = resultado.get("sequencial_tamanho")
+    tamanhos = _aplicacoes_por_sequencial(familia, sequencial)
+    regra = regra_geral_componentes_kit()
+
+    return {
+        "V01": "Kit de reparo",
+        "V06": resultado.get("vedacao"),
+        "V07": _descricao_tamanhos(tamanhos),
+        "V18": {
+            "familia": familia,
+            "sequencial_tamanho": sequencial,
+            "tamanhos_aplicaveis": tamanhos,
+            "prefixos": resultado.get("prefixos") or [],
+            "sufixos": resultado.get("sufixos") or [],
+        },
+        # Componentes separados por grupo para facilitar a validação visual.
+        "V20": regra["G1"],
+        "V21": regra["G2"],
+        "V22": regra["G3"],
+        "V23": regra["G4"],
+        "V24": regra["G5"],
+    }
+
+
+def gerar_descricao_kit(resultado):
+    familia = resultado.get("familia")
+    vedacao = resultado.get("vedacao")
+    tamanhos = _aplicacoes_por_sequencial(
+        familia,
+        resultado.get("sequencial_tamanho"),
+    )
+
+    partes = [f"Kit de reparo para válvula família {familia}"]
+
+    if tamanhos:
+        partes.append(f"tamanho {_descricao_tamanhos(tamanhos)}")
+    else:
+        partes.append(
+            f"grupo de tamanho {resultado.get('sequencial_tamanho')} "
+            "(tamanho ainda não mapeado)"
+        )
+
+    if vedacao:
+        partes.append(f"vedação {vedacao}")
+
+    return ", ".join(partes)
+
+
+def processar_kit(codigo):
+    """Processa kit para uso pela interface de orçamento."""
+    resultado = interpretar_codigo_kit(codigo)
+
+    if not resultado.get("sucesso"):
+        return {
+            "sucesso": False,
+            "erro": resultado.get("erro"),
+            "parser": resultado,
+            "variaveis": None,
+            "descricao": None,
+        }
+
+    resultado["aplicacoes"] = _aplicacoes_por_sequencial(
+        resultado.get("familia"),
+        resultado.get("sequencial_tamanho"),
+    )
+    resultado["componentes"] = regra_geral_componentes_kit()
+
+    return {
+        "sucesso": True,
+        "erro": None,
+        "parser": resultado,
+        "variaveis": gerar_variaveis_kit(resultado),
+        "descricao": gerar_descricao_kit(resultado),
+    }
