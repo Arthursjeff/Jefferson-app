@@ -38,6 +38,7 @@ OPCOES_TENSAO = [
     "12VCC",
     "110/50HZ",
     "220/50HZ",
+    "KIT DE REPARO",
     "OUTRO",
 ]
 
@@ -1146,7 +1147,10 @@ def pagina_orcamentos():
             )
 
 
-        elif not tensao.strip():
+        elif (
+            not codigo_parece_kit(codigo)
+            and not tensao.strip()
+        ):
 
             st.warning(
                 "Informe a tensão."
@@ -1183,11 +1187,14 @@ def pagina_orcamentos():
             )
 
 
-            tensao_normalizada = (
-                tensao
-                .strip()
-                .upper()
-            )
+            if codigo_parece_kit(codigo_normalizado):
+                tensao_normalizada = "KIT DE REPARO"
+            else:
+                tensao_normalizada = (
+                    tensao
+                    .strip()
+                    .upper()
+                )
 
 
             # =================================================
