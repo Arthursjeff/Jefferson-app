@@ -192,6 +192,36 @@ def codigo_parece_kit(codigo):
     return bool(re.match(r"^[A-Z]*K", codigo_normalizado))
 
 
+
+def regra_geral_componentes_kit():
+    """Regra-base de conteúdo dos kits; exceções específicas terão prioridade."""
+    return {
+        "G1": {
+            "torre": False,
+            "nucleo_movel": True,
+            "assento_vedacao_nucleo": True,
+            "mola_nucleo": True,
+        },
+        "G2": {
+            "diafragma": "SE_EXISTIR",
+            "mola_diafragma": "SE_EXISTIR",
+            "pulmao": "SE_EXISTIR",
+        },
+        "G3": {
+            "pistao": False,
+            "mola_pistao": "SE_EXISTIR",
+            "junta_pistao": "SE_FOR_O_SISTEMA_DA_FAMILIA",
+            "mola_interna_junta": "COM_A_JUNTA",
+        },
+        "G4": {
+            "carretel": "SE_EXISTIR",
+        },
+        "G5": {
+            "orings": "TODOS_OS_APLICAVEIS",
+            "oring_pistao": "SE_FOR_O_SISTEMA_DA_FAMILIA",
+        },
+    }
+
 def identificar_componentes_kit(codigo):
     """Entrada pública inicial do motor de kits.
 
