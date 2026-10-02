@@ -13,6 +13,11 @@ from motor_descricao import (
     processar_produto,
 )
 
+from components.kits import (
+    codigo_parece_kit,
+    processar_kit,
+)
+
 from modules.modulo_orcamentos.imagens_repository import (
     obter_url_imagem,
 )
@@ -787,6 +792,60 @@ def pagina_orcamentos():
 
 
                     # =========================================
+                    # KIT DE REPARO / COMPONENTES
+                    # =========================================
+
+                    if variaveis.get("V01") == "Kit de reparo":
+
+                        v18 = variaveis.get("V18") or {}
+
+                        st.write(
+                            "**Família do kit:**",
+                            v18.get("familia"),
+                        )
+
+                        st.write(
+                            "**Grupo/tamanho:**",
+                            variaveis.get("V07")
+                            or (
+                                "Sequencial "
+                                f"{v18.get('sequencial_tamanho')} "
+                                "(ainda não mapeado)"
+                            ),
+                        )
+
+                        st.write(
+                            "**Vedação do kit:**",
+                            variaveis.get("V06"),
+                        )
+
+                        st.write("**Componentes do kit:**")
+
+                        for chave, titulo in [
+                            ("V20", "G1 — Torre"),
+                            ("V21", "G2 — Diafragma"),
+                            ("V22", "G3 — Pistão"),
+                            ("V23", "G4 — Carretel"),
+                            ("V24", "G5 — O-rings"),
+                        ]:
+                            dados_grupo = variaveis.get(chave) or {}
+                            ativos = [
+                                nome
+                                for nome, valor in dados_grupo.items()
+                                if valor not in (False, None)
+                            ]
+
+                            st.write(
+                                f"**{titulo}:** "
+                                + (
+                                    ", ".join(ativos)
+                                    if ativos
+                                    else "-"
+                                )
+                            )
+
+
+                    # =========================================
                     # EXTRAS
                     # =========================================
 
@@ -1137,12 +1196,17 @@ def pagina_orcamentos():
 
             try:
 
-                produto_processado = (
-                    processar_produto(
-                        codigo_normalizado,
-                        tensao_normalizada,
+                if codigo_parece_kit(codigo_normalizado):
+                    produto_processado = processar_kit(
+                        codigo_normalizado
                     )
-                )
+                else:
+                    produto_processado = (
+                        processar_produto(
+                            codigo_normalizado,
+                            tensao_normalizada,
+                        )
+                    )
 
 
             except Exception as erro:
