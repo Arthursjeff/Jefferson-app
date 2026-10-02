@@ -193,34 +193,105 @@ def codigo_parece_kit(codigo):
 
 
 
-def regra_geral_componentes_kit():
-    """Regra-base de conteúdo dos kits; exceções específicas terão prioridade."""
-    return {
-        "G1": {
-            "torre": False,
-            "nucleo_movel": True,
-            "assento_vedacao_nucleo": True,
-            "mola_nucleo": True,
-        },
-        "G2": {
-            "diafragma": "SE_EXISTIR",
-            "mola_diafragma": "SE_EXISTIR",
-            "pulmao": "SE_EXISTIR",
-        },
-        "G3": {
-            "pistao": False,
-            "mola_pistao": "SE_EXISTIR",
-            "junta_pistao": "SE_FOR_O_SISTEMA_DA_FAMILIA",
-            "mola_interna_junta": "COM_A_JUNTA",
-        },
-        "G4": {
-            "carretel": "SE_EXISTIR",
-        },
-        "G5": {
-            "orings": "TODOS_OS_APLICAVEIS",
-            "oring_pistao": "SE_FOR_O_SISTEMA_DA_FAMILIA",
-        },
+def _nome_material_vedacao(vedacao):
+    """Nome curto do material para compor nomes legíveis de componentes."""
+    mapa = {
+        "Buna-N (NBR)": "Buna-N",
+        "Viton (FKM)": "Viton",
+        "Etileno (EPDM)": "EPDM",
+        "Teflon (PTFE)": "Teflon",
+        "Neoprene": "Neoprene",
+        "Delryin": "Delryin",
+        "Inox": "Inox",
     }
+    return mapa.get(vedacao, vedacao or "vedação não identificada")
+
+
+def identificar_componentes_por_familia(resultado):
+    """Cruza família + vedação + variante com os grupos já validados.
+
+    Retorna somente componentes que sabemos que pertencem ao kit.
+    Não exibe componentes condicionais como se estivessem presentes.
+    """
+    familia = resultado.get("familia")
+    vedacao = resultado.get("vedacao")
+    material = _nome_material_vedacao(vedacao)
+    sufixos = set(resultado.get("sufixos") or [])
+
+    componentes = {
+        "G1": [
+            "Núcleo móvel",
+            f"Assento em {material}",
+            "Mola do núcleo móvel",
+        ],
+        "G2": [],
+        "G3": [],
+        "G4": [],
+        "G5": [],
+    }
+
+    # G2 - famílias cujo conjunto diafragma já foi validado.
+    if familia in {"1330", "2030", "1335"}:
+        componentes["G2"] = [
+            f"Diafragma em {material}",
+            "Mola do diafragma",
+            "Pulmão",
+        ]
+
+    if familia == "2036" and resultado.get("codigo_vedacao") != "T":
+        componentes["G2"] = [
+            f"Diafragma em {material}",
+            "Mola do diafragma",
+            "Pulmão",
+        ]
+
+    # G3 - o pistão físico nunca entra no kit.
+    if familia == "1342":
+        componentes["G3"] = ["Mola do pistão"]
+
+    if familia == "2036" and resultado.get("codigo_vedacao") == "T":
+        componentes["G3"] = ["Mola do pistão"]
+
+    # 1335 só possui G3 na variante D. Um K35A2 comum, por exemplo, não tem G3.
+    if familia == "1335" and "D" in sufixos:
+        componentes["G3"] = ["Mola do pistão"]
+
+    # G4 - somente famílias de carretel já validadas.
+    if familia in {"1330", "2030", "1325"}:
+        componentes["G4"] = ["Carretel"]
+
+    # G5 - somente O-rings cuja presença já foi confirmada.
+    if familia == "1342":
+        componentes["G5"] = [
+            f"O-ring da tampa em {material}",
+            f"O-ring da torre em {material}",
+        ]
+
+    if familia == "2036":
+        componentes["G5"] = [
+            f"O-ring da tampa em {material}",
+        ]
+        if resultado.get("codigo_vedacao") == "T":
+            componentes["G5"].append(
+                f"O-ring da torre em {material}"
+            )
+            componentes["G5"].append(
+                "Disco de Teflon da tampa"
+            )
+
+    return componentes
+
+
+def regra_geral_componentes_kit():
+    """Mantém documentada a regra-base sem usá-la como presença automática."""
+    return {
+        "G1": "núcleo móvel + assento + mola do núcleo móvel",
+        "G2": "diafragma + mola do diafragma + pulmão, se a família possuir G2",
+        "G3": "mola do pistão e sua vedação, se a configuração possuir G3; pistão físico não entra",
+        "G4": "carretel, se a família possuir G4",
+        "G5": "O-rings aplicáveis já validados para a família",
+    }
+
 
 def identificar_componentes_kit(codigo):
     """Entrada pública inicial do motor de kits.
@@ -275,7 +346,7 @@ def gerar_variaveis_kit(resultado):
     familia = resultado.get("familia")
     sequencial = resultado.get("sequencial_tamanho")
     tamanhos = _aplicacoes_por_sequencial(familia, sequencial)
-    regra = regra_geral_componentes_kit()
+    componentes = identificar_componentes_por_familia(resultado)
 
     return {
         "V01": "Kit de reparo",
@@ -289,11 +360,11 @@ def gerar_variaveis_kit(resultado):
             "sufixos": resultado.get("sufixos") or [],
         },
         # Componentes separados por grupo para facilitar a validação visual.
-        "V20": regra["G1"],
-        "V21": regra["G2"],
-        "V22": regra["G3"],
-        "V23": regra["G4"],
-        "V24": regra["G5"],
+        "V20": componentes["G1"],
+        "V21": componentes["G2"],
+        "V22": componentes["G3"],
+        "V23": componentes["G4"],
+        "V24": componentes["G5"],
     }
 
 
@@ -338,7 +409,7 @@ def processar_kit(codigo):
         resultado.get("familia"),
         resultado.get("sequencial_tamanho"),
     )
-    resultado["componentes"] = regra_geral_componentes_kit()
+    resultado["componentes"] = identificar_componentes_por_familia(resultado)
 
     return {
         "sucesso": True,
