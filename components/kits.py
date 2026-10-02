@@ -5,7 +5,7 @@ do kit (quais componentes G1-G5 ele contém) será acrescentada separadamente,
 conforme as regras de engenharia forem validadas.
 
 Estrutura-base conhecida:
-    [prefixos] K [identificador da família] [vedação] [sequencial] [sufixos]
+    [prefixos] K [identificador da família] [vedação] [sequencial opcional] [sufixos]
 
 Exemplos:
     K35A1
@@ -25,8 +25,9 @@ Regras validadas:
   famílias existentes;
 - a letra após a identificação da família representa a vedação e reutiliza
   a mesma tabela de vedação do motor de descrição;
-- o sequencial de tamanho aceita zeros à esquerda: 1 == 01, 2 == 02 etc.;
-- o sequencial representa grupos físicos de tamanho, não a conexão diretamente;
+- o sequencial de tamanho é opcional e aceita zeros à esquerda: 1 == 01, 2 == 02 etc.;
+- sem sequencial, existe um único grupo de kit para a família/vedação e ele atende todas as configurações aplicáveis;
+- com sequencial, ele representa grupos físicos de tamanho, não a conexão diretamente;
 - prefixos e sufixos podem modificar a aplicação do kit (ex.: Z);
 - sufixos especiais como A podem distinguir uma variante construtiva do kit.
 """
@@ -155,19 +156,16 @@ def interpretar_codigo_kit(codigo):
     restante = restante[1:]
 
     match_sequencial = re.match(r"\d+", restante)
-    if not match_sequencial:
-        return {
-            "sucesso": False,
-            "erro": "Sequencial de tamanho do kit não encontrado.",
-            "codigo_original": codigo_normalizado,
-            "familia": familia,
-            "codigo_vedacao": codigo_vedacao,
-            "vedacao": vedacao,
-        }
 
-    sequencial_original = match_sequencial.group()
-    sequencial_tamanho = int(sequencial_original)
-    sufixos = restante[match_sequencial.end():]
+    if match_sequencial:
+        sequencial_original = match_sequencial.group()
+        sequencial_tamanho = int(sequencial_original)
+        sufixos = restante[match_sequencial.end():]
+    else:
+        # Sem número = kit único para a família/vedação.
+        sequencial_original = None
+        sequencial_tamanho = None
+        sufixos = restante
 
     return {
         "sucesso": True,
@@ -227,10 +225,14 @@ GRUPOS_TAMANHO_KIT = {
 
 
 def _aplicacoes_por_sequencial(familia, sequencial):
+    if sequencial is None:
+        return "TODAS_AS_CONFIGURACOES_APLICAVEIS"
     return GRUPOS_TAMANHO_KIT.get(familia, {}).get(sequencial)
 
 
 def _descricao_tamanhos(tamanhos):
+    if tamanhos == "TODAS_AS_CONFIGURACOES_APLICAVEIS":
+        return "todos os tamanhos/configurações aplicáveis"
     if not tamanhos:
         return None
     if len(tamanhos) == 1:
@@ -277,7 +279,7 @@ def gerar_descricao_kit(resultado):
 
     if tamanhos:
         partes.append(f"tamanho {_descricao_tamanhos(tamanhos)}")
-    else:
+    elif resultado.get("sequencial_tamanho") is not None:
         partes.append(
             f"grupo de tamanho {resultado.get('sequencial_tamanho')} "
             "(tamanho ainda não mapeado)"
