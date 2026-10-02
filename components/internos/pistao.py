@@ -1,6 +1,19 @@
 """G3 - Conjunto pistão.
 
-O G3 é formado por pistão e mola, tratados como conjunto inseparável.
+O G3 representa o sistema físico do pistão.
+
+Estrutura conceitual:
+- pistão;
+- mola do pistão;
+- vedação associada ao pistão, que pode ser:
+  - O-ring do pistão; ou
+  - junta do pistão + mola interna da junta.
+
+Regras de identidade:
+- quando muda o pistão, muda também a vedação associada a ele;
+- o O-ring do pistão é tratado em G5;
+- junta e mola interna da junta permanecem associadas ao G3;
+- o tipo de vedação do pistão (O-ring ou junta) será definido família a família.
 
 Regras validadas:
 - 1342 e 1390: família + tamanho + vedação + material do corpo;
@@ -48,11 +61,8 @@ def _normalizar_vedacao(vedacao):
 def _normalizar_material(material):
     valor = _normalizar(material)
     equivalencias = {
-        "LATÃO": "LATAO",
-        "LATAO": "LATAO",
-        "INOX": "INOX",
-        "AÇO INOX": "INOX",
-        "ACO INOX": "INOX",
+        "LATÃO": "LATAO", "LATAO": "LATAO", "INOX": "INOX",
+        "AÇO INOX": "INOX", "ACO INOX": "INOX",
     }
     return equivalencias.get(valor, valor)
 
@@ -60,10 +70,8 @@ def _normalizar_material(material):
 def _normalizar_tamanho(tamanho):
     valor = _normalizar(tamanho)
     equivalencias = {
-        '3/8"': "3/8", "3/8": "3/8",
-        '1/2"': "1/2", "1/2": "1/2",
-        '3/4"': "3/4", "3/4": "3/4",
-        '1"': "1", "1": "1",
+        '3/8"': "3/8", "3/8": "3/8", '1/2"': "1/2", "1/2": "1/2",
+        '3/4"': "3/4", "3/4": "3/4", '1"': "1", "1": "1",
         '1 1/2"': "1 1/2", "1 1/2": "1 1/2",
     }
     return equivalencias.get(valor, valor)
@@ -76,37 +84,27 @@ def _grupo_pistao_2036(tamanho):
 
 
 def _grupo_pistao_1335(tamanho, material_corpo):
-    """Reutiliza o agrupamento de tamanho já validado para a família 1335."""
     if material_corpo == "LATAO":
         if tamanho in {"3/8", "1/2"}:
             return "3/8_1/2"
         if tamanho == "3/4":
             return "3/4"
-
-    if material_corpo == "INOX":
-        if tamanho in {"1/2", "3/4"}:
-            return "1/2_3/4"
-
+    if material_corpo == "INOX" and tamanho in {"1/2", "3/4"}:
+        return "1/2_3/4"
     return tamanho
 
 
 def usa_pistao(familia, vedacao=None, sufixos=None):
-    """Informa se a configuração validada utiliza G3."""
     familia = _normalizar(familia)
     vedacao = _normalizar_vedacao(vedacao)
     sufixos_normalizados = {
         _normalizar(item) for item in (sufixos or []) if _normalizar(item)
     }
-
     if familia in FAMILIAS_SEM_PISTAO:
         return False
-    if familia in FAMILIAS_PISTAO_VARIAVEL:
+    if familia in FAMILIAS_PISTAO_VARIAVEL | FAMILIAS_PISTAO_TAMANHO_VEDACAO:
         return True
-    if familia in FAMILIAS_PISTAO_TAMANHO_VEDACAO:
-        return True
-    if familia == FAMILIA_PISTAO_UNICO:
-        return True
-    if familia == FAMILIA_1314:
+    if familia in {FAMILIA_PISTAO_UNICO, FAMILIA_1314}:
         return True
     if familia == FAMILIA_1335:
         return "D" in sufixos_normalizados
@@ -115,14 +113,7 @@ def usa_pistao(familia, vedacao=None, sufixos=None):
     return False
 
 
-def identificar_conjunto_pistao(
-    familia,
-    tamanho=None,
-    vedacao=None,
-    material_corpo=None,
-    sufixos=None,
-):
-    """Retorna a identidade lógica conhecida do G3."""
+def identificar_conjunto_pistao(familia, tamanho=None, vedacao=None, material_corpo=None, sufixos=None):
     familia = _normalizar(familia)
     tamanho = _normalizar_tamanho(tamanho)
     vedacao = _normalizar_vedacao(vedacao)
@@ -135,63 +126,38 @@ def identificar_conjunto_pistao(
         return None
 
     if familia in FAMILIAS_PISTAO_VARIAVEL:
-        identidade = {
-            "regra": "FAMILIA_TAMANHO_VEDACAO_MATERIAL_CORPO",
-            "familia": familia,
-            "tamanho": tamanho,
-            "vedacao": vedacao,
-            "material_corpo": material_corpo,
-        }
-
+        identidade = {"regra": "FAMILIA_TAMANHO_VEDACAO_MATERIAL_CORPO", "familia": familia,
+                      "tamanho": tamanho, "vedacao": vedacao, "material_corpo": material_corpo}
     elif familia in FAMILIAS_PISTAO_TAMANHO_VEDACAO:
-        identidade = {
-            "regra": "FAMILIA_TAMANHO_VEDACAO",
-            "familia": familia,
-            "tamanho": tamanho,
-            "vedacao": vedacao,
-        }
-
+        identidade = {"regra": "FAMILIA_TAMANHO_VEDACAO", "familia": familia,
+                      "tamanho": tamanho, "vedacao": vedacao}
     elif familia == FAMILIA_PISTAO_UNICO:
-        identidade = {
-            "regra": "PISTAO_UNICO_FAMILIA",
-            "familia": familia,
-        }
-
+        identidade = {"regra": "PISTAO_UNICO_FAMILIA", "familia": familia}
     elif familia == FAMILIA_2036:
-        identidade = {
-            "regra": "2036_TEFLON_GRUPO_TAMANHO",
-            "familia": familia,
-            "vedacao": "TEFLON",
-            "grupo_tamanho": _grupo_pistao_2036(tamanho),
-        }
-
+        identidade = {"regra": "2036_TEFLON_GRUPO_TAMANHO", "familia": familia,
+                      "vedacao": "TEFLON", "grupo_tamanho": _grupo_pistao_2036(tamanho)}
     elif familia == FAMILIA_1314:
-        identidade = {
-            "regra": "1314_TAMANHO_VEDACAO_VARIANTE",
-            "familia": familia,
-            "tamanho": tamanho,
-            "vedacao": vedacao,
-            "variante": "ANCLADO" if "A" in sufixos_normalizados else "NORMAL",
-        }
-
+        identidade = {"regra": "1314_TAMANHO_VEDACAO_VARIANTE", "familia": familia,
+                      "tamanho": tamanho, "vedacao": vedacao,
+                      "variante": "ANCLADO" if "A" in sufixos_normalizados else "NORMAL"}
     elif familia == FAMILIA_1335:
-        identidade = {
-            "regra": "1335_D_GRUPO_TAMANHO_VEDACAO",
-            "familia": familia,
-            "variante": "D",
-            "grupo_tamanho": _grupo_pistao_1335(tamanho, material_corpo),
-            "vedacao": vedacao,
-        }
-
+        identidade = {"regra": "1335_D_GRUPO_TAMANHO_VEDACAO", "familia": familia,
+                      "variante": "D", "grupo_tamanho": _grupo_pistao_1335(tamanho, material_corpo),
+                      "vedacao": vedacao}
     else:
         return None
 
+    # Ainda não definimos família a família se a vedação do pistão é O-ring
+    # ou junta. Não inventar essa informação.
     return {
         "grupo_componente": "G3",
         "nome_grupo": "CONJUNTO_PISTAO",
         "identidade": identidade,
         "componentes": {
             "pistao": identidade.copy(),
-            "mola": identidade.copy(),
+            "mola_pistao": identidade.copy(),
+            "junta_pistao": None,
+            "mola_interna_junta": None,
         },
+        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou junta + mola interna (G3); tipo pendente por família.",
     }
