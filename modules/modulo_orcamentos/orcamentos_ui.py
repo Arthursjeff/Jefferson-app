@@ -829,21 +829,18 @@ def pagina_orcamentos():
                             ("V23", "G4 — Carretel"),
                             ("V24", "G5 — O-rings"),
                         ]:
-                            dados_grupo = variaveis.get(chave) or {}
-                            ativos = [
-                                nome
-                                for nome, valor in dados_grupo.items()
-                                if valor not in (False, None)
-                            ]
-
-                            st.write(
-                                f"**{titulo}:** "
-                                + (
-                                    ", ".join(ativos)
-                                    if ativos
-                                    else "-"
-                                )
+                            componentes_grupo = (
+                                variaveis.get(chave)
+                                or []
                             )
+
+                            if componentes_grupo:
+                                st.write(
+                                    f"**{titulo}:** "
+                                    + ", ".join(
+                                        componentes_grupo
+                                    )
+                                )
 
 
                     # =========================================
