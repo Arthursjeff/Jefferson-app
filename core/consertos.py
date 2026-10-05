@@ -125,7 +125,41 @@ def adicionar_nota_cliente(conserto_id, nota, usuario):
     return True
 
 
-def avancar_com_dados(conserto, usuario, texto=None, nota_jefferson=None):
+def definir_liberacao(conserto, usuario, setor_usuario):
+    if setor_usuario != "ADMINISTRADOR":
+        return False, "Somente ADMINISTRADOR pode liberar o conserto."
+
+    estagio = conserto.get("estagio_atual")
+    if estagio == "CHEGOU":
+        campo, campo_por, campo_em = "chegou_liberado", "chegou_liberado_por", "chegou_liberado_em"
+    elif estagio == "VERIFICADO":
+        campo, campo_por, campo_em = "verificado_liberado", "verificado_liberado_por", "verificado_liberado_em"
+    else:
+        return False, "Este estágio não possui liberação administrativa."
+
+    if conserto.get(campo):
+        return False, "Este estágio já está liberado."
+
+    dados = {campo: True, campo_por: usuario, campo_em: _agora()}
+    response = (
+        supabase.table(TABELA_CONSERTOS)
+        .update(dados)
+        .eq("id", conserto["id"])
+        .eq("estagio_atual", estagio)
+        .eq(campo, False)
+        .execute()
+    )
+    if not response.data:
+        return False, "Não foi possível liberar. Atualize a página e tente novamente."
+
+    registrar_movimentacao(
+        conserto["id"], estagio, estagio, usuario, "LIBERACAO_ADMINISTRATIVA",
+        f"{estagio} liberado para prosseguimento por {usuario}.",
+    )
+    return True, "Conserto liberado para prosseguimento."
+
+
+def avancar_com_dados(conserto, usuario, setor_usuario, texto=None, nota_jefferson=None):
     origem = conserto.get("estagio_atual")
     if origem not in ESTAGIOS:
         return False
@@ -134,6 +168,12 @@ def avancar_com_dados(conserto, usuario, texto=None, nota_jefferson=None):
         return False
 
     destino = ESTAGIOS[idx + 1]
+
+    if origem == "CHEGOU" and not conserto.get("chegou_liberado"):
+        return False
+    if origem == "VERIFICADO" and not conserto.get("verificado_liberado"):
+        return False
+
     agora = _agora()
     dados = {"estagio_atual": destino}
 
