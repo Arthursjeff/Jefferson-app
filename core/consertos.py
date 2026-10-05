@@ -2,10 +2,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from core.database import supabase
+from core.notificacoes import criar_notificacao_para_setor
 
 TABELA_CONSERTOS = "consertos"
 TABELA_ITENS = "conserto_itens"
 TABELA_MOVIMENTACOES = "conserto_movimentacoes"
+TABELA_FILA_PEDIDOS = "fila_pedidos"
+TABELA_FILA_MOVIMENTACOES = "fila_movimentacoes"
 
 ESTAGIOS = ["CHEGOU", "VERIFICADO", "CORRIGIDO", "PRONTO_PARA_RETIRADA"]
 
@@ -159,6 +162,70 @@ def definir_liberacao(conserto, usuario, setor_usuario):
     return True, "Conserto liberado para prosseguimento."
 
 
+
+def _criar_card_faturado_conserto(conserto, nota_jefferson, usuario):
+    conserto_id = conserto["id"]
+
+    existente = (
+        supabase.table(TABELA_FILA_PEDIDOS)
+        .select("id")
+        .eq("conserto_id", conserto_id)
+        .limit(1)
+        .execute()
+    )
+    if existente.data:
+        return existente.data[0]
+
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    dados = {
+        "numero_pedido": f"CONS-{conserto_id}",
+        "cliente": str(conserto.get("cliente") or "").strip().upper(),
+        "criado_por": usuario,
+        "criado_data": agora.date().isoformat(),
+        "criado_hora": agora.time().strftime("%H:%M:%S"),
+        "tipo_pedido": "CONSERTO",
+        "data_prevista_faturamento": agora.date().isoformat(),
+        "setor_atual": "FATURADO",
+        "status": "ATIVO",
+        "nota_fiscal": str(nota_jefferson).strip(),
+        "conserto_id": conserto_id,
+    }
+
+    response = supabase.table(TABELA_FILA_PEDIDOS).insert(dados).execute()
+    pedido = response.data[0] if response.data else None
+    if not pedido:
+        return None
+
+    eventos = [
+        {
+            "pedido_id": pedido["id"],
+            "origem": "",
+            "destino": "FATURADO",
+            "usuario": usuario,
+            "tipo_evento": "CRIACAO_CONSERTO",
+            "observacao": f"Card criado automaticamente a partir do Conserto #{conserto_id}.",
+            "criado_em": _agora(),
+        },
+        {
+            "pedido_id": pedido["id"],
+            "origem": "FATURADO",
+            "destino": "PENDENTE",
+            "usuario": usuario,
+            "tipo_evento": "STATUS_EXPEDICAO",
+            "observacao": f"Status de expedição iniciado como Pendente após conclusão do Conserto #{conserto_id}.",
+            "criado_em": _agora(),
+        },
+    ]
+    supabase.table(TABELA_FILA_MOVIMENTACOES).insert(eventos).execute()
+
+    criar_notificacao_para_setor(
+        pedido_id=pedido["id"],
+        setor_destino="MONTAGEM",
+        tipo="PEDIDO_FATURADO",
+        mensagem=f"Conserto faturado: CONS-{conserto_id} - {pedido['cliente']}",
+    )
+    return pedido
+
 def avancar_com_dados(conserto, usuario, setor_usuario, texto=None, nota_jefferson=None):
     origem = conserto.get("estagio_atual")
     if origem not in ESTAGIOS:
@@ -190,10 +257,23 @@ def avancar_com_dados(conserto, usuario, setor_usuario, texto=None, nota_jeffers
             "corrigido_em": agora,
         })
     elif origem == "CORRIGIDO" and destino == "PRONTO_PARA_RETIRADA":
+        nota_final = str(nota_jefferson or "").strip()
+        if not nota_final:
+            return False
+
+        try:
+            pedido_fila = _criar_card_faturado_conserto(conserto, nota_final, usuario)
+        except Exception:
+            return False
+
+        if not pedido_fila:
+            return False
+
         dados.update({
-            "nota_fiscal_jefferson": str(nota_jefferson or "").strip(),
+            "nota_fiscal_jefferson": nota_final,
             "pronto_retirada_por": usuario,
             "pronto_retirada_em": agora,
+            "pedido_fila_id": pedido_fila["id"],
         })
 
     response = (
