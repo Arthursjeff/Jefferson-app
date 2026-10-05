@@ -5,6 +5,7 @@ from core.admin import apagar_tudo
 from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_importar_clientes
 from modules.analises import pagina_analises
+from modules.consertos import pagina_consertos
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
@@ -1123,6 +1124,7 @@ with st.sidebar:
             "Orçamentos",
             "Importar Clientes",
             "Análises",
+            "Consertos",
         ]
 
     elif st.session_state.setor == "VENDAS":
@@ -1135,6 +1137,7 @@ with st.sidebar:
         paginas = [
             "Fila de Pedidos",
             "Orçamentos",
+            "Consertos",
         ]
 
     else:
@@ -1182,6 +1185,15 @@ elif pagina == "Análises":
         st.stop()
 
     pagina_analises()
+
+
+elif pagina == "Consertos":
+
+    if st.session_state.setor not in ["ADMINISTRADOR", "MONTAGEM"]:
+        st.error("Você não possui permissão para acessar esta página.")
+        st.stop()
+
+    pagina_consertos()
 
 
 elif pagina == "Orçamentos":
