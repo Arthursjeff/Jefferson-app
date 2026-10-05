@@ -766,6 +766,8 @@ def icone_tipo_pedido(tipo_pedido):
         return "✈️ "
     if tipo_pedido == "PROGRAMADO":
         return "📅 "
+    if tipo_pedido == "CONSERTO":
+        return "🔧 "
     return ""
 
 def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alertas):
