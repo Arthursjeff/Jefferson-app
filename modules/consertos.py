@@ -5,6 +5,7 @@ from core.consertos import (
     adicionar_nota_cliente,
     avancar_com_dados,
     criar_conserto,
+    definir_liberacao,
     listar_consertos,
     listar_itens,
     listar_movimentacoes,
@@ -192,6 +193,7 @@ def modal_transicao():
             if avancar_com_dados(
                 conserto=conserto,
                 usuario=st.session_state.nome,
+                setor_usuario=st.session_state.setor,
                 texto=texto,
                 nota_jefferson=nf_jefferson,
             ):
@@ -207,10 +209,17 @@ def _render_card(conserto):
     aberto = st.session_state.conserto_aberto == cid
     tem_nf = bool(conserto.get("nota_fiscal_cliente"))
     nf_badge = " | NF cliente" if tem_nf else " | SEM NF"
+    estagio = conserto.get("estagio_atual")
+    campo_liberacao = {
+        "CHEGOU": "chegou_liberado",
+        "VERIFICADO": "verificado_liberado",
+    }.get(estagio)
+    liberado = bool(conserto.get(campo_liberacao)) if campo_liberacao else None
+    sinal = " 🟢" if liberado is True else (" 🔴" if liberado is False else "")
 
     if not aberto:
         if st.button(
-            f"#{cid} - {conserto['cliente']}{nf_badge}",
+            f"{sinal} #{cid} - {conserto['cliente']}{nf_badge}",
             key=f"abrir_conserto_{cid}",
             use_container_width=True,
         ):
@@ -221,6 +230,26 @@ def _render_card(conserto):
     with st.container(border=True):
         st.markdown(f"**Conserto #{cid} — {conserto['cliente']}**")
         st.caption(f"Cadastrado por: {conserto.get('criado_por', '')}")
+
+        if campo_liberacao:
+            if liberado:
+                st.success("🟢 Liberado para prosseguimento.")
+                liberado_por = conserto.get(f"{estagio.lower()}_liberado_por")
+                if liberado_por:
+                    st.caption(f"Liberado por: {liberado_por}")
+            else:
+                st.error("🔴 Aguardando liberação administrativa.")
+                if st.session_state.setor == "ADMINISTRADOR":
+                    if st.button("🟢 Liberar prosseguimento", key=f"liberar_conserto_{cid}", use_container_width=True):
+                        sucesso, mensagem = definir_liberacao(
+                            conserto=conserto,
+                            usuario=st.session_state.nome,
+                            setor_usuario=st.session_state.setor,
+                        )
+                        if sucesso:
+                            st.success(mensagem)
+                            st.rerun()
+                        st.warning(mensagem)
 
         if tem_nf:
             st.info(f"NF cliente: **{conserto['nota_fiscal_cliente']}**")
@@ -260,9 +289,18 @@ def _render_card(conserto):
         c1, c2 = st.columns(2)
         with c1:
             if conserto.get("estagio_atual") != "PRONTO_PARA_RETIRADA":
-                if st.button("Avançar", key=f"avancar_conserto_{cid}", type="primary", use_container_width=True):
+                bloqueado_por_liberacao = campo_liberacao is not None and not liberado
+                if st.button(
+                    "Avançar",
+                    key=f"avancar_conserto_{cid}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=bloqueado_por_liberacao,
+                ):
                     st.session_state.conserto_modal_transicao = conserto
                     st.rerun()
+                if bloqueado_por_liberacao:
+                    st.caption("Aguardando liberação do ADMINISTRADOR.")
         with c2:
             if st.button("Fechar", key=f"fechar_conserto_{cid}", use_container_width=True):
                 st.session_state.conserto_aberto = None
@@ -277,10 +315,13 @@ def pagina_consertos():
         return
 
     st.title("Consertos")
-    topo1, topo2 = st.columns([3, 1])
+    topo1, topo2, topo3 = st.columns([3, 1, 1])
     with topo1:
         st.caption("Recebimento, diagnóstico, correção e liberação de materiais.")
     with topo2:
+        if st.button("🔄 Atualizar", use_container_width=True):
+            st.rerun()
+    with topo3:
         if st.button("+ Novo Conserto", type="primary", use_container_width=True):
             st.session_state.conserto_modal_novo = True
             st.rerun()
