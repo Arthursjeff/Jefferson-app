@@ -15,7 +15,7 @@ LABELS = {
     "CHEGOU": "Chegou",
     "VERIFICADO": "Verificado",
     "CORRIGIDO": "Corrigido",
-    "PRONTO_PARA_RETIRADA": "Pronto para Retirada",
+    "PRONTO_PARA_RETIRADA": "Tudo Pronto",
 }
 
 CORES = {
@@ -161,7 +161,7 @@ def modal_transicao():
             key=f"correcao_{conserto['id']}",
         )
     elif origem == "CORRIGIDO":
-        st.markdown("**CORRIGIDO → PRONTO PARA RETIRADA**")
+        st.markdown("**CORRIGIDO → TUDO PRONTO**")
         nf_jefferson = st.text_input(
             "NF Jefferson *",
             placeholder="Digite o número da nossa NF",
