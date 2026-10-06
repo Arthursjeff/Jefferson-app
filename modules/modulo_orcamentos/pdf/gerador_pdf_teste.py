@@ -485,18 +485,19 @@ def desenhar_cliente(
             stroke=0,
         )
 
-        if indice == 3:
-            texto(c, x + 3 * mm, y + 13 * mm, "REVISÃO", tamanho=6.3,
-                  fonte="Helvetica-Bold", cor=CINZA_MEDIO)
-            texto(c, x + 3 * mm, y + 9 * mm, str(revisao), tamanho=8.5,
-                  fonte="Helvetica-Bold", cor=COR_PRINCIPAL_ESCURA)
-        texto(c, x + 3 * mm, y + (5.8 if indice == 3 else 10.5) * mm,
-              titulos[indice], tamanho=6.3, fonte="Helvetica-Bold", cor=CINZA_MEDIO)
         valor = valores[indice]
+        if indice == 3:
+            titulo = "REVISÃO"
+            valor = str(revisao)
+        else:
+            titulo = titulos[indice]
         if indice == 0:
             valor = nome_cliente_resumido(c, valor, largura - 6 * mm)
-        texto(c, x + 3 * mm, y + (1.8 if indice == 3 else 5) * mm,
-              valor, tamanho=8.5, fonte="Helvetica-Bold")
+        texto(c, x + 3 * mm, y + 10.5 * mm,
+              titulo, tamanho=6.3, fonte="Helvetica-Bold", cor=CINZA_MEDIO)
+        texto(c, x + 3 * mm, y + 5 * mm,
+              valor, tamanho=8.5, fonte="Helvetica-Bold",
+              cor=COR_PRINCIPAL_ESCURA if indice == 3 else PRETO)
 
         x += largura
 
