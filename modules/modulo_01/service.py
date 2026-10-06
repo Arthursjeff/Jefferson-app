@@ -68,7 +68,7 @@ ESTADOS_OCULTOS = [
 
 LABEL_ESTADOS = {
     "PEDIDO": "Pedidos",
-    "EM_MONTAGEM": "Em Montagem",
+    "EM_MONTAGEM": "Montagem",
     "MONTADOS": "Montados",
     "FATURADO": "Faturados",
     "EMBALADO": "Embalados",
