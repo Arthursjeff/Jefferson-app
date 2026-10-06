@@ -1391,14 +1391,14 @@ def desenhar_pagina_tecnica_teste(
         - 2 * margem
     )
 
-    largura_coluna = (
-        largura_util / 3
-    )
+    # Alinha item, código e imagem com as colunas dos dados técnicos.
+    largura_campo = 38 * mm
+    largura_coluna = (largura_util - largura_campo) / 3
 
     colunas_x = [
-        margem,
-        margem + largura_coluna,
-        margem + largura_coluna * 2,
+        margem + largura_campo,
+        margem + largura_campo + largura_coluna,
+        margem + largura_campo + largura_coluna * 2,
     ]
 
 
