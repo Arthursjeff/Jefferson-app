@@ -6,6 +6,7 @@ from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_importar_clientes
 from modules.analises import pagina_analises
 from modules.consertos import pagina_consertos
+from modules.consulta_fotos import pagina_consulta_fotos
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
@@ -1127,6 +1128,7 @@ with st.sidebar:
             "Importar Clientes",
             "Análises",
             "Consertos",
+            "Consulta de Fotos",
         ]
 
     elif st.session_state.setor == "VENDAS":
@@ -1196,6 +1198,15 @@ elif pagina == "Consertos":
         st.stop()
 
     pagina_consertos()
+
+
+elif pagina == "Consulta de Fotos":
+
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("Esta página é exclusiva para administradores.")
+        st.stop()
+
+    pagina_consulta_fotos()
 
 
 elif pagina == "Orçamentos":

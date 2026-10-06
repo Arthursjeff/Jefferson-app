@@ -34,3 +34,38 @@ def salvar_foto_pedido(pedido_id: int, foto, usuario: str, tipo_evento: str):
     response = supabase.table(TABELA_FOTOS).insert(dados).execute()
 
     return response.data[0] if response.data else None
+
+
+def listar_fotos_pedido(pedido_id: int):
+    response = (
+        supabase
+        .table(TABELA_FOTOS)
+        .select("*")
+        .eq("pedido_id", pedido_id)
+        .order("criado_em", desc=True)
+        .execute()
+    )
+    return response.data or []
+
+
+def obter_url_foto(arquivo_path: str, expires_in: int = 3600):
+    if not arquivo_path:
+        return None
+
+    try:
+        resposta = (
+            supabase.storage
+            .from_(BUCKET_FOTOS)
+            .create_signed_url(arquivo_path, expires_in)
+        )
+
+        if isinstance(resposta, dict):
+            return (
+                resposta.get("signedURL")
+                or resposta.get("signedUrl")
+                or resposta.get("signed_url")
+            )
+
+        return getattr(resposta, "signed_url", None)
+    except Exception:
+        return None
