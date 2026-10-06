@@ -35,6 +35,7 @@ Regras validadas:
 import re
 
 from motor_descricao import REGRAS_V01_TIPO_PRODUTO, REGRAS_V06_MATERIAL_VEDACAO
+from components.internos.orings import identificar_orings
 
 
 def _normalizar_codigo(codigo):
@@ -260,24 +261,39 @@ def identificar_componentes_por_familia(resultado):
     if familia in {"1330", "2030", "1325"}:
         componentes["G4"] = ["Carretel"]
 
-    # G5 - somente O-rings cuja presença já foi confirmada.
-    if familia == "1342":
-        componentes["G5"] = [
-            f"O-ring da tampa em {material}",
-            f"O-ring da torre em {material}",
-        ]
+    # G5 - usa o mapa validado família por família.
+    orings = identificar_orings(
+        familia=familia,
+        vedacao=resultado.get("codigo_vedacao") or vedacao,
+        tamanho=None,
+    )
 
-    if familia == "2036":
-        componentes["G5"] = [
-            f"O-ring da tampa em {material}",
-        ]
-        if resultado.get("codigo_vedacao") == "T":
-            componentes["G5"].append(
-                f"O-ring da torre em {material}"
-            )
-            componentes["G5"].append(
-                "Disco de Teflon da tampa"
-            )
+    nomes_locais = {
+        "tampa": "tampa",
+        "torre": "torre",
+        "carretel": "carretel",
+        "pistao": "pistão",
+        "corpo": "corpo",
+        "anticorpo": "anticorpo",
+    }
+
+    for oring in orings:
+        local = nomes_locais.get(
+            oring.get("local"),
+            oring.get("local"),
+        )
+        quantidade = oring.get("quantidade", 1)
+        prefixo = f"{quantidade}× " if quantidade > 1 else ""
+        componentes["G5"].append(
+            f"{prefixo}O-ring do {local} em {material}"
+        )
+
+    # 1342: FKM, EPDM e PTFE usam aro do pistão em G3, não O-ring.
+    if familia == "1342" and resultado.get("codigo_vedacao") in {"V", "E", "T"}:
+        componentes["G3"].extend([
+            f"Aro do pistão em {material}",
+            "Mola interna do aro",
+        ])
 
     return componentes
 
