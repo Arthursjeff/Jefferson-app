@@ -6,7 +6,7 @@ from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_importar_clientes
 from modules.analises import pagina_analises
 from modules.consertos import pagina_consertos
-from modules.consulta_fotos import pagina_consulta_fotos
+from modules.consulta_fotos import pagina_consulta_pedidos
 from core.auth import validar_login, USUARIOS
 from modules.modulo_01.service import (
     ESTADOS_FILA,
@@ -1128,13 +1128,14 @@ with st.sidebar:
             "Importar Clientes",
             "Análises",
             "Consertos",
-            "Consulta de Fotos",
+            "Consulta de Pedidos",
         ]
 
     elif st.session_state.setor == "VENDAS":
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
+            "Consulta de Pedidos",
         ]
 
     elif st.session_state.setor == "MONTAGEM":
@@ -1200,13 +1201,13 @@ elif pagina == "Consertos":
     pagina_consertos()
 
 
-elif pagina == "Consulta de Fotos":
+elif pagina == "Consulta de Pedidos":
 
-    if st.session_state.setor != "ADMINISTRADOR":
-        st.error("Esta página é exclusiva para administradores.")
+    if st.session_state.setor not in ["ADMINISTRADOR", "VENDAS"]:
+        st.error("Você não possui permissão para acessar esta página.")
         st.stop()
 
-    pagina_consulta_fotos()
+    pagina_consulta_pedidos()
 
 
 elif pagina == "Orçamentos":
