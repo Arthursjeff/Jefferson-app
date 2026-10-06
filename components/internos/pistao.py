@@ -7,12 +7,12 @@ Estrutura conceitual:
 - mola do pistão;
 - vedação associada ao pistão, que pode ser:
   - O-ring do pistão; ou
-  - junta do pistão + mola interna da junta.
+  - aro do pistão + mola interna da junta.
 
 Regras de identidade:
 - quando muda o pistão, muda também a vedação associada a ele;
 - o O-ring do pistão é tratado em G5;
-- junta e mola interna da junta permanecem associadas ao G3;
+- aro e mola interna do aro permanecem associadas ao G3;
 - o tipo de vedação do pistão (O-ring ou junta) será definido família a família.
 
 Regras validadas:
@@ -156,8 +156,8 @@ def identificar_conjunto_pistao(familia, tamanho=None, vedacao=None, material_co
         "componentes": {
             "pistao": identidade.copy(),
             "mola_pistao": identidade.copy(),
-            "junta_pistao": None,
-            "mola_interna_junta": None,
+            "aro_pistao": None,
+            "mola_interna_aro": None,
         },
-        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou junta + mola interna (G3); tipo pendente por família.",
+        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou aro + mola interna (G3); tipo definido família a família. Na 1342, NBR/Buna-N usa O-ring; FKM, EPDM e PTFE usam aro.",
     }
