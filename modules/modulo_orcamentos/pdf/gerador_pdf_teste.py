@@ -48,6 +48,44 @@ EMPRESA_CONTATO = "+55 11 4336.7033 | WhatsApp +55 11 94761.9089"
 # FUNÇÕES DE TEXTO
 # ============================================================
 
+def formatar_reais(valor):
+    return "R$ " + f"{valor:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+
+
+def linhas_texto(c, valor, largura, tamanho=6.2, fonte="Helvetica"):
+    linhas = []
+    for paragrafo in str(valor).split("\n"):
+        linha = ""
+        for palavra in paragrafo.split():
+            tentativa = f"{linha} {palavra}".strip()
+            if c.stringWidth(tentativa, fonte, tamanho) <= largura:
+                linha = tentativa
+                continue
+            if linha:
+                linhas.append(linha)
+            linha = ""
+            for letra in palavra:
+                if linha and c.stringWidth(linha + letra, fonte, tamanho) > largura:
+                    linhas.append(linha)
+                    linha = ""
+                linha += letra
+        linhas.append(linha)
+    return linhas or [""]
+
+
+def nome_cliente_resumido(c, valor, largura):
+    palavras = str(valor).split()
+    usadas = []
+    for palavra in palavras:
+        if c.stringWidth(" ".join(usadas + [palavra]), "Helvetica-Bold", 8.5) > largura:
+            break
+        usadas.append(palavra)
+    if len(usadas) < len(palavras):
+        while usadas and usadas[-1].lower() in {"e", "&", "de", "da", "do", "das", "dos"}:
+            usadas.pop()
+    return " ".join(usadas)
+
+
 def texto(
     c,
     x,
@@ -396,16 +434,17 @@ def desenhar_cliente(
     y_topo,
     cliente,
     responsavel,
+    revisao=0,
 ):
     margem = 14 * mm
 
-    altura = 12 * mm
+    altura = 17 * mm
     y = y_topo - altura
 
     larguras = [
-        57 * mm,
-        57 * mm,
-        30 * mm,
+        85 * mm,
+        37 * mm,
+        22 * mm,
         38 * mm,
     ]
 
@@ -446,24 +485,18 @@ def desenhar_cliente(
             stroke=0,
         )
 
-        texto(
-            c,
-            x + 3 * mm,
-            y + 7.3 * mm,
-            titulos[indice],
-            tamanho=6.3,
-            fonte="Helvetica-Bold",
-            cor=CINZA_MEDIO,
-        )
-
-        texto(
-            c,
-            x + 3 * mm,
-            y + 1.8 * mm,
-            valores[indice],
-            tamanho=8.5,
-            fonte="Helvetica-Bold",
-        )
+        if indice == 3:
+            texto(c, x + 3 * mm, y + 13 * mm, "REVISÃO", tamanho=6.3,
+                  fonte="Helvetica-Bold", cor=CINZA_MEDIO)
+            texto(c, x + 3 * mm, y + 9 * mm, str(revisao), tamanho=8.5,
+                  fonte="Helvetica-Bold", cor=COR_PRINCIPAL_ESCURA)
+        texto(c, x + 3 * mm, y + (5.8 if indice == 3 else 10.5) * mm,
+              titulos[indice], tamanho=6.3, fonte="Helvetica-Bold", cor=CINZA_MEDIO)
+        valor = valores[indice]
+        if indice == 0:
+            valor = nome_cliente_resumido(c, valor, largura - 6 * mm)
+        texto(c, x + 3 * mm, y + (1.8 if indice == 3 else 5) * mm,
+              valor, tamanho=8.5, fonte="Helvetica-Bold")
 
         x += largura
 
@@ -668,7 +701,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            f"R$ {item['valor_unitario']:,.2f}",
+            formatar_reais(item['valor_unitario']),
             tamanho=7.0,
         )
 
@@ -681,7 +714,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            f"R$ {(item['quantidade'] * item['valor_unitario']):,.2f}",
+            formatar_reais(item['quantidade'] * item['valor_unitario']),
             tamanho=7.0,
             fonte="Helvetica-Bold",
         )
@@ -888,7 +921,7 @@ def desenhar_total(
     if mostrar_total:
 
         valor_exibido = (
-            f"R$ {total_orcamento:,.2f}"
+            formatar_reais(total_orcamento)
         )
 
     else:
@@ -1830,270 +1863,75 @@ def desenhar_pagina_tecnica_teste(
     )
 
 
-    # ========================================================
-    # DESENHAR DADOS
-    # ========================================================
+    paginas_usadas = 1
+    entrelinha = 8
+    padding = 2 * mm
+    limite = 23 * mm
 
-    for numero_linha, campo in enumerate(
-        campos
-    ):
+    def rodape():
+        c.setStrokeColor(CINZA_LINHA)
+        c.setLineWidth(0.5)
+        c.line(margem, 17 * mm, largura_pagina - margem, 17 * mm)
+        texto(c, margem, 11 * mm, EMPRESA_NOME, tamanho=6.5,
+              fonte="Helvetica-Bold", cor=CINZA_MEDIO)
+        texto_direita(c, largura_pagina - margem, 11 * mm,
+                      "Dados técnicos da proposta", tamanho=6.5, cor=CINZA_MEDIO)
+        texto_centro(c, largura_pagina / 2, 6 * mm,
+                     str(numero_pagina + paginas_usadas - 1), tamanho=7, cor=CINZA_MEDIO)
 
-        if campo == "OBSERVAÇÃO":
+    def continuar():
+        nonlocal y, paginas_usadas
+        rodape()
+        c.showPage()
+        paginas_usadas += 1
+        y = desenhar_cabecalho_tecnico(c, largura_pagina, altura_pagina,
+              numero_orcamento, numero_pagina=numero_pagina + paginas_usadas - 1) - 5 * mm
+        y -= 10 * mm
+        c.setFillColor(COR_PRINCIPAL_ESCURA)
+        c.rect(margem, y, largura_util, 10 * mm, fill=1, stroke=0)
+        texto(c, margem + 2 * mm, y + 3 * mm, "CONTINUAÇÃO", tamanho=6.2, cor=BRANCO)
+        for indice, item in enumerate(itens_pagina):
+            if item:
+                texto_centro(c, margem + largura_campo + (indice + 0.5) * largura_valor,
+                    y + 3 * mm, f"ITEM {numero_item_inicial + indice:02d} — {item['codigo']}",
+                    tamanho=6.2, fonte="Helvetica-Bold", cor=BRANCO)
 
-            altura_atual = (
-                altura_linha * 2
-            )
-
-        else:
-
-            altura_atual = (
-                altura_linha
-            )
-
-
-        y -= altura_atual
-
-
-        fundo = (
-            CINZA_ALTERNADO
-            if numero_linha % 2 == 1
-            else BRANCO
-        )
-
-
-        c.setFillColor(
-            fundo
-        )
-
-
-        c.rect(
-            margem,
-            y,
-            largura_util,
-            altura_atual,
-            fill=1,
-            stroke=0,
-        )
-
-
-        # ====================================================
-        # NOME DO CAMPO
-        # ====================================================
-
-        texto(
-            c,
-            margem + 3 * mm,
-            y
-            + (
-                altura_atual / 2
-            )
-            - 1.2 * mm,
-            campo,
-            tamanho=6.2,
-            fonte="Helvetica-Bold",
-            cor=CINZA_ESCURO,
-        )
-
-
-        x_inicio_valores = (
-            margem
-            + largura_campo
-        )
-
-
-        c.setStrokeColor(
-            CINZA_LINHA
-        )
-
-        c.setLineWidth(
-            0.4
-        )
-
-
-        c.line(
-            x_inicio_valores,
-            y,
-            x_inicio_valores,
-            y + altura_atual,
-        )
-
-
-        # ====================================================
-        # VALORES
-        # ====================================================
-
-        for indice in range(3):
-
-            x = (
-                x_inicio_valores
-                + indice
-                * largura_valor
-            )
-
-
-            produto = (
-                dados_produtos[
-                    indice
-                ]
-            )
-
-
-            valor = (
-                produto.get(
-                    campo,
-                    ""
-                )
-                if produto
-                else ""
-            )
-
-
-            if (
-                campo
-                == "OBSERVAÇÃO"
-            ):
-
-                texto_quebrado(
-                    c,
-                    valor,
-                    x + 2 * mm,
-                    y
-                    + altura_atual
-                    - 4 * mm,
-                    largura_valor
-                    - 4 * mm,
-                    tamanho=5.8,
-                    entrelinha=6.5,
-                    max_linhas=2,
-                )
-
-
-            else:
-
-                texto_centro(
-                    c,
-                    x
-                    + largura_valor / 2,
-                    y
-                    + (
-                        altura_atual / 2
-                    )
-                    - 1.2 * mm,
-                    valor,
-                    tamanho=6.2,
-                    fonte="Helvetica",
-                    cor=PRETO,
-                )
-
-
-            if indice < 2:
-
-                c.line(
-                    x
-                    + largura_valor,
-                    y,
-                    x
-                    + largura_valor,
-                    y
-                    + altura_atual,
-                )
-
-
-        c.line(
-            margem,
-            y,
-            margem
-            + largura_util,
-            y,
-        )
-
-
-    # ========================================================
-    # BORDA GERAL
-    # ========================================================
-
-    altura_total_dados = (
-        (
-            quantidade_linhas
-            - 1
-        )
-        * altura_linha
-        + altura_linha
-        * 2
-    )
-
-
-    c.setStrokeColor(
-        CINZA_LINHA
-    )
-
-    c.setLineWidth(
-        0.6
-    )
-
-
-    c.rect(
-        margem,
-        y,
-        largura_util,
-        altura_total_dados,
-        fill=0,
-        stroke=1,
-    )
-
-
-    # ========================================================
-    # RODAPÉ
-    # ========================================================
-
-    c.setStrokeColor(
-        CINZA_LINHA
-    )
-
-    c.setLineWidth(
-        0.5
-    )
-
-
-    c.line(
-        margem,
-        17 * mm,
-        largura_pagina
-        - margem,
-        17 * mm,
-    )
-
-
-    texto(
-        c,
-        margem,
-        11 * mm,
-        EMPRESA_NOME,
-        tamanho=6.5,
-        fonte="Helvetica-Bold",
-        cor=CINZA_MEDIO,
-    )
-
-
-    texto_direita(
-        c,
-        largura_pagina
-        - margem,
-        11 * mm,
-        "Dados técnicos da proposta",
-        tamanho=6.5,
-        cor=CINZA_MEDIO,
-    )
-
-
-    texto_centro(
-        c,
-        largura_pagina / 2,
-        6 * mm,
-        str(numero_pagina),
-        tamanho=7,
-        cor=CINZA_MEDIO,
-    )
+    for numero_linha, campo in enumerate(campos):
+        tamanho = 5.8 if campo == "OBSERVAÇÃO" else 6.2
+        linhas = [linhas_texto(c, produto.get(campo, ""),
+                  largura_valor - 4 * mm, tamanho) for produto in dados_produtos]
+        total_linhas = max(map(len, linhas))
+        inicio = 0
+        while inicio < total_linhas:
+            altura_necessaria = max(altura_linha, (total_linhas - inicio) * entrelinha + 2 * padding)
+            if altura_necessaria > y - limite and y < altura_pagina - 60 * mm:
+                continuar()
+            capacidade = int((y - limite - 2 * padding) // entrelinha)
+            if capacidade < 1:
+                continuar()
+                capacidade = int((y - limite - 2 * padding) // entrelinha)
+            quantidade = min(total_linhas - inicio, capacidade)
+            altura_atual = max(altura_linha, quantidade * entrelinha + 2 * padding)
+            y -= altura_atual
+            fundo = CINZA_ALTERNADO if numero_linha % 2 else BRANCO
+            c.setFillColor(fundo)
+            c.setStrokeColor(CINZA_LINHA)
+            c.setLineWidth(0.4)
+            c.rect(margem, y, largura_util, altura_atual, fill=1, stroke=1)
+            texto(c, margem + 3 * mm, y + altura_atual / 2 - 1.2 * mm,
+                  campo, tamanho=6.2, fonte="Helvetica-Bold", cor=CINZA_ESCURO)
+            for indice in range(3):
+                x = margem + largura_campo + indice * largura_valor
+                c.line(x, y, x, y + altura_atual)
+                trecho = linhas[indice][inicio:inicio + quantidade]
+                y_texto = y + altura_atual / 2 + (len(trecho) - 1) * entrelinha / 2 - tamanho / 3
+                for linha in trecho:
+                    texto_centro(c, x + largura_valor / 2, y_texto,
+                                 linha, tamanho=tamanho)
+                    y_texto -= entrelinha
+            inicio += quantidade
+    rodape()
+    return paginas_usadas
 
 # ============================================================
 # DIVIDIR LISTA EM BLOCOS
@@ -2131,6 +1969,7 @@ def desenhar_pagina_comercial(
     numero_item_inicial,
     eh_ultima_pagina,
     numero_ultima_pagina_comercial,
+    revisao=0,
 ):
 
     # CABEÇALHO
@@ -2161,6 +2000,7 @@ def desenhar_pagina_comercial(
         y - 3 * mm,
         cliente,
         responsavel,
+        revisao=revisao,
     )
 
 
@@ -2244,6 +2084,7 @@ def gerar_pdf_orcamento(
     itens,
     observacao_geral,
     responsavel,
+    revisao=0,
 ):
 
     buffer = BytesIO()
@@ -2320,6 +2161,7 @@ def gerar_pdf_orcamento(
             numero_item_inicial,
             eh_ultima_pagina,
             quantidade_paginas_comerciais,
+            revisao=revisao,
         )
 
 
@@ -2340,18 +2182,11 @@ def gerar_pdf_orcamento(
     numero_item_inicial = 1
 
 
-    for indice_tecnico, itens_pagina in enumerate(
-        paginas_tecnicas
-    ):
+    numero_pagina_pdf = quantidade_paginas_comerciais + 1
 
-        numero_pagina_pdf = (
-            quantidade_paginas_comerciais
-            + indice_tecnico
-            + 1
-        )
+    for itens_pagina in paginas_tecnicas:
 
-
-        desenhar_pagina_tecnica_teste(
+        paginas_usadas = desenhar_pagina_tecnica_teste(
             c,
             largura_pagina,
             altura_pagina,
@@ -2363,6 +2198,7 @@ def gerar_pdf_orcamento(
 
 
         c.showPage()
+        numero_pagina_pdf += paginas_usadas
 
 
         numero_item_inicial += (
