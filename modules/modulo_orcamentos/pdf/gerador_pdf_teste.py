@@ -955,7 +955,9 @@ def desenhar_total(
 def desenhar_condicoes(
     c,
     y_topo,
+    condicoes_comerciais=None,
 ):
+    comercial = condicoes_comerciais or {}
     margem = 14 * mm
 
     # Título maior
@@ -988,15 +990,15 @@ def desenhar_condicoes(
     condicoes = [
         (
             "Validade da proposta",
-            "15 dias",
+            comercial.get("validade_proposta") or "3 dias",
         ),
         (
             "Condição de pagamento",
-            "28 dias",
+            comercial.get("condicao_pagamento") or "28 dias",
         ),
         (
             "Frete",
-            "FOB",
+            comercial.get("frete") or "FOB",
         ),
         (
             "Impostos",
@@ -1976,6 +1978,7 @@ def desenhar_pagina_comercial(
     eh_ultima_pagina,
     numero_ultima_pagina_comercial,
     revisao=0,
+    condicoes_comerciais=None,
 ):
 
     # CABEÇALHO
@@ -2068,6 +2071,7 @@ def desenhar_pagina_comercial(
     desenhar_condicoes(
         c,
         y - 6 * mm,
+        condicoes_comerciais=condicoes_comerciais,
     )
 
 
@@ -2231,7 +2235,8 @@ CONDICOES_FORNECIMENTO = ['Condições de Fornecimento:', 'Impostos:', 'NCM: Vá
 
 
 def desenhar_condicoes_fornecimento(c, largura_pagina, altura_pagina,
-                                    numero_orcamento, numero_pagina):
+                                    numero_orcamento, numero_pagina,
+                                    condicoes_comerciais=None):
     margem = 14 * mm
     largura = largura_pagina - 2 * margem
     paginas = 0
@@ -2259,6 +2264,9 @@ def desenhar_condicoes_fornecimento(c, largura_pagina, altura_pagina,
 
     y = nova_pagina()
     for conteudo in CONDICOES_FORNECIMENTO:
+        if conteudo.startswith("* Validade da cotação:"):
+            validade = (condicoes_comerciais or {}).get("validade_proposta") or "3 dias"
+            conteudo = f"* Validade da cotação: Esta cotação é válida por {validade}."
         secao = conteudo in ("Condições de Fornecimento:",
                             "Recomendações gerais para instalação:")
         if secao:
@@ -2305,6 +2313,7 @@ def gerar_pdf_orcamento(
     observacao_geral,
     responsavel,
     revisao=0,
+    condicoes_comerciais=None,
 ):
 
     buffer = BytesIO()
@@ -2383,6 +2392,7 @@ def gerar_pdf_orcamento(
             eh_ultima_pagina,
             quantidade_paginas_comerciais,
             revisao=revisao,
+            condicoes_comerciais=condicoes_comerciais,
         )
 
 
@@ -2438,7 +2448,8 @@ def gerar_pdf_orcamento(
 
     # Sempre após todas as páginas de válvulas e kits.
     desenhar_condicoes_fornecimento(
-        c, largura_pagina, altura_pagina, numero_orcamento, numero_pagina_pdf)
+        c, largura_pagina, altura_pagina, numero_orcamento, numero_pagina_pdf,
+        condicoes_comerciais=condicoes_comerciais)
     c.showPage()
 
     # ========================================================

@@ -1135,6 +1135,7 @@ with st.sidebar:
         paginas = [
             "Fila de Pedidos",
             "Criar Pedido",
+            "Orçamentos",
             "Consulta de Pedidos",
         ]
 
@@ -1148,12 +1149,20 @@ with st.sidebar:
     else:
         paginas = [
             "Fila de Pedidos",
+            "Orçamentos",
         ]
 
     pagina = st.radio(
         "Navegação",
         paginas,
     )
+
+    if pagina == "Orçamentos":
+        with st.expander("📄 Orçamentos", expanded=True):
+            operacoes = ["Novo orçamento", "Buscar orçamento"] if st.session_state.setor in ("ADMINISTRADOR", "VENDAS", "MONTAGEM") else ["Buscar orçamento"]
+            if st.session_state.get("orc_nav") not in operacoes:
+                st.session_state["orc_nav"] = operacoes[0]
+            st.radio("Operação", operacoes, key="orc_nav")
 
     st.divider()
 
@@ -1211,14 +1220,6 @@ elif pagina == "Consulta de Pedidos":
 
 
 elif pagina == "Orçamentos":
-
-    if st.session_state.setor not in [
-        "VENDAS",
-        "ADMINISTRADOR",
-        "MONTAGEM",
-    ]:
-        st.error("Você não possui permissão para acessar esta página.")
-        st.stop()
 
     pagina_orcamentos()
 
