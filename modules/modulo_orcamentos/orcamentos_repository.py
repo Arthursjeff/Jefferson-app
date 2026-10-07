@@ -2,6 +2,7 @@
 import re
 from decimal import Decimal, InvalidOperation
 from core.database import supabase
+from modules.modulo_orcamentos.contatos_repository import obter_comprador, listar_compradores
 
 TIPOS_PRIMEIRO_CONTATO = {
     '184': 'Revenda', '251': 'Consumidor final', '350': 'Manutenção',
@@ -84,6 +85,7 @@ def carregar_orcamento(orcamento_id):
         raise ValueError('Orçamento não encontrado.')
     o = rows[0]
     o['cliente'] = cliente_do_orcamento(o)
+    o['comprador'] = obter_comprador(o.get('contato_cliente_id'))
     o['itens'] = supabase.table('orcamento_itens').select('*').eq(
         'orcamento_id', o['id']).order('ordem').execute().data or []
     return o
@@ -146,14 +148,20 @@ def buscar_orcamentos(termo, modo):
 
 def salvar_orcamento(numero_orcamento, cliente, itens, criado_por,
                      observacao_geral='', condicoes=None, modo='NOVO',
-                     revisao_anterior_id=None, origem_id=None):
+                     revisao_anterior_id=None, origem_id=None, contato_cliente_id=None):
     condicoes = condicoes or PADROES
+    if cliente.get('id') and listar_compradores(cliente['id']) and not contato_cliente_id:
+        raise ValueError('Selecione o comprador atendido neste orçamento.')
+    if contato_cliente_id:
+        comprador = obter_comprador(contato_cliente_id)
+        if not comprador or comprador['cliente_id'] != cliente.get('id'):
+            raise ValueError('O comprador deve pertencer ao cliente desta proposta.')
     dados = {'numero_orcamento': numero_orcamento.strip(), 'cliente_id': cliente.get('id'),
              'codigo_cliente': cliente.get('codigo_cliente'),
              'primeiro_contato_id': cliente.get('primeiro_contato_id'),
              'criado_por': criado_por, 'observacao_geral': observacao_geral.strip(),
              'tipo_criacao': modo, 'revisao_anterior_id': revisao_anterior_id,
-             'orcamento_origem_id': origem_id, **condicoes}
+             'orcamento_origem_id': origem_id, 'contato_cliente_id': contato_cliente_id, **condicoes}
     valores = []
     for item in itens:
         try:
@@ -165,12 +173,13 @@ def salvar_orcamento(numero_orcamento, cliente, itens, criado_por,
         valores.append({**{k: item.get(k) for k in ('codigo', 'tensao', 'quantidade', 'prazo', 'observacao')},
                         'valor_unitario': str(preco)})
     try:
-        resposta = supabase.rpc('salvar_orcamento_app', {'p_dados': dados, 'p_itens': valores}).execute()
+        resposta = supabase.rpc('salvar_orcamento_com_comprador', {'p_dados': dados, 'p_itens': valores}).execute()
     except Exception as erro:
         if 'PGRST202' in str(erro) or 'schema cache' in str(erro):
-            raise ValueError('Execute primeiro o SQL sql/02_salvamento_orcamentos.sql do GitHub no Supabase.') from erro
+            raise ValueError('Execute primeiro o SQL sql/04_salvamento_com_comprador.sql do GitHub no Supabase.') from erro
         raise
     if not resposta.data:
         raise ValueError('O banco não confirmou o salvamento.')
     return resposta.data
+
 

@@ -15,3 +15,18 @@ def buscar_clientes(termo: str, limite: int = 20):
     for campo in ("codigo_cliente", "razao_social", "nome_fantasia"):
         encontrados += supabase.table("clientes").select(campos).ilike(campo, f"%{termo}%").limit(limite).execute().data or []
     return list({c["id"]: c for c in encontrados}.values())[:limite]
+
+
+
+def salvar_condicoes_cliente(cliente_id, validade, pagamento, frete):
+    dados = {'validade_especial': validade, 'pagamento_especial': pagamento, 'frete_especial': frete}
+    categorias = {'validade_especial': 'VALIDADE', 'pagamento_especial': 'PAGAMENTO', 'frete_especial': 'FRETE'}
+    for campo, valor in dados.items():
+        if valor is not None:
+            opcoes = supabase.table('orcamento_opcoes_comerciais').select('valor').eq('categoria',categorias[campo]).eq('ativo',True).eq('valor',valor).execute().data or []
+            if not opcoes:
+                raise ValueError('Selecione uma condição comercial cadastrada e ativa.')
+    rows = supabase.table('clientes').update(dados).eq('id',cliente_id).execute().data or []
+    if not rows:
+        raise ValueError('Cliente não encontrado.')
+    return rows[0]

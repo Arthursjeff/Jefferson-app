@@ -9,6 +9,8 @@ from motor_descricao import processar_produto
 from components.kits import codigo_parece_kit, processar_kit
 from modules.modulo_orcamentos.clientes_repository import buscar_clientes
 from modules.modulo_orcamentos.imagens_repository import obter_url_imagem
+from modules.modulo_orcamentos.contatos_repository import listar_compradores, obter_comprador
+from modules.modulo_orcamentos.contatos_ui import formulario_comprador
 from modules.modulo_orcamentos.orcamentos_repository import (
     TIPOS_PRIMEIRO_CONTATO, PADROES, obter_opcoes_comerciais,
     buscar_primeiro_contato, salvar_primeiro_contato, cliente_do_contato,
@@ -16,14 +18,14 @@ from modules.modulo_orcamentos.orcamentos_repository import (
 )
 from modules.modulo_orcamentos.pdf.gerador_pdf_teste import gerar_pdf_orcamento, formatar_reais
 
-OPCOES_TENSAO = ['110/60HZ', '220/60HZ', '24VCC', '12VCC', '110/50HZ', '220/50HZ', 'KIT DE REPARO', 'OUTRO']
-OPCOES_PRAZO = ['IMEDIATO', '5 DIAS', '10 DIAS', '15 DIAS', '20 DIAS', '30 DIAS', '45 DIAS', '60 DIAS', 'OUTRO']
+OPCOES_TENSAO = ['110/60HZ', '220/60HZ', '24VCC', '12VCC', '110/50HZ', '220/50HZ', 'KIT DE REPARO']
+OPCOES_PRAZO = ['IMEDIATO', '5 DIAS', '10 DIAS', '15 DIAS', '20 DIAS', '30 DIAS', '45 DIAS', '60 DIAS']
 
 
 def novo_rascunho():
     return {'numero': '', 'cliente': None, 'itens': [], 'observacao': '',
             'condicoes': dict(PADROES), 'modo': 'NOVO', 'anterior_id': None,
-            'origem_id': None, 'revisao': 0, 'salvo_id': None}
+            'origem_id': None, 'revisao': 0, 'salvo_id': None, 'comprador_id': None}
 
 
 def iniciar_rascunho(dados=None):
@@ -47,6 +49,8 @@ def defaults_cliente(cliente):
 def selecionar_cliente(cliente, nonce):
     draft = st.session_state['orc_draft']
     draft['cliente'] = cliente
+    draft['comprador_id'] = None
+    st.session_state.pop(f'orc_comprador_{nonce}', None)
     draft['condicoes'] = defaults_cliente(cliente)
     for campo, valor in draft['condicoes'].items():
         st.session_state[f'orc_{campo}_{nonce}'] = valor
@@ -100,7 +104,10 @@ def carregar_para_edicao(o, modo):
              anterior_id=o['id'] if modo == 'REVISAO' else None,
              origem_id=o['id'] if modo in ('DUPLICADO', 'SIMILAR') else None,
              revisao=(o.get('revisao') or 0) + 1 if modo == 'REVISAO' else 0,
-             condicoes={k: o.get(k) or v for k,v in PADROES.items()})
+             condicoes={k: o.get(k) or v for k,v in PADROES.items()},
+             comprador_id=o.get('contato_cliente_id') if modo != 'SIMILAR' else None)
+    if modo == 'DUPLICADO' and o.get('comprador') and not o['comprador']['ativo']:
+        d['comprador_id'] = None
     iniciar_rascunho(d)
 
 
@@ -210,6 +217,53 @@ def render_cliente(d, nonce):
                 st.caption(f"Pessoa de contato: {cliente['nome_contato']}")
 
 
+def render_comprador(d, nonce, salvo):
+    cliente = d.get('cliente')
+    if not cliente or not cliente.get('id') or cliente.get('primeiro_contato_id'):
+        d['comprador_id'] = None
+        return
+    cliente_id = cliente['id']
+    st.subheader('Comprador')
+    contatos = listar_compradores(cliente_id)
+    atual = obter_comprador(d.get('comprador_id'))
+    if atual and atual['cliente_id'] != cliente_id:
+        atual = None
+        d['comprador_id'] = None
+    if salvo:
+        if atual:
+            st.write(f"**{atual['nome']}** | WhatsApp: {atual.get('whatsapp') or '-'} | E-mail: {atual.get('email') or '-'}")
+        else:
+            st.caption('Comprador não vinculado.')
+        return
+    if atual and not atual['ativo'] and d['modo'] == 'REVISAO':
+        contatos.append(atual)
+    if contatos:
+        ids = [r['id'] for r in contatos]
+        chave = f'orc_comprador_{nonce}'
+        if d.get('comprador_id') not in ids:
+            d['comprador_id'] = ids[0] if len(ids) == 1 else None
+        if st.session_state.get(chave) not in ids:
+            st.session_state[chave] = d.get('comprador_id')
+        if chave not in st.session_state:
+            st.session_state[chave] = d.get('comprador_id')
+        d['comprador_id'] = st.selectbox('Comprador do orçamento',ids,index=None,
+            format_func=lambda i:next(r['nome']+(' (inativo)' if not r['ativo'] else '') for r in contatos if r['id']==i),key=chave)
+        if not d.get('comprador_id'):
+            st.info('Selecione o comprador atendido neste orçamento.')
+    else:
+        d['comprador_id'] = None
+        st.caption('Nenhum comprador cadastrado. Você pode cadastrar abaixo.')
+    with st.expander('Cadastrar novo comprador',expanded=not contatos):
+        n = st.session_state.get('orc_comprador_form_nonce',0)
+        novo = formulario_comprador(cliente_id,f'novo_comprador_orc_{nonce}_{cliente_id}_{n}')
+        if novo:
+            d['comprador_id'] = novo['id']
+            # Atualiza o seletor antes de montá-lo no próximo rerun.
+            st.session_state['orc_comprador_pendente'] = (nonce,novo['id'])
+            st.session_state['orc_comprador_form_nonce'] = n+1
+            st.rerun()
+
+
 def botao_pdf(o, key):
     try:
         itens = [completar_item(item) for item in o['itens']]
@@ -251,6 +305,7 @@ def pagina_novo():
         disabled=d['modo']=='REVISAO' or salvo,key=f'numero_{nonce}')
     st.caption(f"Revisão {d['revisao']} • Vendedor: {st.session_state.get('nome') or '-'}")
     render_cliente(d,nonce)
+    render_comprador(d,nonce,salvo)
     opcoes = obter_opcoes_comerciais()
     st.subheader('Condições comerciais')
     cols = st.columns(3)
@@ -311,17 +366,11 @@ def pagina_novo():
             quantidade = col_quantidade.text_input('Qtd.',placeholder='1',key=f'add_qtd_{nonce}')
             valor = col_valor.text_input('Valor unit.',placeholder='0,00',key=f'add_valor_{nonce}')
             prazo_sel = col_prazo.selectbox('Prazo',OPCOES_PRAZO,index=None,placeholder='Selecione...',key='orc_prazo')
-            # Campos montados no formulário permitem preencher OUTRO antes de enviar.
-            with st.expander('Outra tensão ou prazo'):
-                c1,c2 = st.columns(2)
-                tensao_outro = c1.text_input('Outra tensão',key='orc_tensao_outro',help='Usado quando a tensão selecionada é OUTRO.')
-                prazo_outro = c2.text_input('Outro prazo',key='orc_prazo_outro',help='Usado quando o prazo selecionado é OUTRO.')
             obs = st.text_input('Observação do item',key=f'add_obs_{nonce}')
             adicionar = st.form_submit_button('Adicionar item',type='primary')
         if adicionar:
             try:
-                d['itens'].append(processar_item(codigo,tensao_outro if tensao_sel=='OUTRO' else tensao_sel or '',
-                    quantidade,valor,prazo_outro if prazo_sel=='OUTRO' else prazo_sel or '',obs))
+                d['itens'].append(processar_item(codigo,tensao_sel or '',quantidade,valor,prazo_sel or '',obs))
                 st.session_state['orc_limpar_item'] = nonce
                 st.rerun()
             except Exception as erro:
@@ -334,7 +383,7 @@ def pagina_novo():
             if any(i.get('_erro_tecnico') for i in d['itens']):
                 raise ValueError('Edite os itens cujo código não foi interpretado.')
             o = salvar_orcamento(d['numero'],d['cliente'],d['itens'],st.session_state.get('nome') or '-',
-                d['observacao'],d['condicoes'],d['modo'],d['anterior_id'],d['origem_id'])
+                d['observacao'],d['condicoes'],d['modo'],d['anterior_id'],d['origem_id'],d.get('comprador_id'))
             d['salvo_id']=o['id'];d['revisao']=o['revisao'];st.rerun()
         except Exception as erro:
             st.error(str(erro))
@@ -380,6 +429,11 @@ def pagina_buscar():
     cliente = o['cliente']
     st.subheader(f"{o['numero_orcamento']} • revisão {o.get('revisao') or 0}")
     st.write(f"**Cliente:** {cliente.get('razao_social') or cliente.get('nome_fantasia')} | **Código:** {cliente.get('codigo_cliente')} | **CNPJ:** {cliente.get('cnpj_cpf')}")
+    if o.get('comprador'):
+        comprador = o['comprador']
+        st.write(f"**Comprador:** {comprador['nome']} | **WhatsApp:** {comprador.get('whatsapp') or '-'} | **E-mail:** {comprador.get('email') or '-'}")
+    else:
+        st.caption('Comprador não vinculado nesta versão.')
     st.write(f"**Data:** {o.get('data_proposta')} | **Vendedor:** {o.get('criado_por')}")
     st.dataframe([{k:i.get(k) for k in ('ordem','codigo','tensao','quantidade','valor_unitario','prazo','observacao')} for i in o['itens']],hide_index=True,use_container_width=True)
     st.write('**Observação:**',o.get('observacao_geral') or '-')
@@ -398,6 +452,9 @@ def pagina_orcamentos():
     if 'orc_draft' not in st.session_state:
         st.session_state['orc_draft'] = novo_rascunho()
         st.session_state['orc_nonce'] = 1
+    pendente = st.session_state.pop('orc_comprador_pendente',None)
+    if pendente:
+        st.session_state[f'orc_comprador_{pendente[0]}'] = pendente[1]
     limpar = st.session_state.pop('orc_limpar_item',None)
     if limpar is not None:
         for campo in ('codigo','qtd','valor','obs'):
@@ -414,5 +471,6 @@ def pagina_orcamentos():
             st.info('Use Buscar orçamento para consultar as propostas.')
     except Exception as erro:
         st.error(f'Não foi possível carregar os dados do orçamento: {erro}')
+
 
 
