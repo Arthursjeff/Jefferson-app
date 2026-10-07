@@ -304,17 +304,18 @@ def pagina_novo():
     st.metric('Total do orçamento',formatar_reais(total))
     if not salvo:
         st.markdown('### Adicionar item')
-        # Os seletores ficam fora do formulário para OUTRO abrir sem enviar o item.
-        c1,c2 = st.columns(2)
-        tensao_sel = c1.selectbox('Tensão',OPCOES_TENSAO,index=None,key='orc_tensao')
-        prazo_sel = c2.selectbox('Prazo',OPCOES_PRAZO,index=None,key='orc_prazo')
-        tensao_outro = st.text_input('Outra tensão',key='orc_tensao_outro') if tensao_sel=='OUTRO' else ''
-        prazo_outro = st.text_input('Outro prazo',key='orc_prazo_outro') if prazo_sel=='OUTRO' else ''
         with st.form(f'adicionar_{nonce}',clear_on_submit=False):
-            c1,c2,c3 = st.columns([3.2,1,1.7])
-            codigo = c1.text_input('Código',key=f'add_codigo_{nonce}')
-            quantidade = c2.text_input('Qtd.',key=f'add_qtd_{nonce}')
-            valor = c3.text_input('Valor unit.',placeholder='0,00',key=f'add_valor_{nonce}')
+            col_codigo,col_tensao,col_quantidade,col_valor,col_prazo = st.columns([3.2,2.0,1.0,1.7,2.0])
+            codigo = col_codigo.text_input('Código',placeholder='Ex.: 1335BA04T',key=f'add_codigo_{nonce}')
+            tensao_sel = col_tensao.selectbox('Tensão',OPCOES_TENSAO,index=None,placeholder='Selecione...',key='orc_tensao')
+            quantidade = col_quantidade.text_input('Qtd.',placeholder='1',key=f'add_qtd_{nonce}')
+            valor = col_valor.text_input('Valor unit.',placeholder='0,00',key=f'add_valor_{nonce}')
+            prazo_sel = col_prazo.selectbox('Prazo',OPCOES_PRAZO,index=None,placeholder='Selecione...',key='orc_prazo')
+            # Campos montados no formulário permitem preencher OUTRO antes de enviar.
+            with st.expander('Outra tensão ou prazo'):
+                c1,c2 = st.columns(2)
+                tensao_outro = c1.text_input('Outra tensão',key='orc_tensao_outro',help='Usado quando a tensão selecionada é OUTRO.')
+                prazo_outro = c2.text_input('Outro prazo',key='orc_prazo_outro',help='Usado quando o prazo selecionado é OUTRO.')
             obs = st.text_input('Observação do item',key=f'add_obs_{nonce}')
             adicionar = st.form_submit_button('Adicionar item',type='primary')
         if adicionar:
@@ -413,4 +414,5 @@ def pagina_orcamentos():
             st.info('Use Buscar orçamento para consultar as propostas.')
     except Exception as erro:
         st.error(f'Não foi possível carregar os dados do orçamento: {erro}')
+
 
