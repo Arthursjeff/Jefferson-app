@@ -31,13 +31,14 @@ def buscar_primeiro_contato(cnpj):
     return rows[0] if rows else None
 
 
-def salvar_primeiro_contato(cnpj, empresa, tipo, canal, contato, usuario):
+def salvar_primeiro_contato(cnpj, empresa, tipo, canal, contato, usuario, nome_contato=''):
     documento = normalizar_documento(cnpj)
     if len(documento) != 14 or not empresa.strip() or not contato.strip():
         raise ValueError('Informe CNPJ com 14 caracteres, empresa e contato.')
     anterior = buscar_primeiro_contato(documento)
     dados = {'cnpj': documento, 'nome_empresa': empresa.strip(), 'tipo_cliente': tipo,
-             'canal_contato': canal, 'endereco_contato': contato.strip()}
+             'canal_contato': canal, 'endereco_contato': contato.strip(),
+             'nome_contato': (nome_contato or '').strip() or None}
     if anterior:
         from datetime import datetime, timezone
         dados['atualizado_em'] = datetime.now(timezone.utc).isoformat()
@@ -56,7 +57,8 @@ def cliente_do_contato(contato, codigo):
     return {'id': None, 'primeiro_contato_id': contato['id'], 'codigo_cliente': codigo,
             'razao_social': contato['nome_empresa'], 'cnpj_cpf': cnpj,
             'tipo_cliente': contato['tipo_cliente'], 'canal_contato': contato['canal_contato'],
-            'endereco_contato': contato['endereco_contato']}
+            'endereco_contato': contato['endereco_contato'],
+            'nome_contato': contato.get('nome_contato')}
 
 
 def cliente_do_orcamento(orcamento):
@@ -171,3 +173,4 @@ def salvar_orcamento(numero_orcamento, cliente, itens, criado_por,
     if not resposta.data:
         raise ValueError('O banco não confirmou o salvamento.')
     return resposta.data
+

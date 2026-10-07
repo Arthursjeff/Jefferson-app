@@ -176,9 +176,10 @@ def render_cliente(d, nonce):
                         canais = ['E-mail','WhatsApp','Telefone']
                         canal = st.selectbox('Forma de contato',canais,index=canais.index(existente.get('canal_contato','E-mail')))
                         contato = st.text_input('E-mail ou número de contato',value=existente.get('endereco_contato') or '')
+                        nome_contato = st.text_input('Nome da pessoa de contato (opcional)',value=existente.get('nome_contato') or '',placeholder='Ex.: Luan')
                         confirmar = st.form_submit_button('Confirmar primeiro contato')
                     if confirmar:
-                        row = salvar_primeiro_contato(st.session_state['orc_cnpj'],empresa,tipo,canal,contato,st.session_state.get('nome') or '-')
+                        row = salvar_primeiro_contato(st.session_state['orc_cnpj'],empresa,tipo,canal,contato,st.session_state.get('nome') or '-',nome_contato=nome_contato)
                         selecionar_cliente(cliente_do_contato(row,especiais),nonce)
                         st.success('Primeiro contato confirmado.')
         resultados = st.session_state.get('orc_cliente_resultados') or []
@@ -205,6 +206,8 @@ def render_cliente(d, nonce):
             c3.metric('Tipo',cliente.get('tipo_cliente') or '-')
             if cliente.get('endereco_contato'):
                 st.caption(f"{cliente.get('canal_contato')}: {cliente['endereco_contato']}")
+            if cliente.get('nome_contato'):
+                st.caption(f"Pessoa de contato: {cliente['nome_contato']}")
 
 
 def botao_pdf(o, key):
@@ -410,3 +413,4 @@ def pagina_orcamentos():
             st.info('Use Buscar orçamento para consultar as propostas.')
     except Exception as erro:
         st.error(f'Não foi possível carregar os dados do orçamento: {erro}')
+
