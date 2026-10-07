@@ -3,6 +3,10 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from reportlab.lib.utils import ImageReader
+from reportlab.platypus import Table, TableStyle, Paragraph
+from reportlab.lib.styles import ParagraphStyle
+from xml.sax.saxutils import escape
+import re
 
 from modules.modulo_orcamentos.imagens_repository import (
     obter_url_imagem,
@@ -647,7 +651,7 @@ def desenhar_resumo(
             c,
             x + largura / 2,
             y + 4.0 * mm,
-            f"{numero_item_inicial + indice:02d}",
+            f"{item.get('_numero_item', numero_item_inicial + indice):02d}",
             tamanho=7.5,
             fonte="Helvetica-Bold",
         )
@@ -1464,7 +1468,7 @@ def desenhar_pagina_tecnica_teste(
 
             titulo_item = (
                 f"ITEM "
-                f"{numero_item_inicial + indice:02d}"
+                f"{item.get('_numero_item', numero_item_inicial + indice):02d}"
             )
 
         else:
@@ -1894,7 +1898,7 @@ def desenhar_pagina_tecnica_teste(
         for indice, item in enumerate(itens_pagina):
             if item:
                 texto_centro(c, margem + largura_campo + (indice + 0.5) * largura_valor,
-                    y + 3 * mm, f"ITEM {numero_item_inicial + indice:02d} — {item['codigo']}",
+                    y + 3 * mm, f"ITEM {item.get('_numero_item', numero_item_inicial + indice):02d} — {item['codigo']}",
                     tamanho=6.2, fonte="Helvetica-Bold", cor=BRANCO)
 
     for numero_linha, campo in enumerate(campos):
@@ -2078,6 +2082,149 @@ def desenhar_pagina_comercial(
 # GERADOR PRINCIPAL
 # ============================================================
 
+def eh_kit_pdf(item):
+    variaveis = item.get("variaveis") or {}
+    return (variaveis.get("V01") == "Kit de reparo"
+            or bool(re.match(r"^[A-Z]*K", str(item.get("codigo") or "").upper())))
+
+
+def descricao_kit_pdf(item):
+    v = item.get("variaveis") or {}
+    # Aceita a descrição pronta quando o cadastro passar a fornecê-la.
+    pronta = item.get("descricao") or v.get("descricao")
+    if pronta:
+        return str(pronta)
+    aplicacao = v.get("V18") or {}
+    familia = aplicacao.get("familia") or "A informar"
+    tamanho = v.get("V07") or "A informar"
+    vedacao = v.get("V06") or "A informar"
+    return (f"Kit de reparo para válvulas da família {familia}. "
+            f"Tamanhos atendidos: {tamanho}. Vedação: {vedacao}. "
+            "Corpo, operação e posição das válvulas atendidas: A informar.")
+
+
+def componente_kit_pdf(valor):
+    # O cadastro atual entrega nomes; não presume materiais metálicos.
+    valor = str(valor)
+    partes = valor.rsplit(" em ", 1)
+    return partes[0], partes[1] if len(partes) == 2 else "A informar"
+
+
+def desenhar_pagina_kits(c, largura_pagina, altura_pagina,
+                         numero_orcamento, itens, numero_pagina):
+    margem = 14 * mm
+    largura = largura_pagina - 2 * margem
+    largura_campo = 46 * mm
+    largura_kit = (largura - largura_campo) / 3
+    itens = list(itens)
+    while len(itens) < 3:
+        itens.append(None)
+
+    def p(valor, negrito=False, branco=False):
+        return Paragraph(escape(str(valor)), ParagraphStyle(
+            "kit", fontName="Helvetica-Bold" if negrito else "Helvetica",
+            fontSize=6.7, leading=8.7,
+            textColor=BRANCO if branco else PRETO))
+
+    linhas = [[p("COMPONENTES", True, True)], [p("APLICAÇÃO", True)],
+              [p("Componente", True, True)]]
+    comandos = []
+    for indice, item in enumerate(itens):
+        titulo = (f"ITEM {item['_numero_item']:02d} - {item['codigo']}" if item else "")
+        linhas[0].extend([p(titulo, True, True), ""])
+        linhas[1].extend([p(descricao_kit_pdf(item)) if item else "", ""])
+        linhas[2].extend([p("Incluído", True, True) if item else "",
+                          p("Material", True, True) if item else ""])
+        comandos.extend([("SPAN", (1 + indice * 2, 0), (2 + indice * 2, 0)),
+                         ("SPAN", (1 + indice * 2, 1), (2 + indice * 2, 1))])
+
+    grupos = [
+        ("TORRE", "V20", ["Núcleo móvel", "Assento", "Mola do núcleo móvel"]),
+        ("DIAFRAGMA", "V21", ["Diafragma", "Mola do diafragma", "Pulmão"]),
+        ("PISTÃO", "V22", ["Pistão", "Mola do pistão"]),
+        ("CARRETEL", "V23", ["Carretel"]),
+        ("O-RINGS", "V24", ["O-rings"]),
+    ]
+    for titulo, chave, base in grupos:
+        idx = len(linhas)
+        linhas.append([p(titulo, True)] + [""] * 6)
+        comandos.extend([("SPAN", (0, idx), (-1, idx)),
+                         ("BACKGROUND", (0, idx), (-1, idx), COR_PRINCIPAL_CLARA)])
+        mapas = []
+        nomes = list(base)
+        for item in itens:
+            v = (item.get("variaveis") or {}) if item else {}
+            componentes = v.get(chave)
+            mapa = dict(componente_kit_pdf(x) for x in (componentes or []))
+            mapas.append((componentes is not None, mapa))
+            for nome in mapa:
+                if nome not in nomes:
+                    nomes.append(nome)
+        # O-rings específicos substituem o rótulo genérico quando disponíveis.
+        if chave == "V24" and any(mapa for _, mapa in mapas):
+            nomes = [nome for nome in nomes if nome != "O-rings"]
+        for nome in nomes:
+            linha = [p("Assento do núcleo móvel" if chave == "V20" and nome == "Assento" else nome)]
+            for item, (conhecido, mapa) in zip(itens, mapas):
+                if not item:
+                    linha.extend(["", ""])
+                elif nome in mapa:
+                    linha.extend([p("Sim"), p(mapa[nome])])
+                elif conhecido:
+                    linha.extend([p("Não"), p("—")])
+                else:
+                    linha.extend([p("A informar"), p("A informar")])
+            linhas.append(linha)
+
+    if any(item and item.get("observacao") for item in itens):
+        linha = [p("OBSERVAÇÃO", True)]
+        idx = len(linhas)
+        for indice, item in enumerate(itens):
+            linha.extend([p(item.get("observacao") or "") if item else "", ""])
+            comandos.append(("SPAN", (1 + indice * 2, idx), (2 + indice * 2, idx)))
+        linhas.append(linha)
+    comandos.extend([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), .35, CINZA_LINHA),
+        ("BACKGROUND", (0, 0), (-1, 0), COR_PRINCIPAL_ESCURA),
+        ("BACKGROUND", (0, 2), (-1, 2), COR_PRINCIPAL_ESCURA),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ])
+    tabela = Table(linhas, colWidths=[largura_campo] +
+                   [largura_kit * .35, largura_kit * .65] * 3, repeatRows=3)
+    tabela.setStyle(TableStyle(comandos))
+    paginas = 0
+    while tabela is not None:
+        if paginas:
+            c.showPage()
+        y = desenhar_cabecalho_tecnico(c, largura_pagina, altura_pagina,
+            numero_orcamento, numero_pagina=numero_pagina + paginas) - 5 * mm
+        disponivel = y - 25 * mm
+        _, altura = tabela.wrap(largura, disponivel)
+        if altura <= disponivel:
+            parte, restante = tabela, None
+        else:
+            partes = tabela.split(largura, disponivel)
+            if len(partes) < 2:
+                raise ValueError("Descrição do kit muito extensa para uma página; reduza o texto.")
+            parte, restante = partes[0], partes[1]
+        _, altura = parte.wrap(largura, disponivel)
+        parte.drawOn(c, margem, y - altura)
+        c.setStrokeColor(CINZA_LINHA)
+        c.line(margem, 17 * mm, largura_pagina - margem, 17 * mm)
+        texto(c, margem, 11 * mm, EMPRESA_NOME, tamanho=6.5, cor=CINZA_MEDIO)
+        texto_direita(c, largura_pagina - margem, 11 * mm,
+                      "Componentes dos kits de reparo", tamanho=6.5, cor=CINZA_MEDIO)
+        texto_centro(c, largura_pagina / 2, 6 * mm,
+                     str(numero_pagina + paginas), tamanho=7, cor=CINZA_MEDIO)
+        paginas += 1
+        tabela = restante
+    return paginas
+
+
 def gerar_pdf_orcamento(
     numero_orcamento,
     data_orcamento,
@@ -2116,12 +2263,13 @@ def gerar_pdf_orcamento(
     )
 
 
-    paginas_tecnicas = (
-        dividir_em_blocos(
-            itens,
-            3,
-        )
-    )
+    # A numeração segue o resumo comercial, mesmo após separar os tipos.
+    itens_numerados = [dict(item, _numero_item=indice)
+                       for indice, item in enumerate(itens, start=1)]
+    valvulas = [item for item in itens_numerados if not eh_kit_pdf(item)]
+    kits = [item for item in itens_numerados if eh_kit_pdf(item)]
+    paginas_tecnicas = dividir_em_blocos(valvulas, 3)
+    paginas_kits = dividir_em_blocos(kits, 3)
 
 
     quantidade_paginas_comerciais = (
@@ -2208,6 +2356,13 @@ def gerar_pdf_orcamento(
             )
         )
 
+
+    for itens_pagina in paginas_kits:
+        paginas_usadas = desenhar_pagina_kits(
+            c, largura_pagina, altura_pagina, numero_orcamento,
+            itens_pagina, numero_pagina_pdf)
+        c.showPage()
+        numero_pagina_pdf += paginas_usadas
 
     # ========================================================
     # FINALIZA PDF
