@@ -1107,6 +1107,7 @@ def desenhar_cabecalho_tecnico(
     altura_pagina,
     numero_orcamento,
     numero_pagina=2,
+    titulo="DADOS TÉCNICOS",
 ):
     margem = 14 * mm
     y_topo = altura_pagina - 12 * mm
@@ -1173,8 +1174,8 @@ def desenhar_cabecalho_tecnico(
         c,
         largura_pagina - margem,
         y_topo - 5 * mm,
-        "DADOS TÉCNICOS",
-        tamanho=13,
+        titulo,
+        tamanho=9 if titulo != "DADOS TÉCNICOS" else 13,
         fonte="Helvetica-Bold",
         cor=COR_PRINCIPAL_ESCURA,
     )
@@ -2225,6 +2226,77 @@ def desenhar_pagina_kits(c, largura_pagina, altura_pagina,
     return paginas
 
 
+# Texto de fornecimento reproduzido do modelo aprovado pelo usuário.
+CONDICOES_FORNECIMENTO = ['Condições de Fornecimento:', 'Impostos:', 'NCM: Válvula: 84818092 / Bobina: 85045090 / Kit de reparo: 84819090', 'ST - Por favor, informar qual a finalidade de aquisição do material para que seja calculado o ICMS por Substituição Tributária, conforme decreto e protocolo vigente do seu estado, sendo que o mesmo deverá ser pago após a confirmação do pedido através de transferência bancária. No caso da finalidade mencionada for Autopeças, Materiais Elétricos ou Construção, será realizado o cálculo e enviado pelo setor financeiro. Caso Contrário, não haverá a retenção do ICMS POR SUBSTITUIÇÃO TRIBUTÁRIA, conforme permite a legislação, desonerando o remetente do recolhimento do mesmo.', 'DIFAL - Aqueles que não são contribuintes do ICMS, após a confirmação do pedido será realizado o cálculo pelo setor financeiro e o valor deve ser pago antecipadamente através de transferência bancária, esse pagamento será descontado no valor final.', 'Impostos - ICMS, PIS (1,65%), COFINS (7,60%) e IPI (0%), foram calculados as alíquotas vigentes nesta data e estão inclusos nos preços ofertados. Ocorrendo mudanças na legislação fiscal que impliquem alterações no valor dos impostos os preços serão reajustados ao que estabelecer a lei na data do efetivo faturamento.', '* Prazo de entrega: O prazo de entrega é aquele indicado em cada item desta proposta, salvo venda prévia, e deve ser contado a partir do efetivo recebimento do pedido de compras pelo nosso departamento de vendas.', '* Cancelamento/Devoluções: Verifique todas as condições técnicas e comerciais antes do fechamento do pedido, pois como trata-se de produto com especificações próprias, não produzido em escala, não serão aceitas devoluções e/ou trocas de mercadorias as quais não se comprovar defeito, não cabendo neste caso arrependimento posterior. O cancelamento do pedido após confirmação, excepcionalmente só poderá ser realizado formalmente no prazo improrrogável de 05(cinco dias do pedido realizado), prazo este onde os custos de produção conseguem ser revertidos, sob pena de pagamento integral, independente de entrega, ficando o produto disponível para retirada pelo Cliente na sede da Fabricante para a retirada a partir da data avançada.', '* Validade da cotação: Esta cotação é válida por 2 dias.', '* Preços: Os preços expostos foram calculados por unidade; e nossos preços são baseados no Dólar (USD), podendo ocorrer variações conforme dólar do dia/mês.', '* Vigência das condições de fornecimento: Todas as cláusulas de fornecimento constantes da presente proposta que não venham a ser objeto de negociação específica, que as modifiquem ou as eliminem, não terão validade e só permanecerão válidas o que acordado for nesta proposta de fornecimento.', '*Política de Dados: A Jefferson do Brasil se compromete às premissas da LGPD (LEI Nº 13.709), em especial os princípios da finalidade, adequação, transparência, livre acesso, segurança, prevenção e não discriminação no tratamento dos dados. Ao mesmo tempo que as partes concordam que o desenvolvimento, sempre que possível, observará que o consentimento do usuário no fornecimento de dados deverá ser livre, informado, inequívoco e relacionado a uma determinada finalidade, sendo que a Jefferson do Brasil se responsabiliza perante o CLIENTE, quando deixar de observar de forma deliberada e por incapacidade técnica tais requisitos. No que toca aos dados eventualmente armazenados pelo CLIENTE, este garante que possui processos internos de governança para a proteção dos dados, devendo, na execução e utilização em seus negócios relacionados aos serviços contratados observar a LGPD e as premissas de governança com seus colaboradores e prestadores de serviços regularmente aceitas no tratamento dos dados obtidos dos clientes. As partes se comprometem mutuamente ao cumprimento da LGPD, devendo, portanto, promover alterações ou adequar as regras de seus negócios e às premissas da LGPD, sempre que solicitado ou necessário, além de utilizar os serviços seguindo às regras aplicáveis em relação ao tratamento de dados coletados.', 'Recomendações gerais para instalação:', '* Montar as válvulas preferencialmente na horizontal, com a bobina para cima. Séries 1312/2012, 1314 e 1388 obrigatoriamente na horizontal com a bobina para cima.', '* Instalação de um filtro antes da válvula para aumento de vida útil e eficiência da válvula.', '* Garantia do produto: um ano com exceção das partes elétricas e 3 meses para itens de conserto.', '* A pressão de entrada da válvula deve ser sempre maior que a pressão de saída da mesma. A válvula solenoide não funciona como válvula de retenção.', '* Para que a válvula tenha um bom funcionamento deve-se respeitar a pressão mínima e máxima indicada em cada modelo.']
+
+
+def desenhar_condicoes_fornecimento(c, largura_pagina, altura_pagina,
+                                    numero_orcamento, numero_pagina):
+    margem = 14 * mm
+    largura = largura_pagina - 2 * margem
+    paginas = 0
+
+    def nova_pagina():
+        nonlocal paginas
+        if paginas:
+            c.showPage()
+        y = desenhar_cabecalho_tecnico(
+            c, largura_pagina, altura_pagina, numero_orcamento,
+            numero_pagina=numero_pagina + paginas,
+            titulo="CONDIÇÕES DE FORNECIMENTO") - 6 * mm
+        paginas += 1
+        return y
+
+    def rodape():
+        c.setStrokeColor(CINZA_LINHA)
+        c.setLineWidth(.5)
+        c.line(margem, 17 * mm, largura_pagina - margem, 17 * mm)
+        texto(c, margem, 11 * mm, EMPRESA_NOME, tamanho=6.5, cor=CINZA_MEDIO)
+        texto_direita(c, largura_pagina - margem, 11 * mm,
+                      "Condições de fornecimento", tamanho=6.5, cor=CINZA_MEDIO)
+        texto_centro(c, largura_pagina / 2, 6 * mm,
+                     str(numero_pagina + paginas - 1), tamanho=7, cor=CINZA_MEDIO)
+
+    y = nova_pagina()
+    for conteudo in CONDICOES_FORNECIMENTO:
+        secao = conteudo in ("Condições de Fornecimento:",
+                            "Recomendações gerais para instalação:")
+        if secao:
+            estilo = ParagraphStyle("secao", fontName="Helvetica-Bold",
+                fontSize=9, leading=11, textColor=COR_PRINCIPAL_ESCURA)
+        else:
+            estilo = ParagraphStyle("clausula", fontName="Helvetica",
+                fontSize=7.3, leading=9.1, textColor=PRETO)
+        conteudo_html = escape(conteudo)
+        if not secao:
+            # Realça rótulos sem reescrever as cláusulas.
+            rotulo = re.match(r"^(?:\*\s*)?[^:]+:", conteudo)
+            if rotulo:
+                n = len(rotulo.group())
+                conteudo_html = "<b>" + escape(conteudo[:n]) + "</b>" + escape(conteudo[n:])
+            elif conteudo.startswith(("ST -", "DIFAL -", "Impostos -")):
+                n = conteudo.index(" -") + 2
+                conteudo_html = "<b>" + escape(conteudo[:n]) + "</b>" + escape(conteudo[n:])
+        paragrafo = Paragraph(conteudo_html, estilo)
+        while paragrafo is not None:
+            _, altura = paragrafo.wrap(largura, y - 24 * mm)
+            if altura <= y - 24 * mm:
+                paragrafo.drawOn(c, margem, y - altura)
+                y -= altura + (3 if secao else 2) * mm
+                paragrafo = None
+            else:
+                partes = paragrafo.split(largura, y - 24 * mm)
+                if partes:
+                    primeiro = partes[0]
+                    _, altura = primeiro.wrap(largura, y - 24 * mm)
+                    primeiro.drawOn(c, margem, y - altura)
+                    paragrafo = partes[1] if len(partes) > 1 else None
+                rodape()
+                y = nova_pagina()
+    rodape()
+    return paginas
+
+
 def gerar_pdf_orcamento(
     numero_orcamento,
     data_orcamento,
@@ -2363,6 +2435,11 @@ def gerar_pdf_orcamento(
             itens_pagina, numero_pagina_pdf)
         c.showPage()
         numero_pagina_pdf += paginas_usadas
+
+    # Sempre após todas as páginas de válvulas e kits.
+    desenhar_condicoes_fornecimento(
+        c, largura_pagina, altura_pagina, numero_orcamento, numero_pagina_pdf)
+    c.showPage()
 
     # ========================================================
     # FINALIZA PDF
