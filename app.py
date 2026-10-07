@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+from modules.modulo_01.sinalizacoes import registrar_sinalizacao, dados_evento
 import streamlit.components.v1 as components
 from core.admin import apagar_tudo
 from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
@@ -567,6 +568,61 @@ def modal_alerta():
             else:
                 st.warning(mensagem)
 
+@st.dialog("Justificar permanência em Montados")
+def modal_justificativa_montados():
+    pedido = st.session_state.get('pedido_justificativa_montados')
+    if not pedido:
+        return
+    st.write(f"**Pedido {pedido['numero_pedido']} — {pedido['cliente']}**")
+    with st.form(f"justificativa_montados_{pedido['id']}"):
+        texto = st.text_area('Justificativa',placeholder='Explique por que o pedido permanece em Montados.',height=160)
+        salvar = st.form_submit_button('Salvar justificativa',type='primary')
+    if st.button('Cancelar',key='cancelar_justificativa_montados'):
+        st.session_state.pop('pedido_justificativa_montados',None)
+        st.rerun()
+    if salvar:
+        sucesso, mensagem = registrar_sinalizacao(pedido['id'],pedido['_sinalizacao']['entrada_id'],
+            st.session_state.nome,st.session_state.setor,'JUSTIFICATIVA_MONTADOS',texto)
+        if sucesso:
+            st.session_state.pop('pedido_justificativa_montados',None)
+            st.rerun()
+        else:
+            st.warning(mensagem)
+
+
+def render_sinalizacao_pedido(pedido, estado):
+    sinal = pedido.get('_sinalizacao') or {}
+    comercial = st.session_state.setor in ('VENDAS','ADMINISTRADOR')
+    pid = pedido['id']
+    if estado == 'PROGRAMADO':
+        if sinal.get('programado_sinalizado'):
+            st.caption('🔴 Montagem: liberar este pedido para Montados.')
+        elif comercial:
+            if st.button('🔴 Antecipar faturamento',key=f'antecipar_programado_{pid}',help='Sinaliza à Montagem que o pedido deve ser liberado antes da data prevista.'):
+                sucesso,mensagem = registrar_sinalizacao(pid,sinal.get('entrada_id'),st.session_state.nome,
+                    st.session_state.setor,'ANTECIPACAO_PROGRAMADO')
+                if sucesso:
+                    st.rerun()
+                else:
+                    st.warning(mensagem)
+    if estado == 'MONTADOS':
+        if sinal.get('montados_atrasado'):
+            if sinal.get('justificativa'):
+                evento = sinal['justificativa']
+                with st.expander('🟢 Permanência justificada'):
+                    st.write(dados_evento(evento).get('texto',''))
+                    st.caption(f"Justificado por {evento.get('usuario','')} em {evento.get('criado_em','')}")
+            elif comercial:
+                st.markdown('<span style="display:inline-flex;background:#dc2626;color:#000;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-weight:bold">?</span> Pedido há três dias úteis em Montados.',unsafe_allow_html=True)
+                if st.button('🔴 ? Justificar permanência',key=f'justificar_montados_{pid}'):
+                    st.session_state['pedido_justificativa_montados'] = pedido
+                    st.rerun()
+            else:
+                st.markdown('<span style="display:inline-flex;background:#dc2626;color:#000;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-weight:bold">?</span> Aguardando justificativa do Comercial.',unsafe_allow_html=True)
+        elif not sinal.get('entrada_id'):
+            st.caption('Entrada em Montados sem registro de data no histórico.')
+
+
 def tela_login():
     st.title("🔐 Login")
 
@@ -671,13 +727,15 @@ def verificar_notificacoes():
 def monitor_notificacoes():
     verificar_notificacoes()
 
-@st.fragment
+@st.fragment(run_every="60s")
 def render_kanban():
     pedidos_por_estado = obter_pedidos_por_estado()
     contagens_mensagens = obter_contagens_mensagens()
     contagens_alertas = obter_contagens_alertas()
 
-    with st.expander("📂 Programados / Importação"):
+    pendencias_programados = sum(bool((p.get('_sinalizacao') or {}).get('programado_sinalizado')) for p in pedidos_por_estado['PROGRAMADO'])
+    contador = f" — 🔴 {pendencias_programados}" if pendencias_programados else ''
+    with st.expander("📂 Programados / Importação" + contador):
         ocultas = st.columns(2)
 
         for idx, estado in enumerate(ESTADOS_OCULTOS):
@@ -784,6 +842,10 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
             if st.button("➕" if minimizada else "➖", key=f"min_{estado}"):
                 st.session_state.filas_minimizadas[estado] = not minimizada
                 st.rerun()
+        if estado == 'PROGRAMADO':
+            pendencias = sum(bool((p.get('_sinalizacao') or {}).get('programado_sinalizado')) for p in pedidos)
+            if pendencias:
+                st.markdown(f'<div style="background:#dc2626;color:white;border-radius:8px;text-align:right;padding:2px 8px;font-weight:bold">{pendencias}</div>',unsafe_allow_html=True)
         st.markdown(
             f"<div style='height:10px;background:{CORES_ESTADOS[estado]};"
             f"border-radius:8px;margin-bottom:10px'></div>",
@@ -847,6 +909,9 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
             icone = icone_tipo_pedido(pedido.get("tipo_pedido"))
 
             badges = ""
+            sinal = pedido.get('_sinalizacao') or {}
+            if estado == 'PROGRAMADO' and sinal.get('programado_sinalizado'):
+                badges += ' 🔴'
 
             if estado in ["FATURADO", "EMBALADO"]:
                 badges += f" {pedido.get('_icone_expedicao', '⚪')}"
@@ -863,12 +928,27 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
             label = f"{icone}{pedido['numero_pedido']} - {pedido['cliente']}{badges}"
 
             if not aberto:
-                if st.button(label, key=f"abrir_{pedido_id}", use_container_width=True):
+                if estado == 'MONTADOS' and sinal.get('montados_atrasado'):
+                    c_card,c_sinal = st.columns([8,1])
+                    with c_sinal:
+                        if sinal.get('justificativa'):
+                            st.markdown('<span title="Permanência justificada" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a;margin-top:14px"></span>',unsafe_allow_html=True)
+                        else:
+                            chave_bolinha = f'bolinha_montados_{pedido_id}'
+                            st.markdown(f'<style>.st-key-{chave_bolinha} button {{background:#dc2626;border-color:#dc2626;border-radius:50%;width:26px;min-height:26px;height:26px;padding:0;}} .st-key-{chave_bolinha} button p {{color:#000;font-weight:800;}} .st-key-{chave_bolinha} button:disabled {{opacity:1;}}</style>',unsafe_allow_html=True)
+                            with st.container(key=chave_bolinha):
+                                if st.button('?',key=f'justificar_fechado_{pedido_id}',help='Pedido há três dias úteis em Montados; justificar permanência',disabled=st.session_state.setor not in ('VENDAS','ADMINISTRADOR')):
+                                    st.session_state['pedido_justificativa_montados'] = pedido
+                                    st.rerun()
+                else:
+                    c_card = st
+                if c_card.button(label, key=f"abrir_{pedido_id}", use_container_width=True):
                     st.session_state.pedido_aberto = pedido_id
                     st.rerun()
             else:
                 with st.container(border=True):
                     st.markdown(f"**{label}**")
+                    render_sinalizacao_pedido(pedido,estado)
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
@@ -1087,6 +1167,9 @@ init_session()
 if not st.session_state.logado:
     tela_login()
     st.stop()
+if st.session_state.get('pedido_justificativa_montados'):
+    modal_justificativa_montados()
+
 if st.session_state.show_nf_modal:
     modal_nota_fiscal()
 
@@ -1233,5 +1316,6 @@ elif pagina == "Orçamentos":
 else:
 
     pagina_fila()
+
 
 

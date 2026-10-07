@@ -1,3 +1,4 @@
+from modules.modulo_01.sinalizacoes import enriquecer_pedidos
 from core.pedidos import (
     criar_pedido,
     listar_pedidos,
@@ -151,7 +152,7 @@ def obter_pedidos_por_estado():
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
 
-    pedidos = obter_pedidos()
+    pedidos = enriquecer_pedidos(obter_pedidos())
     agrupado = {estado: [] for estado in ESTADOS_FILA}
     retiradas = _mapa_retiradas()
     status_expedicao = _mapa_status_expedicao()
@@ -677,3 +678,4 @@ def obter_contagens_mensagens():
 
 def obter_contagens_alertas():
     return contar_alertas_por_pedido()
+
