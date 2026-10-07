@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 from core.admin import apagar_tudo
 from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_clientes
+from modules.modulo_orcamentos.clientes_importacao_ui import pagina_importar_clientes
 from modules.analises import pagina_analises
 from modules.consertos import pagina_consertos
 from modules.consulta_fotos import pagina_consulta_pedidos
@@ -1126,6 +1127,7 @@ with st.sidebar:
             "Criar Pedido",
             "Orçamentos",
             "Clientes",
+            "Importar Clientes",
             "Análises",
             "Consertos",
             "Consulta de Pedidos",
@@ -1152,6 +1154,7 @@ with st.sidebar:
         paginas = [
             "Fila de Pedidos",
             "Orçamentos",
+            "Clientes",
         ]
 
     pagina = st.radio(
@@ -1184,11 +1187,16 @@ if pagina == "Criar Pedido":
 
 elif pagina == "Clientes":
 
-    if st.session_state.setor not in ("ADMINISTRADOR", "VENDAS", "MONTAGEM"):
-        st.error("Você não possui permissão para gerenciar clientes.")
+    pagina_clientes()
+
+
+elif pagina == "Importar Clientes":
+
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("A importação da base de clientes é permitida somente para administradores.")
         st.stop()
 
-    pagina_clientes()
+    pagina_importar_clientes()
 
 
 elif pagina == "Análises":
@@ -1225,4 +1233,5 @@ elif pagina == "Orçamentos":
 else:
 
     pagina_fila()
+
 

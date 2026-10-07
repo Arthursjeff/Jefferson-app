@@ -21,10 +21,10 @@ Duplicação mantém o comprador ativo do mesmo cliente; similar limpa o víncul
 selecionar o comprador do outro cliente. Sem compradores ativos, o orçamento pode
 prosseguir sem vínculo. Um contato inativo continua consultável nos orçamentos antigos.
 
-O comprador é uma informação interna e não aparece no PDF. A tela Clientes substitui
-a importação na navegação para Administrador, Vendas e Montagem. Os dados principais
-dos clientes existentes permanecem consultáveis; esta tela altera condições especiais
-e compradores.
+O comprador é uma informação interna e não aparece no PDF. Todos os usuários podem consultar a tela Clientes.
+Administrador, Vendas e Montagem podem manter condições especiais e compradores.
+A tela Importar Clientes permanece disponível exclusivamente para Administrador,
+com o upload do Excel exportado pelo ERP e as regras de atualização já existentes.
 
 Os testes de interface usam persistência simulada e o interpretador real dos produtos.
 A função SQL foi validada sintaticamente; a integração real precisa ser conferida
