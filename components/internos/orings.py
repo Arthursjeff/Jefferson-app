@@ -16,7 +16,7 @@ Observações:
 
 FAMILIAS_SEM_ORING = {
     "1312", "1327", "1335", "1339", "1356", "1365", "1393",
-    "2012", "2024", "2041", "2088", "3014", "3010", "V171",
+    "2012", "2024", "2041", "3014", "3010", "V171",
     "1317", "2017", "2049", "1340", "1376", "1380",
 }
 
@@ -41,6 +41,7 @@ MAPA_ORINGS_FAMILIA = {
     "2050": [("tampa", 1), ("pistao", 1)],
     "2051": [("tampa", 1), ("pistao", 1)],
     "2073": [("torre", 1)],
+    "2088": [("tampa", 1)],
     "2094": [("tampa", 1)],
     "2095": [("torre", 1)],
     "3073": [("torre", 1)],
@@ -97,6 +98,9 @@ def identificar_orings(familia, vedacao=None, tamanho=None):
             elif tamanho_normalizado in GRUPOS_ORING_TAMPA_1330["GRANDE"]:
                 item["grupo_tamanho"] = "GRANDE_1"
 
+        if familia == "2088" and local == "tampa":
+            item["grupo_tamanho"] = None  # Depende do tamanho do corpo; grupos ainda pendentes.
+            item["tamanho_corpo"] = _normalizar_tamanho(tamanho)
         componentes.append(item)
 
     if familia == "1342" and _eh_nbr(vedacao):
