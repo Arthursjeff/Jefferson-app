@@ -36,6 +36,7 @@ import re
 
 from motor_descricao import REGRAS_V01_TIPO_PRODUTO, REGRAS_V06_MATERIAL_VEDACAO
 from components.internos.orings import identificar_orings
+from components.internos.diafragma import usa_diafragma
 
 
 def _normalizar_codigo(codigo):
@@ -231,20 +232,15 @@ def identificar_componentes_por_familia(resultado):
         "G5": [],
     }
 
-    # G2 - famílias cujo conjunto diafragma já foi validado.
-    if familia in {"1330", "2030", "1335"}:
+    # G2 - famílias com diafragma; 2036 em PTFE permanece excluída.
+    # O pulmão é diferenciado somente na família 1335.
+    if usa_diafragma(familia, vedacao):
         componentes["G2"] = [
             f"Diafragma em {material}",
-            "Mola do diafragma",
-            "Pulmão",
+            "Mola do diafragma em inox 316L",
         ]
-
-    if familia == "2036" and resultado.get("codigo_vedacao") != "T":
-        componentes["G2"] = [
-            f"Diafragma em {material}",
-            "Mola do diafragma",
-            "Pulmão",
-        ]
+        if familia == "1335":
+            componentes["G2"].append("Pulmão")
 
     # G3 - o pistão físico nunca entra no kit.
     if familia == "1342":
