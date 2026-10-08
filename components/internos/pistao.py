@@ -25,7 +25,9 @@ Regras validadas:
 - 1335: somente configurações com sufixo D utilizam pistão. O agrupamento
   de tamanhos segue a mesma lógica do diafragma 1335 e a vedação diferencia
   o pistão;
-- 1344 e 1397: utilizam pistão; tamanho e vedação diferenciam o conjunto.\n- 1351, 2050 e 2051: pistão exclusivo por família e tamanho; a vedação\n  do pistão corresponde à vedação da válvula.
+- 1344 e 1397: utilizam pistão; tamanho e vedação diferenciam o conjunto.
+- 1351, 2050 e 2051: pistão exclusivo por família e tamanho; a vedação
+  do pistão corresponde à vedação da válvula.
 
 Famílias explicitamente validadas sem G3:
 1312, 1323, 1325, 1327, 1330, 1343, 1356, 1360, 1365, 1375,
@@ -149,15 +151,17 @@ def identificar_conjunto_pistao(familia, tamanho=None, vedacao=None, material_co
 
     # Ainda não definimos família a família se a vedação do pistão é O-ring
     # ou junta. Não inventar essa informação.
+    material_mola = "INOX 304" if material_corpo == "INOX" else "INOX 303" if material_corpo == "LATAO" else None
     return {
         "grupo_componente": "G3",
         "nome_grupo": "CONJUNTO_PISTAO",
         "identidade": identidade,
         "componentes": {
-            "pistao": identidade.copy(),
-            "mola_pistao": identidade.copy(),
+            "pistao": {**identidade, "material": material_corpo},
+            "mola_pistao": {**identidade, "material": material_mola},
             "aro_pistao": None,
             "mola_interna_aro": None,
         },
-        "vedacao_pistao": vedacao if familia in {"1351", "2050", "2051"} else None,\n        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou aro + mola interna (G3); tipo definido família a família. Na 1342, NBR/Buna-N usa O-ring; FKM, EPDM e PTFE usam aro.",
+        "vedacao_pistao": vedacao,
+        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou aro + mola interna (G3); tipo definido família a família. Na 1342, NBR/Buna-N usa O-ring; FKM, EPDM e PTFE usam aro.",
     }
