@@ -203,8 +203,7 @@ def identificar_conjunto_torre(
             "vedacao": vedacao,
         }
 
-        # No par equivalente latão/inox, núcleo móvel e mola permanecem
-        # os mesmos. Por isso material não participa da identidade deles.
+        # O núcleo é 430FR; a mola varia conforme o material do corpo.
         resultado["componentes"]["nucleo_movel"] = {
             "sistema": "GENERICO",
             "estado": estado,
@@ -214,6 +213,7 @@ def identificar_conjunto_torre(
 
         resultado["componentes"]["mola"] = {
             "sistema": "GENERICO",
+            "material": "INOX 304" if material == "INOX" else "INOX 303" if material == "LATAO" else None,
             "estado": estado,
             "construcao": construcao,
             "vedacao": vedacao,
@@ -229,6 +229,9 @@ def identificar_conjunto_torre(
         resultado["componentes"]["torre"] = identidade_base.copy()
         resultado["componentes"]["nucleo_movel"] = identidade_base.copy()
         resultado["componentes"]["mola"] = identidade_base.copy()
+
+    resultado["componentes"]["nucleo_movel"]["material"] = "INOX 430FR"
+    resultado["componentes"]["mola"]["material"] = "INOX 304" if material == "INOX" else "INOX 303" if material == "LATAO" else None
 
     if familia in FAMILIAS_NUCLEO_ACHATADO:
         resultado["componentes"]["nucleo_movel"]["formato"] = "ACHATADO"
