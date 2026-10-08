@@ -50,9 +50,9 @@ def resolver_g1(familia, material=None, estado=None, construcao=None, vedacao=No
     }
     if achatado:
         componentes["cadeirinha"]={"grupo":interno["grupo"],"construcao":forma}
-        componentes["mola_cadeirinha"]={"grupo":"1365" if f=="1365" else "1330_2030_ESPECIAL" if f in {"1330","2030"} else "1325","final":t or None if f=="1365" else None}
+        componentes["mola_cadeirinha"]={"grupo":"1365" if f=="1365" else "1330_2030_ESPECIAL" if f in {"1330","2030"} else "1325","final":t or None if f=="1365" else None,"material":mola_material}
     if tem_carretel:
-        componentes["carretel"]={"grupo":"1330_2030" if f in {"1330","2030"} else "1325"}
+        componentes["carretel"]={"grupo":"1330_2030" if f in {"1330","2030"} else "1325","material":"INOX" if m=="INOX" else "ALUMINIO" if m=="LATAO" else None}
     return {
         "grupo_componente":"G1",
         "familia":f,
