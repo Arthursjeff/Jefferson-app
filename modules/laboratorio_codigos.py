@@ -1,119 +1,57 @@
-"""Diagnóstico somente leitura do motor de códigos Jefferson."""
+"""Conferência legível, sem modificar as rotinas de orçamento."""
 import streamlit as st
-from motor_descricao import processar_produto
-from components.kits import codigo_parece_kit, processar_kit
-from components.internos.torre import identificar_conjunto_torre
-from components.internos.diafragma import identificar_conjunto_diafragma
-from components.internos.pistao import identificar_conjunto_pistao
-from components.internos.carretel import identificar_conjunto_carretel
-from components.internos.orings import identificar_orings
+from components.motor_componentes import consultar_codigo
 
-
-def _valor(dados, *chaves):
-    for chave in chaves:
-        if dados.get(chave) is not None:
-            return dados[chave]
-    return None
-
-
-def _diagnosticar_valvula(resultado):
-    parser = resultado.get("parser") or {}
-    variaveis = resultado.get("variaveis") or {}
-    familia = _valor(parser, "familia")
-    vedacao = _valor(parser, "vedacao", "codigo_vedacao") or variaveis.get("V06")
-    material = _valor(parser, "material_corpo", "material") or variaveis.get("V05")
-    tamanho = _valor(parser, "tamanho", "bitola", "conexao") or variaveis.get("V07")
-    estado = _valor(parser, "estado", "posicao") or variaveis.get("V03")
-    sufixos = parser.get("sufixos") or []
-    avisos = []
-    if not familia:
-        avisos.append("Família não identificada: componentes não calculados.")
-        return {}, avisos
-    grupos = {}
-    regras = {
-        "G1 - Torre": lambda: identificar_conjunto_torre(familia, material=material, estado=estado, vedacao=vedacao, bitola=tamanho),
-        "G2 - Diafragma": lambda: identificar_conjunto_diafragma(familia, tamanho=tamanho, vedacao=vedacao, material_corpo=material, sufixos=sufixos),
-        "G3 - Pistão": lambda: identificar_conjunto_pistao(familia, tamanho=tamanho, vedacao=vedacao, material_corpo=material, sufixos=sufixos),
-        "G4 - Carretel": lambda: identificar_conjunto_carretel(familia, estado=estado, material_corpo=material),
-        "G5 - O-rings": lambda: identificar_orings(familia, vedacao=vedacao, tamanho=tamanho),
-    }
-    for nome, executar in regras.items():
-        try:
-            grupos[nome] = executar()
-        except Exception as erro:
-            grupos[nome] = {"erro": str(erro)}
-            avisos.append(f"{nome}: falha ao executar a regra.")
-    if not material:
-        avisos.append("Material do corpo não identificado; materiais dependentes podem ficar indefinidos.")
-    if not tamanho:
-        avisos.append("Tamanho não identificado; agrupamentos podem ficar indefinidos.")
-    return grupos, avisos
-
-
-ROTULOS = {
-    "familia": "Família", "grupo": "Grupo", "grupo_familia": "Família do conjunto",
-    "grupo_tamanho": "Grupo de tamanho", "tamanho": "Tamanho", "tamanho_corpo": "Tamanho do corpo",
-    "material": "Material", "material_corpo": "Material do corpo",
-    "vedacao": "Vedação", "vedacao_pistao": "Vedação do pistão",
-    "estado": "Funcionamento", "construcao": "Construção", "variante": "Variante",
-    "variante_construtiva": "Variante construtiva", "ancorada": "Ancorado",
-    "formato": "Formato", "quantidade": "Quantidade", "local": "Local",
-    "regra": "Critério de identificação", "sistema": "Sistema",
-    "tipo": "Tipo", "final": "Final", "prefixos": "Prefixos", "sufixos": "Sufixos",
-    "codigo_vedacao": "Código da vedação", "sequencial_tamanho": "Sequência do tamanho",
-    "tamanhos_aplicaveis": "Tamanhos aplicáveis", "fora_kit_reparo": "Fora do kit de reparo",
-    "construcao": "Construção", "regra_detalhada": "Regra detalhada",
+CAMPOS = {
+    "V01": "Tipo de produto", "V02": "Tipo de atuação", "V03": "Número de vias",
+    "V04": "Estado da válvula", "V05": "Material do corpo",
+    "V06": "Material da vedação", "V07": "Tamanho da conexão",
+    "V08": "Tipo de conexão", "V09": "Orifício interno",
+    "V10": "Pressão mínima", "V11": "Pressão máxima",
+    "V12": "Temperatura", "V13": "Dados da bobina",
+    "V14": "Potência da bobina", "V15": "Informações adicionais",
+    "V16": "Coeficiente de vazão (Kv)", "V17": "Imagem",
+}
+NOMES = {
+    "torre_externa": "Torre externa", "componentes_internos": "Componentes internos",
     "nucleo_movel": "Núcleo móvel", "mola_nucleo": "Mola do núcleo móvel",
-    "mola_pistao": "Mola do pistão", "pistao": "Pistão",
+    "assento": "Assento", "mola_cadeirinha": "Mola da cadeirinha",
+    "cadeirinha": "Cadeirinha", "carretel": "Carretel",
     "diafragma": "Diafragma", "mola": "Mola", "pulmao": "Pulmão",
-    "carretel": "Carretel", "cadeirinha": "Cadeirinha",
-    "mola_cadeirinha": "Mola da cadeirinha", "aro_pistao": "Aro do pistão",
-    "mola_interna_aro": "Mola interna do aro", "assento": "Assento",
-    "torre": "Torre", "torre_externa": "Torre externa",
-    "componentes_internos": "Componentes internos",
-    "identidade": "Identificação técnica", "componentes": "Componentes",
-    "observacao_vedacao": "Observação sobre a vedação",
-    "validacao_pendente": "Validações pendentes",
+    "pistao": "Pistão", "mola_pistao": "Mola do pistão",
+    "aro_pistao": "Aro do pistão", "mola_interna_aro": "Mola interna do aro",
+    "grupo_tamanho": "Grupo de tamanho", "tamanho_corpo": "Tamanho do corpo",
+    "material_corpo": "Material do corpo", "vedacao_pistao": "Vedação do pistão",
+    "vedacao": "Vedação", "material": "Material", "familia": "Família",
+    "quantidade": "Quantidade", "local": "Local", "tamanho": "Tamanho",
+    "estado": "Funcionamento", "construcao": "Construção", "formato": "Formato",
+    "variante": "Variante", "variante_construtiva": "Variante construtiva",
+    "grupo": "Grupo", "grupo_familia": "Grupo da família", "final": "Final",
 }
-VARIAVEIS = {
-    "V01": "Tipo de produto", "V02": "Vias e posições",
-    "V03": "Funcionamento", "V04": "Acionamento",
-    "V05": "Material do corpo", "V06": "Material da vedação",
-    "V07": "Conexão / tamanho", "V08": "Orifício",
-    "V09": "Pressão mínima", "V10": "Pressão máxima",
-    "V11": "Temperatura", "V12": "Bobina",
-    "V13": "Características da bobina", "V14": "Proteção",
-    "V15": "Conexão elétrica", "V16": "Potência",
-    "V17": "Tensão", "V18": "Aplicação do kit",
-    "V20": "G1 — Núcleo e torre", "V21": "G2 — Diafragma",
-    "V22": "G3 — Pistão", "V23": "G4 — Carretel",
-    "V24": "G5 — O-rings",
-}
-IGNORAR = {"grupo_componente", "nome_grupo", "kit_reparo_exclui_torre_externa"}
+OCULTOS = {"grupo_componente", "nome_grupo", "identidade", "sistema",
+           "kit_reparo_exclui_torre_externa", "regra", "regra_detalhada",
+           "validacao_pendente", "observacao_vedacao", "fora_kit_reparo"}
 
 
-def _rotulo(chave):
-    return ROTULOS.get(str(chave), VARIAVEIS.get(str(chave), str(chave).replace("_", " ").capitalize()))
+def _nome(chave):
+    return NOMES.get(chave, str(chave).replace("_", " ").capitalize())
 
 
 def _texto(valor):
     if valor is None or valor == "":
-        return "Ainda não definido"
+        return "Não identificado"
     if isinstance(valor, bool):
         return "Sim" if valor else "Não"
-    if isinstance(valor, (list, tuple, set)):
-        return ", ".join(_texto(v) for v in valor) if valor else "Nenhum"
+    if isinstance(valor, (list, tuple)):
+        return ", ".join(_texto(x) for x in valor) if valor else "Não informado"
     return str(valor).replace("_", " ")
 
 
-def _mostrar_campos(dados):
-    """Exibe informações técnicas em texto, nunca em JSON."""
+def _campos(dados, nivel=0):
     if isinstance(dados, list):
-        if not dados:
-            st.caption("Nenhum componente listado pelas regras atuais.")
         for item in dados:
             if isinstance(item, dict):
-                _mostrar_campos(item)
+                _campos(item, nivel)
                 st.divider()
             else:
                 st.write("• " + _texto(item))
@@ -122,90 +60,97 @@ def _mostrar_campos(dados):
         st.write(_texto(dados))
         return
     for chave, valor in dados.items():
-        if chave in IGNORAR:
+        if chave in OCULTOS:
             continue
-        if isinstance(valor, (dict, list)) and valor:
-            st.markdown("**" + _rotulo(chave) + "**")
-            _mostrar_campos(valor)
-        elif isinstance(valor, (dict, list)):
-            st.caption(_rotulo(chave) + ": informação não cadastrada")
+        if isinstance(valor, (dict, list)):
+            if valor:
+                st.markdown("**" + _nome(chave) + "**")
+                _campos(valor, nivel + 1)
         else:
-            st.write("**" + _rotulo(chave) + ":** " + _texto(valor))
+            st.write("**" + _nome(chave) + ":** " + _texto(valor))
 
 
 def pagina_laboratorio_codigos():
     if st.session_state.get("setor") != "ADMINISTRADOR":
         st.error("Acesso exclusivo para administradores.")
         st.stop()
-
     st.title("Conferência de Códigos")
-    st.caption("Consulte as informações já cadastradas para conferir válvulas e kits de reparo. Nenhum dado é alterado.")
-    with st.form("consulta_laboratorio"):
-        codigo = st.text_input("Código da válvula ou do kit de reparo").strip().upper()
-        tensao = st.text_input("Tensão, se houver (opcional)")
-        consultar = st.form_submit_button("Consultar", type="primary")
-    if not consultar:
+    st.caption("Confira informações de válvulas e kits sem criar orçamentos.")
+    with st.form("conferencia_codigo"):
+        codigo = st.text_input("Código do produto").strip().upper()
+        tensao = st.text_input("Tensão (opcional)")
+        enviar = st.form_submit_button("Consultar", type="primary")
+    if not enviar:
         return
     if not codigo:
-        st.warning("Digite um código para consultar.")
+        st.warning("Informe um código.")
         return
-
-    kit = codigo_parece_kit(codigo)
     try:
-        resultado = processar_kit(codigo) if kit else processar_produto(codigo, tensao)
+        consulta = consultar_codigo(codigo, tensao)
     except Exception as erro:
-        st.error("Não foi possível consultar este código. Encaminhe o código para revisão do sistema.")
-        st.caption("Detalhe técnico: " + str(erro))
+        st.error("Não foi possível interpretar o código. Confira a entrada ou solicite revisão.")
+        st.caption("Detalhe para suporte: " + str(erro))
         return
-
-    st.subheader("1. Identificação")
-    st.write("**Código consultado:** " + codigo)
-    st.write("**Tipo:** " + ("Kit de reparo" if kit else "Válvula ou outro produto"))
+    resultado = consulta["resultado"]
+    variaveis = resultado.get("variaveis") or {}
+    parser = resultado.get("parser") or {}
+    st.subheader("Identificação do produto")
+    st.write("**Código:** " + codigo)
+    st.write("**Categoria:** " + ("Kit de reparo" if consulta["kit"] else "Válvula / produto"))
     if not resultado.get("sucesso"):
-        st.warning(resultado.get("erro") or "O sistema ainda não conseguiu identificar todas as informações.")
+        st.warning(resultado.get("erro") or "Identificação incompleta.")
     else:
-        st.success("Código reconhecido.")
+        st.success("Código interpretado.")
     if resultado.get("descricao"):
         st.write("**Descrição:** " + str(resultado["descricao"]))
-
-    parser = resultado.get("parser") or {}
-    variaveis = resultado.get("variaveis") or {}
     if parser.get("familia"):
         st.write("**Família:** " + str(parser["familia"]))
-    st.subheader("2. Características identificadas")
-    if isinstance(variaveis, dict) and variaveis:
-        for chave, valor in variaveis.items():
-            if chave in {"V18", "V20", "V21", "V22", "V23", "V24"}:
+
+    st.subheader("Características")
+    if consulta["kit"]:
+        for campo in ("V01", "V06", "V07"):
+            if variaveis.get(campo) is not None:
+                st.write("**" + CAMPOS.get(campo, campo) + ":** " + _texto(variaveis[campo]))
+        aplicacao = variaveis.get("V18") or {}
+        if aplicacao.get("sequencial_tamanho") is not None and not aplicacao.get("tamanhos_aplicaveis"):
+            st.warning("A correspondência entre o número do kit e o tamanho da válvula ainda precisa ser validada.")
+        st.subheader("Itens previstos no kit de reparo")
+        for campo, nome in [("V20", "G1 — Núcleo e torre"), ("V21", "G2 — Diafragma"),
+                            ("V22", "G3 — Pistão"), ("V23", "G4 — Carretel"), ("V24", "G5 — O-rings")]:
+            with st.expander(nome):
+                itens = variaveis.get(campo) or []
+                if itens:
+                    for item in itens:
+                        st.write("• " + _texto(item))
+                else:
+                    st.info("Nenhum item listado para este grupo. A composição pode estar incompleta.")
+        st.info("A composição do kit ainda está em validação; não utilize esta tela como lista de separação.")
+    else:
+        for campo, nome in CAMPOS.items():
+            valor = variaveis.get(campo)
+            if valor is None or campo == "V17":
                 continue
-            st.write("**" + VARIAVEIS.get(chave, _rotulo(chave)) + ":** " + _texto(valor) if not isinstance(valor, (dict, list)) else "**" + VARIAVEIS.get(chave, _rotulo(chave)) + ":**")
-            if isinstance(valor, (dict, list)):
-                _mostrar_campos(valor)
-    else:
-        st.info("Nenhuma característica adicional disponível.")
-
-    if kit:
-        grupos = parser.get("componentes") or {}
-        st.caption("Os componentes abaixo são os que o sistema identifica para o kit; os agrupamentos de tamanho ainda podem precisar de conferência.")
-        avisos = []
-    else:
-        grupos, avisos = _diagnosticar_valvula(resultado)
-
-    st.subheader("3. Conferência dos componentes")
-    st.caption("Abra cada grupo para conferir materiais, vedações e tamanhos.")
-    if not grupos:
-        st.info("Nenhum componente pôde ser identificado para este código.")
-    for nome, dados in grupos.items():
-        with st.expander(nome):
-            if dados is None or dados == [] or dados == {}:
-                st.info("Nenhum componente identificado neste grupo. Isso não confirma ausência física; pode faltar uma regra cadastrada.")
-            elif isinstance(dados, dict) and dados.get("erro"):
-                st.warning("Não foi possível consultar este grupo. Solicite revisão.")
+            if isinstance(valor, dict):
+                with st.expander(nome):
+                    _campos(valor)
             else:
-                _mostrar_campos(dados)
-
-    st.subheader("4. Informações para conferir")
-    if avisos:
-        for aviso in avisos:
+                st.write("**" + nome + ":** " + _texto(valor))
+        st.subheader("Componentes da válvula")
+        st.caption("Os componentes físicos da válvula não são necessariamente fornecidos no kit.")
+        for nome, dados in consulta["grupos"].items():
+            with st.expander(nome):
+                if dados:
+                    if isinstance(dados, list):
+                        _campos(dados)
+                    elif isinstance(dados, dict) and "componentes" in dados:
+                        _campos(dados["componentes"])
+                        if "componentes_internos" in dados:
+                            st.markdown("**Detalhamento interno**")
+                            _campos(dados["componentes_internos"])
+                    else:
+                        _campos(dados)
+                else:
+                    st.info("Não identificado neste grupo. Pode ser ausência do componente ou regra ainda não cadastrada.")
+        for aviso in consulta["pendencias"]:
             st.warning(aviso)
-    else:
-        st.info("Confira os materiais e tamanhos acima com a peça ou o catálogo. Informações exibidas refletem as regras atualmente cadastradas.")
+    st.caption("Resultados gerados pelas regras atualmente cadastradas. A conferência física continua necessária.")
