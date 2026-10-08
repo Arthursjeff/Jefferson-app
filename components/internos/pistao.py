@@ -25,24 +25,24 @@ Regras validadas:
 - 1335: somente configurações com sufixo D utilizam pistão. O agrupamento
   de tamanhos segue a mesma lógica do diafragma 1335 e a vedação diferencia
   o pistão;
-- 1344 e 1397: utilizam pistão; tamanho e vedação diferenciam o conjunto.
+- 1344 e 1397: utilizam pistão; tamanho e vedação diferenciam o conjunto.\n- 1351, 2050 e 2051: pistão exclusivo por família e tamanho; a vedação\n  do pistão corresponde à vedação da válvula.
 
 Famílias explicitamente validadas sem G3:
-1312, 1323, 1325, 1327, 1330, 1343, 1351, 1356, 1360, 1365, 1375,
+1312, 1323, 1325, 1327, 1330, 1343, 1356, 1360, 1365, 1375,
 1387, 1388, 1393.
 
 Este módulo contém apenas regras de engenharia.
 """
 
 FAMILIAS_PISTAO_VARIAVEL = {"1342", "1390"}
-FAMILIAS_PISTAO_TAMANHO_VEDACAO = {"1344", "1397"}
+FAMILIAS_PISTAO_TAMANHO_VEDACAO = {"1344", "1397", "1351", "2050", "2051"}
 FAMILIA_PISTAO_UNICO = "2094"
 FAMILIA_2036 = "2036"
 FAMILIA_1314 = "1314"
 FAMILIA_1335 = "1335"
 
 FAMILIAS_SEM_PISTAO = {
-    "1312", "1323", "1325", "1327", "1330", "1343", "1351", "1356",
+    "1312", "1323", "1325", "1327", "1330", "1343", "1356",
     "1360", "1365", "1375", "1387", "1388", "1393",
 }
 
@@ -159,5 +159,5 @@ def identificar_conjunto_pistao(familia, tamanho=None, vedacao=None, material_co
             "aro_pistao": None,
             "mola_interna_aro": None,
         },
-        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou aro + mola interna (G3); tipo definido família a família. Na 1342, NBR/Buna-N usa O-ring; FKM, EPDM e PTFE usam aro.",
+        "vedacao_pistao": vedacao if familia in {"1351", "2050", "2051"} else None,\n        "observacao_vedacao": "Vedação do pistão pode ser O-ring (G5) ou aro + mola interna (G3); tipo definido família a família. Na 1342, NBR/Buna-N usa O-ring; FKM, EPDM e PTFE usam aro.",
     }
