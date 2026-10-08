@@ -23,7 +23,7 @@ Regras atualmente conhecidas:
   diafragma; a variante construtiva continua diferenciando o conjunto.
 - 1335: em latão, 3/8" e 1/2" compartilham diafragma e 3/4" é outro grupo.
   Em inox, 1/2" e 3/4" compartilham diafragma.
-  O pulmão varia entre latão/inox e também pela presença do sufixo A.
+  O pulmão tem quatro identidades: latão/inox × anclado/não anclado; R não o altera.\n- 1332: possui diafragma; agrupamentos de tamanho pendentes.\n- 2088: diafragma exclusivo, variando por vedação; agrupamentos pendentes.\n- 3073: diafragma exclusivo, com grupos de 1, 1 1/2 e 2 polegadas.\n- Mola do diafragma: aço inox 316L.
 
 As demais famílias e agrupamentos serão acrescentados quando validados.
 Este módulo contém apenas regras de engenharia.
@@ -32,7 +32,7 @@ Este módulo contém apenas regras de engenharia.
 FAMILIA_2036 = "2036"
 FAMILIA_1330 = "1330"
 FAMILIA_2030 = "2030"
-FAMILIA_1335 = "1335"
+FAMILIA_1335 = "1335"\nFAMILIAS_COM_DIAFRAGMA = frozenset({"1330", "1332", "1335", "2030", "2036", "2088", "3073"})
 
 
 def _normalizar(valor):
@@ -139,7 +139,7 @@ def _grupo_tamanho(familia, tamanho, tamanho_codigo, material_corpo):
     if familia == FAMILIA_2030 and _normalizar(tamanho_codigo) in {"10", "12", "16"}:
         return "10_12_16"
 
-    return tamanho or _normalizar(tamanho_codigo)
+    if familia == "1332" or familia == "2088":\n        return None  # Grupos ainda não validados.\n\n    if familia == "3073":\n        return tamanho if tamanho in {"1", "1 1/2", "2"} else None\n\n    return tamanho or _normalizar(tamanho_codigo)
 
 
 def usa_diafragma(familia, vedacao=None):
@@ -147,7 +147,7 @@ def usa_diafragma(familia, vedacao=None):
     familia = _normalizar(familia)
     vedacao = _normalizar_vedacao(vedacao)
 
-    if familia == FAMILIA_2036 and vedacao == "TEFLON":
+    if familia not in FAMILIAS_COM_DIAFRAGMA:\n        return False\n\n    if familia == FAMILIA_2036 and vedacao == "TEFLON":
         return False
 
     return True
@@ -199,7 +199,7 @@ def identificar_conjunto_diafragma(
         identidade_diafragma["variante_construtiva"] = variante_g2
 
     # A mola acompanha obrigatoriamente o diafragma.
-    identidade_mola = identidade_diafragma.copy()
+    identidade_mola = identidade_diafragma.copy()\n    identidade_mola["material"] = "INOX 316L"\n    identidade_diafragma["material"] = vedacao
 
     sufixos_normalizados = {
         _normalizar(item)
