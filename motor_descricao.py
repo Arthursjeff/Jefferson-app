@@ -390,7 +390,15 @@ def interpretar_bloco_letras(bloco, familia):
 # 7. INTERPRETAR BLOCO NUMÉRICO
 # =============================================================
 
-def interpretar_bloco_numeros(bloco):
+def interpretar_bloco_numeros(bloco, familia=None):
+
+    # A série 1343 AT utiliza referências numéricas 1, 3, 34, 4, 5, 6 e 7.
+    # São identificadores de catálogo, não o padrão geral de bitolas.
+    if familia == '1343' and bloco in {'1', '3', '34', '4', '5', '6', '7'}:
+        return {'status': '1343 CATÁLOGO', 'quantidade': len(bloco),
+                'codigo_orificio': None, 'codigo_conexao': bloco,
+                'regra_encontrada': True, 'mensagem': None}
+
 
     quantidade = len(bloco)
 
@@ -582,7 +590,7 @@ def interpretar_codigo(codigo):
 
     interpretacao_numeros = (
         interpretar_bloco_numeros(
-            bloco_numeros
+            bloco_numeros, familia
         )
     )
 
@@ -1189,6 +1197,13 @@ def definir_v07(
     bloco_numeros,
     codigo_conexao,
 ):
+
+    if familia == "1343":
+        # Bitolas do catálogo 1343 AT, incluindo o código especial 34.
+        return {
+            "1": '1/2"', "3": '1/2"', "34": '3/4"',
+            "4": '3/4"', "5": '1"', "6": '1"', "7": '1 1/4"',
+        }.get(str(bloco_numeros or ""))
 
     # =========================================================
     # REGRA ESPECIAL - 1323 e 1365
