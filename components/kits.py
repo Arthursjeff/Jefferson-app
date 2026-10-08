@@ -322,19 +322,31 @@ def identificar_componentes_kit(codigo):
 # Só entram aqui agrupamentos já conhecidos. Lacunas permanecem pendentes.
 #
 
+# Somente equivalências comerciais documentadas. Grupos de pistão/diafragma
+# sem numeração confirmada não são convertidos automaticamente em códigos.
 GRUPOS_TAMANHO_KIT = {
-    "1335": {
-        # Regra atualmente validada para corpo em latão.
-        1: ["3/8\"", "1/2\""],
-        2: ["3/4\""],
-    },
+    "1330": {2: ['1"']},
+    "1335": {1: ['3/8"', '1/2"'], 2: ['3/4"']},  # latão
+    "2030": {2: ['1 1/4"', '1 1/2"', '2"']},
     "2036": {
-        1: ["3/8\"", "1/2\""],
-        2: ["3/4\""],
-        3: ["1\""],
-        4: ["1 1/2\""],
+        1: ['3/8"', '1/2"'],
+        2: ['3/4"'],
+        3: ['1"'],
+        4: ['1 1/2"'],  # grupo físico conhecido; confirmar referência comercial
     },
 }
+
+# Famílias sem sequencial de tamanho, conforme confirmação de engenharia.
+FAMILIAS_KIT_SEM_GRUPO = frozenset({"1327", "2026"})
+# A família 2094 tem um conjunto único, mas seu código usa formato especial
+# K094RBD2Z: não pode ser montado pelo padrão K + família + vedação.
+KIT_ESPECIAL_2094 = "K094RBD2Z"
+
+# Grupo 1342 determinado pelo código de conexão (não pela bitola textual).
+GRUPOS_CODIGO_CONEXAO_1342 = {
+    "06": 1, "08": 2, "12": 3, "16": 4, "20": 5, "24": 5,
+}
+
 
 
 def _aplicacoes_por_sequencial(familia, sequencial):
