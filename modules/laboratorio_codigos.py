@@ -135,6 +135,22 @@ def pagina_laboratorio_codigos():
                     _campos(valor)
             else:
                 st.write("**" + nome + ":** " + _texto(valor))
+        st.subheader("Kit de reparo correspondente")
+        sugestao = consulta.get("kit_correspondente") or {}
+        status = sugestao.get("status", "não determinado")
+        if sugestao.get("codigo"):
+            st.markdown("### " + sugestao["codigo"])
+        if status == "identificado pelo mapeamento atual":
+            st.success("Kit identificado conforme as regras de tamanho cadastradas.")
+        elif status.startswith("provável"):
+            st.warning("Kit provável — precisa de conferência antes de utilizar.")
+        else:
+            st.info("Ainda não foi possível determinar o código do kit.")
+        if sugestao.get("motivo"):
+            st.write(sugestao["motivo"])
+        if sugestao.get("tamanho"):
+            st.caption("Tamanho consultado: " + sugestao["tamanho"])
+        st.caption("A identificação não substitui a confirmação técnica da composição do kit.")
         st.subheader("Componentes da válvula")
         st.caption("Os componentes físicos da válvula não são necessariamente fornecidos no kit.")
         for nome, dados in consulta["grupos"].items():
