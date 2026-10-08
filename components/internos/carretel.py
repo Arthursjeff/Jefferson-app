@@ -62,7 +62,7 @@ def usa_carretel(familia):
     return identificar_grupo_carretel(familia) is not None
 
 
-def identificar_conjunto_carretel(familia, estado):
+def identificar_conjunto_carretel(familia, estado, material_corpo=None):
     """Retorna uma das quatro identidades lógicas possíveis do G4."""
     familia = _normalizar(familia)
     estado = _normalizar_estado(estado)
@@ -74,6 +74,9 @@ def identificar_conjunto_carretel(familia, estado):
     if estado not in {"NF", "NA"}:
         return None
 
+    material_normalizado = _normalizar(material_corpo)
+    material_carretel = "INOX" if material_normalizado in {"INOX", "AÇO INOX", "ACO INOX"} else "ALUMINIO" if material_normalizado in {"LATAO", "LATÃO"} else None
+    material_mola = "INOX 304" if material_carretel == "INOX" else "INOX 303" if material_carretel == "ALUMINIO" else None
     identidade = {
         "grupo_familia": grupo_familia,
         "estado": estado,
@@ -84,8 +87,8 @@ def identificar_conjunto_carretel(familia, estado):
         "nome_grupo": "CONJUNTO_CARRETEL",
         "identidade": identidade,
         "componentes": {
-            "carretel": identidade.copy(),
+            "carretel": {**identidade, "material": material_carretel},
             "cadeirinha": identidade.copy(),
-            "mola_cadeirinha": identidade.copy(),
+            "mola_cadeirinha": {**identidade, "material": material_mola},
         },
     }
