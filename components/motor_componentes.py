@@ -1,6 +1,6 @@
 """Consulta técnica de componentes sem alterar o orçamento."""
 from motor_descricao import processar_produto
-from components.kits import codigo_parece_kit, processar_kit, GRUPOS_TAMANHO_KIT, identificar_familia_kit, _familias_por_final, REGRAS_V06_MATERIAL_VEDACAO
+from components.kits import codigo_parece_kit, processar_kit, GRUPOS_TAMANHO_KIT, FAMILIAS_KIT_SEM_GRUPO, GRUPOS_CODIGO_CONEXAO_1342, KIT_ESPECIAL_2094, identificar_familia_kit, _familias_por_final, REGRAS_V06_MATERIAL_VEDACAO
 from components.internos.torre import identificar_conjunto_torre
 from components.internos.diafragma import identificar_conjunto_diafragma
 from components.internos.pistao import identificar_conjunto_pistao
@@ -8,51 +8,107 @@ from components.internos.carretel import identificar_conjunto_carretel
 from components.internos.orings import identificar_orings
 
 
-def sugerir_kit_reparo(parser, variaveis):
-    """Retorna somente códigos que podem ser justificados pelas regras atuais."""
+def sugerir_kit_reparo(parser, variaveis, grupos_componentes=None):
+    """Sugere apenas referências sustentadas pelo cadastro e engenharia.
+
+    O motor G2/G3/G5 informa identidades físicas; o sequencial comercial
+    só é emitido quando há uma equivalência validada.
+    """
     familia = str(parser.get("familia") or "")
     vedacao_codigo = parser.get("codigo_vedacao")
     tamanho = variaveis.get("V07")
     material = str(variaveis.get("V05") or "").upper()
-    if not (len(familia) == 4 and familia.isdigit() and vedacao_codigo in REGRAS_V06_MATERIAL_VEDACAO):
-        return {"status": "não determinado", "motivo": "Família ou código de vedação não identificado."}
+    prefixos = parser.get("prefixos") or []
+    sufixos = parser.get("sufixos") or []
+    letra = parser.get("letra_especial")
+    especiais = bool(prefixos or sufixos or letra)
+
+    def pendente(motivo, codigo=None):
+        resposta = {"status": "provável — conferir" if codigo else "não determinado",
+                    "motivo": motivo}
+        if codigo:
+            resposta["codigo"] = codigo
+        return resposta
+
+    if familia == "2094":
+        return pendente(
+            "A família utiliza conjunto único; K094RBD2Z é referência conhecida "
+            "para a variante Z. Confirmar aplicação exata da construção consultada.",
+            KIT_ESPECIAL_2094,
+        )
+    if not (len(familia) == 4 and familia.isdigit()
+            and vedacao_codigo in REGRAS_V06_MATERIAL_VEDACAO):
+        return pendente("Família ou código de vedação não identificado.")
+
     final = familia[-2:]
     candidatas = _familias_por_final(final)
     if familia.startswith("20") and len(candidatas) > 1:
         bloco = "0" + final
-    elif len(candidatas) == 1 or (not familia.startswith("20") and len([x for x in candidatas if not x.startswith("20")]) == 1):
+    elif len(candidatas) == 1 or (
+        not familia.startswith("20")
+        and len([x for x in candidatas if not x.startswith("20")]) == 1
+    ):
         bloco = final
     else:
-        return {"status": "não determinado", "motivo": "A identificação da família no código do kit é ambígua."}
+        return pendente("Identificação da família no código do kit é ambígua.")
     if identificar_familia_kit(bloco) != familia:
-        return {"status": "não determinado", "motivo": "Não há identificação inequívoca da família no motor de kits."}
+        return pendente("Família não resolvida inequivocamente no motor de kits.")
 
     base = "K" + bloco + vedacao_codigo
-    grupos = GRUPOS_TAMANHO_KIT.get(familia)
-    if not grupos:
-        return {"status": "provável — conferir", "codigo": base,
-                "motivo": "Família e vedação identificadas, mas o sequencial de tamanho não está mapeado. Código-base apenas; não é um kit confirmado."}
-    if not tamanho:
-        return {"status": "não determinado", "motivo": "Tamanho da conexão não identificado."}
-    encontrados = [seq for seq, tamanhos in grupos.items() if tamanho in tamanhos]
-    if len(encontrados) != 1:
-        return {"status": "não determinado", "motivo": "O tamanho não corresponde a um único grupo cadastrado."}
-    sequencial = encontrados[0]
-    codigo = base + str(sequencial)
+    grupo = None
+    if familia in FAMILIAS_KIT_SEM_GRUPO:
+        # A lista de kits comprova os materiais disponíveis por família.
+        materiais = {"1327": {"A", "E", "T", "V"}, "2026": {"A", "E", "V"}}
+        if vedacao_codigo not in materiais[familia]:
+            return pendente("Não há código de kit conhecido para esta vedação.")
+        codigo = base
+    elif familia == "1342":
+        codigo_conexao = str(parser.get("codigo_conexao") or "").zfill(2)
+        grupo = GRUPOS_CODIGO_CONEXAO_1342.get(codigo_conexao)
+        if grupo is None:
+            return pendente("Código de conexão sem grupo comercial confirmado na 1342.")
+        if vedacao_codigo not in {"A", "E", "T", "V"}:
+            return pendente("Vedação não consta da lista de kits 1342.")
+        codigo = base + str(grupo)
+    else:
+        grupos = GRUPOS_TAMANHO_KIT.get(familia)
+        if not grupos:
+            return pendente(
+                "Há regras de componentes internos, mas falta a equivalência "
+                "entre grupo físico e número comercial do kit.", base,
+            )
+        if not tamanho:
+            return pendente("Tamanho da conexão não identificado.")
+        encontrados = [seq for seq, tamanhos in grupos.items() if tamanho in tamanhos]
+        if len(encontrados) != 1:
+            return pendente("Tamanho não corresponde a um grupo comercial validado.")
+        grupo = encontrados[0]
+        codigo = base + str(grupo)
+
     observacoes = []
-    prefixos = parser.get("prefixos") or []
-    sufixos = parser.get("sufixos") or []
-    if prefixos or sufixos or parser.get("letra_especial"):
+    if especiais:
         observacoes.append("Verificar prefixos, sufixos e variantes construtivas.")
     if familia == "1335" and "LAT" not in material:
-        observacoes.append("O agrupamento da família 1335 foi validado somente para corpo em latão.")
-    if familia == "2036" and vedacao_codigo == "T":
-        observacoes.append("Confirmar a variante PTFE da família 2036.")
+        observacoes.append("Grupos comerciais da 1335 validados apenas para latão.")
+    if familia == "2036":
+        if grupo == 4:
+            observacoes.append("Confirmar referência comercial do quarto grupo 2036.")
+        if vedacao_codigo == "T":
+            observacoes.append("Confirmar aplicação do kit PTFE da 2036.")
+    if familia in {"1330", "2030"}:
+        observacoes.append(
+            "Confirmar reforço da membrana (R), variantes e construção do kit."
+        )
+    if familia == "1342" and grupos_componentes is not None:
+        # O G3 fornece evidência física adicional; não altera o número comercial.
+        pistao = grupos_componentes.get("G3 — Pistão")
+        if pistao is None:
+            observacoes.append("Conjunto de pistão não identificado para conferência.")
     if observacoes:
-        return {"status": "provável — conferir", "codigo": codigo,
-                "motivo": " ".join(observacoes), "tamanho": tamanho}
-    return {"status": "identificado pelo mapeamento atual", "codigo": codigo,
-            "motivo": "Família, vedação e grupo de tamanho correspondem ao cadastro atual.",
+        return pendente(" ".join(observacoes), codigo)
+    return {"status": "identificado pelo mapeamento atual",
+            "codigo": codigo,
+            "motivo": "Família, vedação e grupo comercial compatíveis com o cadastro.",
             "tamanho": tamanho}
 
 
@@ -89,4 +145,4 @@ def consultar_codigo(codigo, tensao=""):
     for nome, valor in (("material do corpo", material), ("vedação", vedacao), ("tamanho", tamanho), ("funcionamento", estado)):
         if not valor:
             pendencias.append(f"Não foi possível determinar {nome}.")
-    return {"kit": False, "resultado": resultado, "grupos": grupos, "pendencias": pendencias, "kit_correspondente": sugerir_kit_reparo(parser, v)}
+    return {"kit": False, "resultado": resultado, "grupos": grupos, "pendencias": pendencias, "kit_correspondente": sugerir_kit_reparo(parser, v, grupos)}
