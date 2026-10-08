@@ -14,6 +14,8 @@ determinam o componente. Não são criados nomes/part numbers artificiais.
 Part numbers de fabricação poderão ser acrescentados futuramente.
 """
 
+from components.internos.regras_g1 import resolver_g1
+
 FAMILIAS_SISTEMA_GENERICO = {
     "1342",
     "1327",
@@ -157,6 +159,8 @@ def identificar_conjunto_torre(
     estado=None,
     construcao=None,
     vedacao=None,
+    final=None,
+    bitola=None,
 ):
     """Retorna a representação lógica conhecida do G1 de uma válvula.
 
@@ -229,4 +233,10 @@ def identificar_conjunto_torre(
     if familia in FAMILIAS_NUCLEO_ACHATADO:
         resultado["componentes"]["nucleo_movel"]["formato"] = "ACHATADO"
 
+    # Estrutura detalhada nova, sem quebrar consumidores do contrato antigo.
+    detalhe = resolver_g1(familia, material, estado, construcao, vedacao, final, bitola)
+    resultado['torre_externa'] = detalhe['torre_externa']
+    resultado['componentes_internos'] = detalhe['componentes_internos']
+    resultado['kit_reparo_exclui_torre_externa'] = True
+    resultado['validacao_pendente'] = detalhe['validacao_pendente']
     return resultado
