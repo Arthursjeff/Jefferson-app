@@ -1,6 +1,6 @@
 """Consulta técnica de componentes sem alterar o orçamento."""
 from motor_descricao import processar_produto
-from components.kits import codigo_parece_kit, processar_kit, GRUPOS_TAMANHO_KIT, FAMILIAS_KIT_SEM_GRUPO, GRUPOS_CODIGO_CONEXAO_1342, KIT_ESPECIAL_2094, identificar_familia_kit, _familias_por_final, REGRAS_V06_MATERIAL_VEDACAO
+from components.kits import codigo_parece_kit, processar_kit, GRUPOS_TAMANHO_KIT, FAMILIAS_KIT_SEM_GRUPO, GRUPOS_CODIGO_CONEXAO_1342, KIT_ESPECIAL_2094, kit_catalogo_1343, identificar_familia_kit, _familias_por_final, REGRAS_V06_MATERIAL_VEDACAO
 from components.internos.torre import identificar_conjunto_torre
 from components.internos.diafragma import identificar_conjunto_diafragma
 from components.internos.pistao import identificar_conjunto_pistao
@@ -29,6 +29,25 @@ def sugerir_kit_reparo(parser, variaveis, grupos_componentes=None):
         if codigo:
             resposta["codigo"] = codigo
         return resposta
+
+    if familia == "1343":
+        # A tabela do fabricante cobre especificamente 1343 AT.
+        # O número é referência de catálogo, não código universal de conexão.
+        if str(parser.get("bloco_letras") or "") != "AT":
+            return pendente("Tabela de kits validada apenas para a configuração 1343 AT.")
+        codigo = kit_catalogo_1343(
+            parser.get("bloco_numeros"), com_filtro="F" in sufixos,
+        )
+        if not codigo:
+            return pendente("Configuração 1343 AT não consta da tabela do catálogo.")
+        outros = [x for x in sufixos if x != "F"]
+        if prefixos or outros or letra:
+            return pendente("Confirmar outras variantes construtivas da 1343.", codigo)
+        return {
+            "status": "identificado pelo mapeamento atual", "codigo": codigo,
+            "motivo": "Correspondência literal da tabela do fabricante 1343 AT.",
+            "tamanho": tamanho,
+        }
 
     if familia == "2094":
         return pendente(
