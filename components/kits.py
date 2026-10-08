@@ -103,6 +103,30 @@ def identificar_familia_kit(bloco_familia):
     return None
 
 
+# Correspondência literal do catálogo 1343 AT; não inferir apenas pela bitola.
+CATALOGO_KITS_1343 = {
+    "1": ("K43HT1", '1/2"'),
+    "3": ("K43FT1", '1/2"'),
+    "34": ("K43FT3", '3/4"'),
+    "4": ("K43FT2", '3/4"'),
+    "5": ("K43FT2", '1"'),
+    "6": ("K43FT5", '1"'),
+    "7": ("K43FT5", '1 1/4"'),
+}
+KITS_1343_TAMANHOS = {
+    "K43HT1": ['1/2"'],
+    "K43FT1": ['1/2"'],
+    "K43FT3": ['3/4"'],
+    "K43FT2": ['3/4"', '1"'],
+    "K43FT5": ['1"', '1 1/4"'],
+}
+
+
+def kit_catalogo_1343(bloco_numeros, com_filtro=False):
+    item = CATALOGO_KITS_1343.get(str(bloco_numeros or ""))
+    return item[0] + ("F" if com_filtro else "") if item else None
+
+
 def interpretar_codigo_kit(codigo):
     """Interpreta somente a estrutura conhecida do código do kit.
 
@@ -111,6 +135,21 @@ def interpretar_codigo_kit(codigo):
     que o motor de componentes forneça o agrupamento técnico da família.
     """
     codigo_normalizado = _normalizar_codigo(codigo)
+
+    # Kits 1343 usam K43HT/K43FT, não o padrão K43 + letra de vedação.
+    if re.fullmatch(r"K43(?:HT1|FT[1235])F?", codigo_normalizado):
+        com_filtro = codigo_normalizado.endswith("F")
+        base = codigo_normalizado[:-1] if com_filtro else codigo_normalizado
+        return {
+            "sucesso": True, "erro": None, "classe_produto": "KIT_REPARO",
+            "codigo_original": codigo_normalizado, "prefixos": [],
+            "bloco_familia": "43", "familia": "1343",
+            "codigo_vedacao": "T", "vedacao": REGRAS_V06_MATERIAL_VEDACAO.get("T"),
+            "sequencial_original": base[-1], "sequencial_tamanho": int(base[-1]),
+            "sufixos": ["F"] if com_filtro else [],
+            "grupo_tamanho": base, "aplicacoes": KITS_1343_TAMANHOS[base],
+            "componentes": None,
+        }
 
     if "K" not in codigo_normalizado:
         return {
@@ -369,7 +408,7 @@ def gerar_variaveis_kit(resultado):
     """Converte o parser do kit em variáveis V para inspeção no orçamento."""
     familia = resultado.get("familia")
     sequencial = resultado.get("sequencial_tamanho")
-    tamanhos = _aplicacoes_por_sequencial(familia, sequencial)
+    tamanhos = resultado.get("aplicacoes") if familia == "1343" and resultado.get("grupo_tamanho") else _aplicacoes_por_sequencial(familia, sequencial)
     componentes = identificar_componentes_por_familia(resultado)
 
     return {
@@ -395,7 +434,7 @@ def gerar_variaveis_kit(resultado):
 def gerar_descricao_kit(resultado):
     familia = resultado.get("familia")
     vedacao = resultado.get("vedacao")
-    tamanhos = _aplicacoes_por_sequencial(
+    tamanhos = resultado.get("aplicacoes") if familia == "1343" and resultado.get("grupo_tamanho") else _aplicacoes_por_sequencial(
         familia,
         resultado.get("sequencial_tamanho"),
     )
@@ -429,10 +468,11 @@ def processar_kit(codigo):
             "descricao": None,
         }
 
-    resultado["aplicacoes"] = _aplicacoes_por_sequencial(
-        resultado.get("familia"),
-        resultado.get("sequencial_tamanho"),
-    )
+    if not (resultado.get("familia") == "1343" and resultado.get("grupo_tamanho")):
+        resultado["aplicacoes"] = _aplicacoes_por_sequencial(
+            resultado.get("familia"),
+            resultado.get("sequencial_tamanho"),
+        )
     resultado["componentes"] = identificar_componentes_por_familia(resultado)
 
     return {
