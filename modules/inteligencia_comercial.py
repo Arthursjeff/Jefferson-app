@@ -18,7 +18,7 @@ def _nome_normalizado(valor):
 def _cliente_ficticio(valor):
     # Inclui SUL-AMERICANO, SUL AMERICANO, SULAMERICANO e variantes femininas.
     nome = " ".join(_nome_normalizado(valor).split())
-    return "SUL AMERICAN" in nome or "SULAMERICAN" in nome
+    return "SUDAMERICANA" in nome or "SUD AMERICANA" in nome
 
 def _reais(valor):
     return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -117,7 +117,7 @@ def pagina_inteligencia_comercial():
         st.stop()
 
     st.title("Inteligência Comercial")
-    st.caption("Dashboard histórico | documentos faturados (F) | cliente fictício Sul-Americano excluído das análises | dados originais preservados")
+    st.caption("Dashboard histórico | documentos faturados (F) | cliente fictício SUDAMERICANA excluído das análises | dados originais preservados")
     with st.expander("Filtros gerais", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
