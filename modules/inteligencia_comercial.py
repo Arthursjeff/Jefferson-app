@@ -1,6 +1,8 @@
 """Dashboard comercial histórico (somente leitura)."""
 from datetime import date
 from io import BytesIO
+import unicodedata
+import altair as alt
 import pandas as pd
 import streamlit as st
 from core.database import supabase
@@ -8,6 +10,36 @@ from core.database import supabase
 DOC_COLS = "id,situacao_erp,data_faturamento,data_documento,cliente_nome_erp,valor_total_cabecalho"
 ITEM_COLS = "documento_id,codigo_erp,familia_sugerida,quantidade,valor_total_item"
 PAGE_SIZE = 1000
+
+def _nome_normalizado(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    return "".join(c for c in texto if not unicodedata.combining(c)).upper().replace("-", " ").replace("_", " ")
+
+def _cliente_ficticio(valor):
+    # Inclui SUL-AMERICANO, SUL AMERICANO, SULAMERICANO e variantes femininas.
+    nome = " ".join(_nome_normalizado(valor).split())
+    return "SUL AMERICAN" in nome or "SULAMERICAN" in nome
+
+def _reais(valor):
+    return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def _chart(serie, tipo="bar", monetario=False):
+    """Eixo e tooltip em BRL, mantendo os valores numéricos para agregação."""
+    dados = serie.rename("valor").reset_index()
+    categoria = dados.columns[0]
+    dados[categoria] = dados[categoria].astype(str)
+    dados["exibicao"] = dados["valor"].map(_reais if monetario else lambda v: f"{v:,.0f}".replace(",", "."))
+    eixo = alt.Axis(title="Valor (R$)" if monetario else "Quantidade",
+                    labelExpr="'R$ ' + format(datum.value, '.2s')" if monetario else None)
+    base = alt.Chart(dados).encode(
+        x=alt.X(f"{categoria}:N", title=categoria, sort=None),
+        y=alt.Y("valor:Q", title="Valor (R$)" if monetario else "Quantidade", axis=eixo),
+        tooltip=[alt.Tooltip(f"{categoria}:N", title=categoria),
+                 alt.Tooltip("exibicao:N", title="Valor (R$)" if monetario else "Quantidade")],
+    )
+    grafico = base.mark_line(point=True) if tipo == "line" else base.mark_bar()
+    st.altair_chart(grafico.properties(height=350), use_container_width=True)
+
 
 @st.cache_data(ttl=600, show_spinner=False)
 def carregar_documentos(inicio, fim):
@@ -28,6 +60,7 @@ def carregar_documentos(inicio, fim):
         df["data"] = pd.to_datetime(df["data_faturamento"], errors="coerce")
         df["valor"] = pd.to_numeric(df["valor_total_cabecalho"], errors="coerce").fillna(0)
         df["cliente"] = df["cliente_nome_erp"].fillna("Sem identificação").astype(str).str.strip()
+        df = df.loc[~df["cliente"].map(_cliente_ficticio)].copy()
     return df
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -67,10 +100,13 @@ def _grafico(df, coluna, metrica, titulo, limite=20):
         st.info("Sem dados para os filtros selecionados.")
         return
     agrupado = df.groupby(coluna, dropna=False)[metrica].sum().sort_values(ascending=False).head(limite)
-    st.bar_chart(agrupado)
+    _chart(agrupado, monetario=metrica in ("valor", "valor_total_item"))
     with st.expander("Ver tabela e exportar"):
         tabela = agrupado.rename(metrica).reset_index()
-        st.dataframe(tabela, use_container_width=True, hide_index=True)
+        if metrica in ("valor", "valor_total_item"):
+            st.dataframe(tabela.style.format({metrica: _reais}), use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(tabela, use_container_width=True, hide_index=True)
         st.download_button("Exportar Excel", _exportar(tabela), file_name="jefferson_analise.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            key=f"export_{titulo}")
@@ -81,7 +117,7 @@ def pagina_inteligencia_comercial():
         st.stop()
 
     st.title("Inteligência Comercial")
-    st.caption("Dashboard histórico | documentos faturados (F) | dados originais preservados")
+    st.caption("Dashboard histórico | documentos faturados (F) | cliente fictício Sul-Americano excluído das análises | dados originais preservados")
     with st.expander("Filtros gerais", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
@@ -127,17 +163,17 @@ def pagina_inteligencia_comercial():
         freq = {"Mensal":"MS", "Diário":"D", "Anual":"YS"}[agrupamento]
         evolucao = docs.dropna(subset=["data"]).set_index("data")["valor"].resample(freq).sum()
         st.subheader("Evolução do faturamento")
-        st.line_chart(evolucao)
+        _chart(evolucao, tipo="line", monetario=True)
         st.caption("Somente situação F; data_faturamento. Valores nominais, sem ajuste de inflação.")
         c1,c2 = st.columns(2)
         with c1:
             st.subheader("Documentos por período")
             contagem = docs.dropna(subset=["data"]).set_index("data")["id"].resample(freq).count()
-            st.bar_chart(contagem)
+            _chart(contagem)
         with c2:
             st.subheader("Ticket médio por período")
             ticket = evolucao.div(contagem.where(contagem.ne(0)))
-            st.line_chart(ticket)
+            _chart(ticket.dropna(), tipo="line", monetario=True)
         st.download_button("Exportar documentos filtrados", _exportar(docs.drop(columns=["data"])),
                            file_name="documentos_faturados.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -149,7 +185,7 @@ def pagina_inteligencia_comercial():
         ativos["periodo"] = ativos["data"].dt.to_period("M").astype(str)
         serie = ativos.groupby("periodo")["cliente"].nunique()
         st.subheader("Clientes ativos por mês")
-        st.line_chart(serie)
+        _chart(serie, tipo="line")
     with produtos:
         st.caption("Produtos e famílias usam valores dos itens; podem diferir do faturamento do cabeçalho.")
         if st.button("Carregar dados de produtos", key="ic_carregar_itens"):
@@ -191,11 +227,15 @@ def pagina_inteligencia_comercial():
         agregado = agregado.sort_values(ascending=False).head(limite)
         tipo = st.radio("Visualização", ["Barras", "Linha", "Tabela"], horizontal=True)
         if tipo=="Barras":
-            st.bar_chart(agregado)
+            _chart(agregado, monetario=medida=="Faturamento")
         elif tipo=="Linha":
-            st.line_chart(agregado)
+            _chart(agregado, tipo="line", monetario=medida=="Faturamento")
         else:
-            st.dataframe(agregado.rename(medida).reset_index(), use_container_width=True)
+            tabela_personalizada = agregado.rename(medida).reset_index()
+            if medida=="Faturamento":
+                st.dataframe(tabela_personalizada.style.format({medida: _reais}), use_container_width=True)
+            else:
+                st.dataframe(tabela_personalizada, use_container_width=True)
         st.download_button("Exportar gráfico personalizado",
                            _exportar(agregado.rename(medida).reset_index()),
                            file_name="grafico_personalizado.xlsx",
