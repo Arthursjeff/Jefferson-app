@@ -2573,13 +2573,16 @@ def definir_v11(
 
     if familia == "1342":
 
-        if "INA" in sufixos and codigo_vedacao == "T":
+        # INA limita a pressão máxima a 10 bar para todas as vedações.
+        if "INA" in sufixos:
             return "10 bar"
 
+        # PTFE sem INA admite 17 bar em corrente alternada.
         if codigo_vedacao == "T":
             return "17 bar"
 
-        return "10 bar"
+        # Demais vedações sem INA: 15 bar em corrente alternada.
+        return "15 bar"
 
 
     # =========================================================
