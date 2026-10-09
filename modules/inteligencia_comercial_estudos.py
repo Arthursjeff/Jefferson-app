@@ -1,5 +1,5 @@
 """Comparador de períodos e estudos comerciais. Não altera dados do ERP."""
-from datetime import date
+from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 import altair as alt
@@ -94,11 +94,24 @@ def pagina_comparador(docs, carregar_itens=None):
         return
     if max(a_fim, b_fim) > hoje:
         st.warning("Há datas futuras no comparativo; os resultados podem estar incompletos.")
-    if (a_fim-a_inicio).days != (b_fim-b_inicio).days:
-        st.info("Os períodos possuem durações diferentes. Para comparar desempenho, prefira intervalos equivalentes.")
+    equivalente = st.checkbox("Igualar duração dos períodos para comparação justa", value=True, key="cmp_equivalente")
+    if equivalente:
+        dias = min((a_fim-a_inicio).days, (b_fim-b_inicio).days,
+                   (hoje-a_inicio).days, (hoje-b_inicio).days)
+        if dias < 0:
+            st.warning("Um período ainda não começou. Ajuste as datas.")
+            return
+        a_fim_efetivo = a_inicio + timedelta(days=dias)
+        b_fim_efetivo = b_inicio + timedelta(days=dias)
+        st.caption(f"Períodos efetivos: {a_inicio:%d/%m/%Y} a {a_fim_efetivo:%d/%m/%Y} × {b_inicio:%d/%m/%Y} a {b_fim_efetivo:%d/%m/%Y} ({dias+1} dias cada).")
+    else:
+        a_fim_efetivo, b_fim_efetivo = a_fim, b_fim
+        if (a_fim-a_inicio).days != (b_fim-b_inicio).days:
+            st.warning("Comparação de durações diferentes: percentuais podem refletir a diferença de tempo, não desempenho.")
+
     clientes = st.multiselect("Clientes específicos (vazio = todos)", sorted(docs["cliente"].dropna().unique()), key="cmp_clientes")
-    a = _base(docs, a_inicio, a_fim, clientes)
-    b = _base(docs, b_inicio, b_fim, clientes)
+    a = _base(docs, a_inicio, a_fim_efetivo, clientes)
+    b = _base(docs, b_inicio, b_fim_efetivo, clientes)
     metrica = st.selectbox("Indicador", ["Faturamento", "Documentos", "Clientes ativos", "Ticket médio"], key="cmp_metrica")
     ma, mb = _metricas(a)[metrica], _metricas(b)[metrica]
     delta = mb - ma
@@ -109,7 +122,7 @@ def pagina_comparador(docs, carregar_itens=None):
     cols[1].metric("Período B", fmt(mb))
     cols[2].metric("Diferença B − A", fmt(delta), delta=f"{pct:+.1f}%" if pct is not None else "Sem base percentual")
     if metrica != "Ticket médio":
-        _grafico_linhas(a, b, metrica, (f"A: {a_inicio} a {a_fim}", f"B: {b_inicio} a {b_fim}"))
+        _grafico_linhas(a, b, metrica, (f"A: {a_inicio} a {a_fim_efetivo}", f"B: {b_inicio} a {b_fim_efetivo}"))
     else:
         st.caption("Ticket médio é calculado por valor de cabeçalho dividido por documentos distintos.")
     st.markdown("#### Quem explica a diferença?")
@@ -152,6 +165,8 @@ def pagina_estudos(docs):
     if referencia > referencia_fim or atual > atual_fim:
         st.warning("Corrija os intervalos.")
         return
+    if (referencia_fim-referencia).days != (atual_fim-atual).days:
+        st.warning("Os períodos de investigação têm durações diferentes. A classificação de perda ou queda pode ser enganosa.")
     if st.button("Executar investigação", type="primary", key="inv_executar"):
         a = _base(docs, referencia, referencia_fim)
         b = _base(docs, atual, atual_fim)
