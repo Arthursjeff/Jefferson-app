@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 from core.database import supabase
 from modules.inteligencia_comercial_estudos import pagina_comparador, pagina_estudos
+from modules.inteligencia_comercial_conversao import pagina_conversao
 
 DOC_COLS = "id,situacao_erp,data_faturamento,data_documento,cliente_nome_erp,valor_total_cabecalho"
 ITEM_COLS = "documento_id,codigo_erp,familia_sugerida,quantidade,valor_total_item"
@@ -162,7 +163,7 @@ def pagina_inteligencia_comercial():
     k3.metric("Documentos F", docs["id"].nunique())
     k4.metric("Ticket médio", f"R$ {total/max(docs['id'].nunique(),1):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    geral, aba_clientes, produtos, personalizado, comparador, estudos = st.tabs(["Geral", "Clientes", "Produtos", "Personalizado", "Comparador", "Estudos investigativos"])
+    geral, aba_clientes, produtos, personalizado, comparador, estudos, conversao = st.tabs(["Geral", "Clientes", "Produtos", "Personalizado", "Comparador", "Estudos investigativos", "Conversão"])
     with geral:
         freq = {"Mensal":"MS", "Diário":"D", "Anual":"YS"}[agrupamento]
         evolucao = docs.dropna(subset=["data"]).set_index("data")["valor"].resample(freq).sum()
@@ -259,4 +260,11 @@ def pagina_inteligencia_comercial():
             pagina_estudos(historico)
         except Exception as exc:
             st.error("Não foi possível carregar os estudos investigativos.")
+            st.caption(type(exc).__name__)
+
+    with conversao:
+        try:
+            pagina_conversao()
+        except Exception as exc:
+            st.error("Não foi possível consultar o índice comercial.")
             st.caption(type(exc).__name__)
