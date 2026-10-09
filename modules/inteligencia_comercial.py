@@ -6,6 +6,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from core.database import supabase
+from modules.inteligencia_comercial_estudos import pagina_comparador, pagina_estudos
 
 DOC_COLS = "id,situacao_erp,data_faturamento,data_documento,cliente_nome_erp,valor_total_cabecalho"
 ITEM_COLS = "documento_id,codigo_erp,familia_sugerida,quantidade,valor_total_item"
@@ -161,7 +162,7 @@ def pagina_inteligencia_comercial():
     k3.metric("Documentos F", docs["id"].nunique())
     k4.metric("Ticket médio", f"R$ {total/max(docs['id'].nunique(),1):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    geral, aba_clientes, produtos, personalizado = st.tabs(["Geral", "Clientes", "Produtos", "Personalizado"])
+    geral, aba_clientes, produtos, personalizado, comparador, estudos = st.tabs(["Geral", "Clientes", "Produtos", "Personalizado", "Comparador", "Estudos investigativos"])
     with geral:
         freq = {"Mensal":"MS", "Diário":"D", "Anual":"YS"}[agrupamento]
         evolucao = docs.dropna(subset=["data"]).set_index("data")["valor"].resample(freq).sum()
@@ -243,3 +244,19 @@ def pagina_inteligencia_comercial():
                            _exportar(agregado.rename(medida).reset_index()),
                            file_name="grafico_personalizado.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    with comparador:
+        # Independente do filtro geral: permite comparar qualquer ano do histórico.
+        try:
+            historico = carregar_documentos("2020-01-01", date.today().isoformat())
+            pagina_comparador(historico)
+        except Exception as exc:
+            st.error("Não foi possível carregar o comparador.")
+            st.caption(type(exc).__name__)
+    with estudos:
+        try:
+            historico = carregar_documentos("2020-01-01", date.today().isoformat())
+            pagina_estudos(historico)
+        except Exception as exc:
+            st.error("Não foi possível carregar os estudos investigativos.")
+            st.caption(type(exc).__name__)
