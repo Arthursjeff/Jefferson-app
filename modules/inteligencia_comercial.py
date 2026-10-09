@@ -8,6 +8,7 @@ import streamlit as st
 from core.database import supabase
 from modules.inteligencia_comercial_estudos import pagina_comparador, pagina_estudos
 from modules.inteligencia_comercial_conversao import pagina_conversao
+from modules.inteligencia_comercial_aprofundada import pagina_aprofundada
 
 DOC_COLS = "id,situacao_erp,data_faturamento,data_documento,cliente_nome_erp,valor_total_cabecalho"
 ITEM_COLS = "documento_id,codigo_erp,familia_sugerida,quantidade,valor_total_item"
@@ -146,15 +147,14 @@ def pagina_inteligencia_comercial():
         st.caption(type(exc).__name__)
         return
     if docs.empty:
-        st.warning("Nenhum documento faturado com data de faturamento neste período.")
-        return
+        st.warning("Nenhum documento faturado neste filtro geral. Comparador, investigações e conversão continuam disponíveis.")
+        docs = pd.DataFrame(columns=["id","cliente","valor","data","data_faturamento"])
     nomes = sorted(docs["cliente"].unique().tolist())
     clientes = st.multiselect("Clientes (vazio = todos)", nomes, key="ic_clientes")
     if clientes:
         docs = docs[docs["cliente"].isin(clientes)].copy()
     if docs.empty:
-        st.info("Nenhum documento para os clientes escolhidos.")
-        return
+        st.info("Sem documentos nos filtros gerais; utilize as abas históricas para análises independentes.")
 
     k1,k2,k3,k4 = st.columns(4)
     total = float(docs["valor"].sum())
@@ -163,7 +163,7 @@ def pagina_inteligencia_comercial():
     k3.metric("Documentos F", docs["id"].nunique())
     k4.metric("Ticket médio", f"R$ {total/max(docs['id'].nunique(),1):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    geral, aba_clientes, produtos, personalizado, comparador, estudos, conversao = st.tabs(["Geral", "Clientes", "Produtos", "Personalizado", "Comparador", "Estudos investigativos", "Conversão"])
+    geral, aba_clientes, produtos, personalizado, comparador, estudos, conversao, aprofundada = st.tabs(["Geral", "Clientes", "Produtos", "Personalizado", "Comparador", "Estudos investigativos", "Conversão", "Investigação aprofundada"])
     with geral:
         freq = {"Mensal":"MS", "Diário":"D", "Anual":"YS"}[agrupamento]
         evolucao = docs.dropna(subset=["data"]).set_index("data")["valor"].resample(freq).sum()
@@ -267,4 +267,12 @@ def pagina_inteligencia_comercial():
             pagina_conversao()
         except Exception as exc:
             st.error("Não foi possível consultar o índice comercial.")
+            st.caption(type(exc).__name__)
+
+    with aprofundada:
+        try:
+            historico = carregar_documentos("2020-01-01", date.today().isoformat())
+            pagina_aprofundada(historico, carregar_itens)
+        except Exception as exc:
+            st.error("Não foi possível executar a investigação aprofundada.")
             st.caption(type(exc).__name__)
