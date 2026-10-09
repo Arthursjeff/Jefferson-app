@@ -29,8 +29,11 @@ def _chart(serie, tipo="bar", monetario=False):
     categoria = dados.columns[0]
     dados[categoria] = dados[categoria].astype(str)
     dados["exibicao"] = dados["valor"].map(_reais if monetario else lambda v: f"{v:,.0f}".replace(",", "."))
-    eixo = alt.Axis(title="Valor (R$)" if monetario else "Quantidade",
-                    labelExpr="'R$ ' + format(datum.value, '.2s')" if monetario else None)
+    # Altair 6 rejeita labelExpr=None: omitir a propriedade em gráficos não monetários.
+    if monetario:
+        eixo = alt.Axis(title="Valor (R$)", labelExpr="'R$ ' + format(datum.value, ',.2f')")
+    else:
+        eixo = alt.Axis(title="Quantidade")
     base = alt.Chart(dados).encode(
         x=alt.X(f"{categoria}:N", title=categoria, sort=None),
         y=alt.Y("valor:Q", title="Valor (R$)" if monetario else "Quantidade", axis=eixo),
