@@ -7,6 +7,7 @@ from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_clientes
 from modules.modulo_orcamentos.clientes_importacao_ui import pagina_importar_clientes
 from modules.analises import pagina_analises
+from modules.inteligencia_comercial import pagina_inteligencia_comercial
 from modules.laboratorio_codigos import pagina_laboratorio_codigos
 from modules.consertos import pagina_consertos
 from modules.consulta_fotos import pagina_consulta_pedidos
@@ -1213,6 +1214,7 @@ with st.sidebar:
             "Clientes",
             "Importar Clientes",
             "Análises",
+            "Inteligência Comercial",
             "Laboratório de Códigos",
             "Consertos",
             "Consulta de Pedidos",
@@ -1291,6 +1293,15 @@ elif pagina == "Análises":
         st.stop()
 
     pagina_analises()
+
+
+elif pagina == "Inteligência Comercial":
+
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("Esta página é exclusiva para administradores.")
+        st.stop()
+
+    pagina_inteligencia_comercial()
 
 
 elif pagina == "Laboratório de Códigos":
