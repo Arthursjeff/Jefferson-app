@@ -242,34 +242,129 @@ def pagina_evolucao(df, primeira):
     exportar(t,"evolucao_comercial.xlsx")
     st.caption("Valores de produtos/famílias são calculados pelos itens, não pelo cabeçalho do documento.")
 
+def _sazonalidade_tabela(df, meses, indicador, hoje=None):
+    """Média sazonal de períodos completos e média geral equivalente.
+    Cada ano do período inclui zeros quando não houve movimentação.
+    """
+    import calendar
+    hoje = hoje or date.today()
+    base = df[df["data"].dt.date <= hoje].copy()
+    if base.empty:
+        return pd.DataFrame(), [], 0
+    inicio = date(2020, 1, 1)
+    ultimo_mes_completo = date(hoje.year, hoje.month, 1) - pd.Timedelta(days=1)
+    ultimo_mes_completo = ultimo_mes_completo.date() if hasattr(ultimo_mes_completo, "date") else ultimo_mes_completo
+    meses_completos = (ultimo_mes_completo.year - inicio.year) * 12 + ultimo_mes_completo.month - inicio.month + 1
+    if meses_completos <= 0:
+        return pd.DataFrame(), [], 0
+    todos_anos = list(range(inicio.year, hoje.year + 1))
+    # Só um conjunto de meses integralmente concluído pode integrar a média sazonal.
+    anos_referencia = [ano for ano in todos_anos
+                       if all(date(ano, mes, calendar.monthrange(ano, mes)[1]) <= ultimo_mes_completo
+                              for mes in meses)]
+    recorte = base[base["mes"].isin(meses)].copy()
+    if indicador == "consultas":
+        recorte["medida"] = 1
+        base["medida"] = 1
+    elif indicador == "pedidos":
+        recorte["medida"] = (recorte["tipo"] == "Venda").astype(int)
+        base["medida"] = (base["tipo"] == "Venda").astype(int)
+    elif indicador == "cotacoes":
+        recorte["medida"] = (recorte["tipo"] == "Orçamento").astype(int)
+        base["medida"] = (base["tipo"] == "Orçamento").astype(int)
+    elif indicador == "compras":
+        recorte["medida"] = recorte["valor"].where(recorte["tipo"] == "Venda", 0)
+        base["medida"] = base["valor"].where(base["tipo"] == "Venda", 0)
+    else:
+        recorte["medida"] = recorte["valor"].where(recorte["tipo"] == "Orçamento", 0)
+        base["medida"] = base["valor"].where(base["tipo"] == "Orçamento", 0)
+    clientes = sorted(base["cliente"].unique())
+    tabela = pd.DataFrame({"Cliente": clientes}).set_index("Cliente")
+    por_ano = recorte.groupby(["cliente", "ano"])["medida"].sum().unstack(fill_value=0)
+    for ano in todos_anos:
+        tabela[str(ano)] = por_ano[ano].reindex(clientes, fill_value=0) if ano in por_ano else 0
+    colunas_media = [str(ano) for ano in anos_referencia]
+    tabela["Média do período"] = tabela[colunas_media].sum(axis=1) / len(colunas_media) if colunas_media else 0.0
+    # Geral considera todos os meses completos, mesmo os sem movimentação.
+    completo = base[base["data"].dt.date <= ultimo_mes_completo]
+    geral = completo.groupby("cliente")["medida"].sum().reindex(clientes, fill_value=0)
+    tabela["Média geral equivalente"] = geral / meses_completos * len(meses)
+    tabela["Índice sazonal (%)"] = (100 * tabela["Média do período"] /
+        tabela["Média geral equivalente"].replace(0, float("nan")))
+    tabela["Diferença sazonal (%)"] = tabela["Índice sazonal (%)"] - 100
+    return tabela, anos_referencia, meses_completos
+
+
 def pagina_sazonalidade(df, primeira):
     st.subheader("03 — Sazonalidade comercial")
-    st.caption("Compare os mesmos meses em anos diferentes e identifique clientes com histórico recorrente.")
-    meses = st.multiselect("Meses analisados", list(range(1,13)), default=[7],
-                           format_func=lambda x: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][x-1],
-                           key="ic2_saz_meses")
+    st.caption("Compare os mesmos meses em todos os anos disponíveis. Os resultados são ordenados pela média do período, do maior para o menor.")
+    meses = st.multiselect("Meses analisados", list(range(1, 13)), default=[7],
+        format_func=lambda x: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][x-1],
+        key="ic2_saz_meses")
     if not meses:
         st.info("Selecione ao menos um mês.")
         return
-    base = df[df.mes.isin(meses)].copy()
-    ano = st.selectbox("Ano de comparação", sorted(base.ano.unique(), reverse=True), key="ic2_saz_ano")
-    referencia = base[base.ano < ano]
-    atual = base[base.ano == ano]
-    if referencia.empty:
-        st.info("Sem histórico anterior para comparação.")
-        return
-    metrica = st.selectbox("Indicador", ["compras","orcamentos","pedidos","cotacoes"], key="ic2_saz_metrica",
-                           format_func=lambda x: {"compras":"Valor vendido","orcamentos":"Valor orçado",
-                           "pedidos":"Nº de pedidos","cotacoes":"Nº de orçamentos"}[x])
+    indicador = st.selectbox("Indicador", ["compras", "orcamentos", "pedidos", "cotacoes", "consultas"],
+        format_func=lambda x: {"compras": "Valor vendido (R$)", "orcamentos": "Valor orçado (R$)",
+            "pedidos": "Número de pedidos", "cotacoes": "Número de orçamentos",
+            "consultas": "Número de consultas (pedidos + orçamentos)"}[x],
+        key="ic2_saz_metrica")
     classe = seletor_classe("ic2_saz_classe")
-    frequencia = (referencia[referencia.tipo=="Venda"].groupby("cliente")["ano"].nunique()
-                  .rename("Anos com compras nos meses selecionados"))
-    r = classificacoes(referencia,atual,metrica,referencia.ano.nunique(),1)
-    r = aplicar_classe(r,classe,primeira,metrica).merge(frequencia,how="left",left_on="Cliente",right_index=True)
-    r["Anos com compras nos meses selecionados"] = r["Anos com compras nos meses selecionados"].fillna(0).astype(int)
-    tabela_formatada(r)
-    exportar(r,"sazonalidade_comercial.xlsx")
-    st.caption("A média de referência considera os anos anteriores presentes na base; o ano atual pode estar incompleto.")
+    tabela, anos_referencia, n_meses = _sazonalidade_tabela(df, meses, indicador)
+    if tabela.empty:
+        st.info("Sem dados comerciais para o estudo.")
+        return
+    anos = [str(ano) for ano in range(2020, date.today().year + 1)]
+    if not anos_referencia:
+        st.info("Nenhum período selecionado está integralmente concluído.")
+        return
+    ano_mais_recente = anos_referencia[-1]
+    anteriores = anos_referencia[:-1]
+    if classe == "Top 20":
+        tabela = tabela.nlargest(20, "Média do período")
+    elif classe == "Novos entrantes":
+        novos = primeira[primeira >= pd.Timestamp("2024-01-01")].index
+        tabela = tabela[tabela.index.isin(novos)]
+    elif classe in ("Principais perdas", "Potenciais players", "Oportunidades"):
+        # Para classificar, usa-se o mesmo período em anos completos e não o ano em andamento.
+        if not anteriores:
+            st.info("É necessário ter pelo menos dois períodos anuais completos para essa classificação.")
+            return
+        referencia = df[df["ano"].isin(anteriores) & df["mes"].isin(meses)]
+        atual = df[(df["ano"] == ano_mais_recente) & df["mes"].isin(meses)]
+        historico = resumo(referencia).set_index("cliente")
+        recente = resumo(atual).set_index("cliente")
+        nomes = tabela.index
+        media_compras = historico["compras"].reindex(nomes, fill_value=0) / len(anteriores)
+        media_orc = historico["orcamentos"].reindex(nomes, fill_value=0) / len(anteriores)
+        compras_recentes = recente["compras"].reindex(nomes, fill_value=0)
+        orc_recentes = recente["orcamentos"].reindex(nomes, fill_value=0)
+        if classe == "Principais perdas":
+            tabela = tabela[(media_compras > 0) & (compras_recentes < media_compras)]
+        elif classe == "Potenciais players":
+            tabela = tabela[(media_compras > 0) & (compras_recentes > media_compras)]
+        else:
+            tabela = tabela[(media_orc > 0) & (orc_recentes > media_orc)]
+    tabela = tabela.sort_values("Média do período", ascending=False)
+    exibicao = tabela.reset_index()
+    colunas = ["Cliente"] + anos + ["Média do período", "Média geral equivalente", "Índice sazonal (%)"]
+    exibicao = exibicao[colunas]
+    monetario = indicador in ("compras", "orcamentos")
+    formatos = {ano: (brl if monetario else lambda v: f"{v:,.0f}".replace(",", ".")) for ano in anos}
+    formatos["Média do período"] = brl if monetario else lambda v: f"{v:.2f}".replace(".", ",")
+    formatos["Média geral equivalente"] = brl if monetario else lambda v: f"{v:.2f}".replace(".", ",")
+    formatos["Índice sazonal (%)"] = lambda v: "—" if pd.isna(v) else f"{v:.1f}%".replace(".", ",")
+    titulos = {"Média do período": "Média meses selecionados" + (" (R$)" if monetario else " (nº)"),
+               "Média geral equivalente": "Média geral equivalente" + (" (R$)" if monetario else " (nº)")}
+    st.caption(f"Média sazonal: anos {anos_referencia[0]} a {anos_referencia[-1]} com todos os meses selecionados concluídos. "
+               f"Média geral: {n_meses} meses completos desde jan/2020, ajustada para {len(meses)} mês(es). "
+               "O ano atual é exibido mesmo quando o período selecionado ainda não terminou, mas não entra na média sazonal nesse caso.")
+    st.dataframe(exibicao.rename(columns=titulos).style.format(
+        {titulos.get(k, k): v for k, v in formatos.items()}, na_rep="—"),
+        hide_index=True, use_container_width=True)
+    exportar(exibicao.rename(columns=titulos), "sazonalidade_comercial.xlsx")
+    st.caption("Índice sazonal acima de 100%: período mais forte que a média geral; abaixo de 100%: período mais fraco. "
+               "Meses sem movimentação contam como zero. Classificações de crescimento/perda usam somente períodos anuais completos.")
 
 def pagina_recuperacao(df, primeira):
     st.subheader("04 — Recuperação de clientes")
