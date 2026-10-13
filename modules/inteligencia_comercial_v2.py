@@ -384,10 +384,13 @@ def pagina_produtos(df, primeira):
     res["Clientes atuais"] = base[base["janela"] == "Atual"].groupby(campo)["cliente"].nunique().reindex(nomes, fill_value=0)
     res["Meses com vendas"] = base.groupby(campo)["mes_ref"].nunique().reindex(nomes, fill_value=0)
     res["Frequência (%)"] = res["Meses com vendas"] * 100 / meses_total
+    res["Meses com vendas / total"] = res["Meses com vendas"].astype(int).astype(str) + "/" + str(meses_total)
     res["Última venda"] = base.groupby(campo)["data"].max().reindex(nomes)
     participacao = base.groupby([campo, "cliente"])["valor"].sum()
     total = participacao.groupby(level=0).sum()
     maior = participacao.groupby(level=0).max()
+    lider = participacao.groupby(level=0).idxmax().map(lambda chave: chave[1])
+    res["Principal cliente"] = lider.reindex(nomes).fillna("Não identificado")
     res["Maior cliente (%)"] = 100 * maior.reindex(nomes, fill_value=0) / total.reindex(nomes).replace(0, float("nan"))
     for sigla in ["q", "r"]:
         res[f"Variação {sigla} (%)"] = 100 * (res[f"a_{sigla}"] / res[f"h_{sigla}"].replace(0, float("nan")) - 1)
@@ -453,7 +456,7 @@ def pagina_produtos(df, primeira):
                "Faturamento histórico (R$)", "Faturamento atual (R$)",
                "Variação q (%)", "Variação r (%)",
                "Clientes históricos + atuais (nº)", "Clientes atuais (nº)",
-               "Meses com vendas (nº)", "Frequência (%)", "Maior cliente (%)", "Última venda"]
+               "Meses com vendas / total", "Principal cliente", "Maior cliente (%)", "Última venda"]
     st.markdown("#### Ranking do portfólio")
     if tabela.empty:
         st.info("Nenhum item corresponde aos filtros.")
