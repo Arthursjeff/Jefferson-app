@@ -507,9 +507,10 @@ def _recuperacao_agrupar(base, campo, meses_historicos, meses_atuais, inicio_atu
     r = h.reindex(nomes, fill_value=0).join(t.reindex(nomes, fill_value=0))
     anos = antes.assign(ano=antes["data"].dt.year).groupby(campo)["ano"].nunique()
     meses = antes.groupby(campo)["mes_ref"].nunique()
-    anos_calendario = max(1, len(pd.period_range(
-        start=antes["mes_ref"].min() if not antes.empty else pd.Period("2000-01"),
-        end=(inicio_atual - pd.Timedelta(days=1)).to_period("M"), freq="M")) / 12)
+    # Anos civis observados, inclusive os parciais, para não superar 100%.
+    primeiro_ano = (inicio_atual - pd.DateOffset(months=meses_historicos)).year
+    ultimo_ano = (inicio_atual - pd.Timedelta(days=1)).year
+    anos_calendario = max(1, ultimo_ano - primeiro_ano + 1)
     # Regularidade é calculada no intervalo de observação, incluindo meses sem compras.
     meses_com_compra = antes[antes["venda"]].groupby(campo)["mes_ref"].nunique()
     anos_com_compra = antes[antes["venda"]].assign(ano=lambda z: z["data"].dt.year).groupby(campo)["ano"].nunique()
