@@ -67,6 +67,43 @@ def itens(ids):
         x["familia_sugerida"] = x["familia_sugerida"].fillna("Não classificada")
     return x
 
+def tabela_formatada(tabela):
+    """Exibe unidades claras e formatação brasileira sem alterar dados exportados."""
+    titulos = {
+        "Cliente": "Cliente",
+        "historico_compras": "Média histórica de compras (R$)",
+        "atual_compras": "Média atual de compras (R$)",
+        "historico_orcamentos": "Média histórica de orçamentos (R$)",
+        "atual_orcamentos": "Média atual de orçamentos (R$)",
+        "historico_pedidos": "Média histórica de pedidos (nº/ano)",
+        "atual_pedidos": "Média atual de pedidos (nº/ano)",
+        "historico_cotacoes": "Média histórica de cotações (nº/ano)",
+        "atual_cotacoes": "Média atual de cotações (nº/ano)",
+        "variacao_compras": "Diferença média de compras (R$)",
+        "variacao_orcamentos": "Diferença média de orçamentos (R$)",
+        "variacao_indicador": "Diferença média do indicador",
+        "Anos com compras nos meses selecionados": "Anos com compras (nº)",
+        "Última compra": "Última compra",
+        "Último orçamento": "Último orçamento",
+        "Meses desde última compra": "Meses sem compra",
+        "Meses desde último orçamento": "Meses sem orçamento",
+    }
+    x = tabela.rename(columns=titulos)
+    moeda = [v for v in x.columns if "(R$)" in v]
+    contagem = [v for v in x.columns if "(nº/ano)" in v]
+    inteiros = [v for v in x.columns if v.endswith("(nº)")]
+    formatos = {v: brl for v in moeda}
+    formatos.update({v: lambda n: "—" if pd.isna(n) else f"{n:.2f}".replace(".", ",") for v in contagem})
+    formatos.update({v: lambda n: "—" if pd.isna(n) else f"{n:.0f}" for v in inteiros})
+    for v in ["Meses sem compra", "Meses sem orçamento"]:
+        if v in x.columns:
+            formatos[v] = lambda n: "—" if pd.isna(n) else f"{n:.1f}".replace(".", ",")
+    for v in ["Última compra", "Último orçamento"]:
+        if v in x.columns:
+            formatos[v] = lambda n: "—" if pd.isna(n) else n.strftime("%d/%m/%Y")
+    st.dataframe(x.style.format(formatos, na_rep="—"), hide_index=True, use_container_width=True)
+
+
 def exportar(tabela, nome):
     b = BytesIO()
     with pd.ExcelWriter(b, engine="openpyxl") as w:
@@ -122,11 +159,7 @@ def seletor_classe(chave):
 def tabela_classes(df, ref, atual, metrica, classe, primeira, nome):
     r = classificacoes(ref, atual, metrica, max(ref["ano"].nunique(),1), max(atual["ano"].nunique(),1))
     r = aplicar_classe(r, classe, primeira, metrica)
-    st.dataframe(r.rename(columns={"historico_compras":"Média compras referência",
-        "atual_compras":"Média compras comparação","historico_orcamentos":"Média orçamentos referência",
-        "atual_orcamentos":"Média orçamentos comparação",
-        "variacao_compras":"Variação compras","variacao_orcamentos":"Variação orçamentos"}),
-        hide_index=True, use_container_width=True)
+    tabela_formatada(r)
     exportar(r, nome)
 
 def pagina_conversao(df):
@@ -234,7 +267,7 @@ def pagina_sazonalidade(df, primeira):
     r = classificacoes(referencia,atual,metrica,referencia.ano.nunique(),1)
     r = aplicar_classe(r,classe,primeira,metrica).merge(frequencia,how="left",left_on="Cliente",right_index=True)
     r["Anos com compras nos meses selecionados"] = r["Anos com compras nos meses selecionados"].fillna(0).astype(int)
-    st.dataframe(r,hide_index=True,use_container_width=True)
+    tabela_formatada(r)
     exportar(r,"sazonalidade_comercial.xlsx")
     st.caption("A média de referência considera os anos anteriores presentes na base; o ano atual pode estar incompleto.")
 
