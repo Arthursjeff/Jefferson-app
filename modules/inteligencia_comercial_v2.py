@@ -551,6 +551,141 @@ def _recuperacao_tabela(t):
     st.dataframe(t.style.format(formatos, na_rep="—"), hide_index=True, use_container_width=True)
 
 
+def _recuperacao_produtos_cliente(base_docs, cliente, inicio_atual, meses_historicos):
+    """Compara o mix do cliente com os mesmos códigos vendidos aos demais clientes."""
+    ids = tuple(base_docs["id"].astype(str))
+    if st.session_state.get("ic2_rec_mix_ids") != ids:
+        with st.spinner("Carregando itens para comparar cliente e mercado atendido..."):
+            st.session_state["ic2_rec_mix_itens"] = itens(ids)
+            st.session_state["ic2_rec_mix_ids"] = ids
+    it = st.session_state["ic2_rec_mix_itens"]
+    if it.empty:
+        st.info("Não há itens disponíveis para análise de produtos.")
+        return
+    dados = it[["documento_id", "codigo_erp", "familia_sugerida", "quantidade", "valor_total_item"]].copy()
+    dados["documento_id"] = dados["documento_id"].astype(str)
+    dados["codigo_erp"] = dados["codigo_erp"].astype(str).str.strip()
+    dados["familia_sugerida"] = dados["familia_sugerida"].astype(str).str.strip()
+    dados = dados.merge(base_docs[["id", "cliente", "data", "situacao_erp"]].assign(
+        id=lambda z: z["id"].astype(str)), left_on="documento_id", right_on="id", how="inner")
+    dados = dados[dados["situacao_erp"].isin(["E", "F"])].copy()
+    if dados.empty:
+        st.info("Não existem itens vendidos para comparação.")
+        return
+    dados["janela"] = dados["data"].ge(inicio_atual).map({True: "atual", False: "historico"})
+    dados["outros"] = dados["cliente"].ne(cliente)
+    fator = {"historico": 12 / meses_historicos, "atual": 1.0}
+    nivel = st.radio("Analisar mix por", ["Produto (código exato)", "Família"],
+                     horizontal=True, key="ic2_rec_mix_nivel")
+    campo = "codigo_erp" if nivel.startswith("Produto") else "familia_sugerida"
+    dados["unidades_ano"] = dados["quantidade"] * dados["janela"].map(fator)
+    dados["valor_ano"] = dados["valor_total_item"] * dados["janela"].map(fator)
+    agrupado = dados.groupby([campo, "outros", "janela"], as_index=False)[
+        ["unidades_ano", "valor_ano"]].sum()
+    metricas = ["unidades_ano", "valor_ano"]
+    piv = agrupado.pivot_table(index=campo, columns=["outros", "janela"],
+                               values=metricas, aggfunc="sum", fill_value=0)
+    def serie(metrica, outros, janela):
+        chave = (metrica, outros, janela)
+        return piv[chave] if chave in piv.columns else pd.Series(0.0, index=piv.index)
+    res = pd.DataFrame(index=piv.index)
+    for metrica, titulo in [("unidades_ano", "q"), ("valor_ano", "r")]:
+        for outros, prefixo in [(False, "cliente"), (True, "mercado")]:
+            for janela, sufixo in [("historico", "h"), ("atual", "a")]:
+                res[f"{prefixo}_{titulo}_{sufixo}"] = serie(metrica, outros, janela)
+    # Ranking considera apenas produtos historicamente vendidos ao cliente.
+    res = res[(res["cliente_q_h"] > 0) | (res["cliente_r_h"] > 0)].copy()
+    if res.empty:
+        st.info("Este cliente não tem produtos vendidos no período histórico.")
+        return
+    res["perda_q"] = res["cliente_q_h"] - res["cliente_q_a"]
+    res["perda_r"] = res["cliente_r_h"] - res["cliente_r_a"]
+    modo = st.radio("Comparar produtos por", ["Quantidade de peças", "Valor (R$)"],
+                    horizontal=True, key="ic2_rec_mix_modo")
+    sufixo = "q" if modo == "Quantidade de peças" else "r"
+    def tendencia(h, a):
+        if h <= 0:
+            return "Sem base histórica" if a > 0 else "Sem movimento"
+        variacao = (a / h - 1) * 100
+        if variacao < -15:
+            return "Em queda"
+        if variacao > 15:
+            return "Em crescimento"
+        return "Estável"
+    def leitura(l):
+        c = tendencia(l[f"cliente_{sufixo}_h"], l[f"cliente_{sufixo}_a"])
+        m = tendencia(l[f"mercado_{sufixo}_h"], l[f"mercado_{sufixo}_a"])
+        if c == "Em queda" and m in ["Estável", "Em crescimento"]:
+            return "Perda específica do cliente"
+        if c == "Em queda" and m == "Em queda":
+            return "Queda também nos demais clientes"
+        if c == "Em crescimento":
+            return "Cliente em crescimento"
+        return "Investigar"
+    res["Leitura"] = res.apply(leitura, axis=1)
+    res["Tendência dos demais"] = res.apply(
+        lambda l: tendencia(l[f"mercado_{sufixo}_h"], l[f"mercado_{sufixo}_a"]), axis=1)
+    res = res.sort_values("perda_" + sufixo, ascending=False)
+    colunas = [f"cliente_{sufixo}_h", f"cliente_{sufixo}_a",
+               f"mercado_{sufixo}_h", f"mercado_{sufixo}_a"]
+    titulo = "Produto" if campo == "codigo_erp" else "Família"
+    rotulos = ["Cliente histórico", "Cliente atual", "Demais histórico", "Demais atual"]
+    if sufixo == "r":
+        rotulos = [x + " (R$)" for x in rotulos]
+    tabela = res[colunas + ["Tendência dos demais", "Leitura"]].rename(
+        columns=dict(zip(colunas, rotulos))).reset_index().rename(columns={campo: titulo})
+    st.caption("Valores equivalentes anuais. 'Demais clientes' exclui o cliente selecionado. "
+               "Queda/crescimento: variação superior a 15%; critérios indicativos, não causas comprovadas.")
+    _recuperacao_tabela(tabela)
+    exportar(tabela, "recuperacao_mix_cliente.xlsx")
+    perdas = res[res["perda_" + sufixo] > 0].head(3)
+    if not perdas.empty:
+        nomes = ", ".join(str(v) for v in perdas.index)
+        st.info(f"Principais itens associados à redução de compras: {nomes}. "
+                "Consulte a coluna 'Leitura' para diferenciar perda específica de queda generalizada.")
+
+
+def _recuperacao_indicadores(linha):
+    st.markdown("#### Diagnóstico do desempenho")
+    itens_indicadores = [
+        ("Pedidos vendidos / ano", "historico_pedidos", "atual_pedidos", False, False),
+        ("Consultas / ano", "historico_consultas", "atual_consultas", False, False),
+        ("Valor vendido / ano", "historico_valor_vendido", "atual_valor_vendido", True, False),
+        ("Conversão por quantidade", "Conversão histórica (%)", "Conversão atual (%)", False, True),
+    ]
+    for par in [itens_indicadores[:2], itens_indicadores[2:]]:
+        colunas = st.columns(2)
+        for coluna, (titulo, chave_h, chave_a, moeda, percentual) in zip(colunas, par):
+            h, a = linha[chave_h], linha[chave_a]
+            def fmt(v):
+                if pd.isna(v):
+                    return "—"
+                if moeda:
+                    return brl(v)
+                return (f"{v:.1f}%" if percentual else f"{v:,.1f}").replace(",", "X").replace(".", ",").replace("X", ".")
+            with coluna:
+                st.markdown(f"**{titulo}**")
+                st.caption(f"Histórico: {fmt(h)}  |  Atual: {fmt(a)}")
+                if pd.notna(h) and pd.notna(a) and h > 0:
+                    delta = a - h if percentual else 100 * (a / h - 1)
+                    unidade = "p.p." if percentual else "%"
+                    st.caption(f"Variação: {delta:+.1f} {unidade}".replace(".", ","))
+    hist_c, atual_c = linha["historico_consultas"], linha["atual_consultas"]
+    hist_v, atual_v = linha["historico_pedidos"], linha["atual_pedidos"]
+    if hist_c > 0 and hist_v > 0:
+        dc = atual_c / hist_c - 1
+        dv = atual_v / hist_v - 1
+        if dc < -0.15 and dv < -0.15:
+            texto = "Consultas e vendas caíram: possível retração de demanda."
+        elif dc >= -0.15 and dv < -0.15:
+            texto = "Consultas relativamente estáveis, vendas em queda: possível perda de conversão."
+        elif dv >= 0.15:
+            texto = "Vendas acima do ritmo histórico."
+        else:
+            texto = "Sem queda expressiva de pedidos segundo o critério de 15%."
+        st.info("Leitura inicial: " + texto + " Verifique o comportamento dos produtos abaixo.")
+
+
 def pagina_recuperacao(df, primeira):
     st.subheader("04 — Recuperação comercial")
     st.caption("Detecte quedas de clientes, produtos e famílias. Compare a média histórica anual "
@@ -641,10 +776,10 @@ def pagina_recuperacao(df, primeira):
     exportar(tabela, "recuperacao_comercial.xlsx")
     escolha = st.selectbox(f"Detalhar {nome.lower()}", r[nome].tolist(), key="ic2_rec_alvo")
     linha = r[r[nome] == escolha].iloc[0]
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Déficit de pedidos/ano", f'{linha["deficit_pedidos"]:.1f}'.replace(".", ","))
-    c2.metric("Déficit financeiro/ano", brl(linha["deficit_valor_vendido"]))
-    c3.metric("Regularidade anual", f'{int(linha["Anos com vendas"])} de {int(linha["Anos observados"])}')
+    _recuperacao_indicadores(linha)
+    if dimensao == "Clientes":
+        st.markdown("#### Produtos que explicam a mudança")
+        _recuperacao_produtos_cliente(base_docs, escolha, inicio_atual, meses_historicos)
     st.caption(f'Última venda: {linha["Última venda"]:%d/%m/%Y}' if pd.notna(linha["Última venda"]) else "Nenhuma venda registrada.")
     detalhe = detalhamento[detalhamento[campo] == escolha].copy()
     detalhe["Ano"] = detalhe["data"].dt.year.astype(int)
