@@ -475,9 +475,17 @@ def pagina_produtos(df, primeira):
                f"Maior cliente representa {linha['Maior cliente (%)']:.1f}% do valor vendido no histórico completo.")
     detalhe = base[base[campo] == escolha].copy()
     clientes = detalhe.groupby("cliente").agg(
-        **{"Unidades": ("quantidade", "sum"), "Faturamento (R$)": ("valor", "sum"),
-           "Última venda": ("data", "max")}).sort_values("Faturamento (R$)", ascending=False).reset_index().rename(columns={"cliente": "Cliente"})
+        **{"Unidades totais": ("quantidade", "sum"), "Faturamento total (R$)": ("valor", "sum"),
+           "Última venda": ("data", "max")})
+    recentes = detalhe[detalhe["data"] >= inicio_atual].groupby("cliente").agg(
+        **{"Unidades últimos 12 meses": ("quantidade", "sum"),
+           "Faturamento últimos 12 meses (R$)": ("valor", "sum")})
+    clientes = clientes.join(recentes, how="left")
+    clientes[["Unidades últimos 12 meses", "Faturamento últimos 12 meses (R$)"]] = (
+        clientes[["Unidades últimos 12 meses", "Faturamento últimos 12 meses (R$)"]].fillna(0))
+    clientes = clientes.sort_values("Faturamento total (R$)", ascending=False).reset_index().rename(columns={"cliente": "Cliente"})
     st.markdown("**Principais clientes compradores**")
+    st.caption("Total = todo o histórico disponível; últimos 12 meses = meses completos anteriores ao mês atual. Clientes sem compras recentes aparecem com zero.")
     _recuperacao_tabela(clientes.head(20))
     detalhe["Ano"] = detalhe["data"].dt.year
     anos = list(range(inicio_hist.year, (inicio_mes - pd.Timedelta(days=1)).year + 1))
