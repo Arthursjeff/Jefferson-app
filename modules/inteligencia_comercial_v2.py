@@ -162,30 +162,149 @@ def tabela_classes(df, ref, atual, metrica, classe, primeira, nome):
     tabela_formatada(r)
     exportar(r, nome)
 
+def _conversao_resumo(base, grupo="grupo"):
+    """P/E/F são propostas; E/F são propostas convertidas em vendas."""
+    if base.empty:
+        return pd.DataFrame(columns=[grupo, "Orçamentos (nº)", "Vendas (nº)",
+            "Valor orçado (R$)", "Valor vendido (R$)",
+            "Conversão quantidade (%)", "Conversão valor (%)"])
+    base = base.copy()
+    base["venda"] = base["situacao_erp"].isin(["E", "F"])
+    # Um documento conta uma única vez por grupo; itens repetidos são somados antes.
+    dados = base.groupby([grupo, "id"], as_index=False).agg(
+        valor=("valor", "sum"), venda=("venda", "max"))
+    dados["valor_vendido"] = dados["valor"].where(dados["venda"], 0)
+    t = dados.groupby(grupo, as_index=False).agg(
+        **{"Orçamentos (nº)": ("id", "nunique"),
+           "Vendas (nº)": ("venda", "sum"),
+           "Valor orçado (R$)": ("valor", "sum"),
+           "Valor vendido (R$)": ("valor_vendido", "sum")})
+    t["Conversão quantidade (%)"] = (100 * t["Vendas (nº)"] /
+        t["Orçamentos (nº)"].replace(0, float("nan")))
+    t["Conversão valor (%)"] = (100 * t["Valor vendido (R$)"] /
+        t["Valor orçado (R$)"].replace(0, float("nan")))
+    return t
+
+
+def _conversao_exibir(t, nome):
+    formatos = {"Orçamentos (nº)": lambda v: f"{v:,.0f}".replace(",", "."),
+                "Vendas (nº)": lambda v: f"{v:,.0f}".replace(",", "."),
+                "Valor orçado (R$)": brl, "Valor vendido (R$)": brl,
+                "Conversão quantidade (%)": lambda v: "—" if pd.isna(v) else f"{v:.2f}%".replace(".", ","),
+                "Conversão valor (%)": lambda v: "—" if pd.isna(v) else f"{v:.2f}%".replace(".", ",")}
+    st.dataframe(t.style.format(formatos, na_rep="—"), hide_index=True, use_container_width=True)
+    exportar(t, nome)
+
+
 def pagina_conversao(df):
     st.subheader("01 — Conversão comercial")
-    st.caption("Participação de pedidos vendidos no total comercial. Quantidade de documentos e valor financeiro são indicadores independentes.")
-    periodo = st.date_input("Período", (date(2024,1,1), date.today()), key="ic2_conv_datas")
-    if len(periodo) != 2:
+    st.caption("Todo documento P, E ou F conta como orçamento emitido; apenas E e F contam como venda. "
+               "A conversão é a proporção de documentos atualmente vendidos, não uma vinculação histórica entre propostas.")
+    anos = sorted(df["ano"].dropna().astype(int).unique())
+    if not anos:
+        st.info("Não há documentos com data válida.")
         return
-    x = filtros_data(df, *periodo)
-    n = x.groupby("tipo")["id"].nunique()
-    v = x.groupby("tipo")["valor"].sum()
-    pedidos, orc = int(n.get("Venda",0)), int(n.get("Orçamento",0))
-    venda_val, orc_val = float(v.get("Venda",0)), float(v.get("Orçamento",0))
-    a,b,c,d = st.columns(4)
-    a.metric("Pedidos vendidos", pedidos)
-    b.metric("Orçamentos", orc)
-    c.metric("Conversão por quantidade", f"{100*pedidos/(pedidos+orc):.2f}%" if pedidos+orc else "—")
-    d.metric("Conversão por valor", f"{100*venda_val/(venda_val+orc_val):.2f}%" if venda_val+orc_val else "—")
-    st.caption(f"Valor vendido: {brl(venda_val)} | Valor orçado: {brl(orc_val)}")
-    por = st.selectbox("Detalhar por", ["Ano","Mês","Cliente"], key="ic2_conv_por")
-    x["grupo"] = x["ano"].astype(str) if por=="Ano" else (x["data"].dt.to_period("M").astype(str) if por=="Mês" else x["cliente"])
-    t = resumo(x, "grupo")
-    t["Conversão quantidade (%)"] = 100*t.pedidos/(t.pedidos+t.cotacoes).replace(0,float("nan"))
-    t["Conversão valor (%)"] = 100*t.compras/(t.compras+t.orcamentos).replace(0,float("nan"))
-    st.dataframe(t, hide_index=True, use_container_width=True)
-    exportar(t, "conversao_comercial.xlsx")
+    escolha = st.selectbox("Período", ["Todo o histórico"] + [str(a) for a in reversed(anos)],
+                           key="ic2_conv_periodo")
+    x = df.copy() if escolha == "Todo o histórico" else df[df["ano"] == int(escolha)].copy()
+    if x.empty:
+        st.info("Nenhum documento nesse período.")
+        return
+    x["grupo"] = "Total"
+    total = _conversao_resumo(x).iloc[0]
+    a, b, c, d = st.columns(4)
+    a.metric("Orçamentos emitidos (P+E+F)", f'{int(total["Orçamentos (nº)"]):,}'.replace(",", "."))
+    b.metric("Vendas (E+F)", f'{int(total["Vendas (nº)"]):,}'.replace(",", "."))
+    c.metric("Conversão numérica", f'{total["Conversão quantidade (%)"]:.2f}%'.replace(".", ","))
+    d.metric("Conversão financeira", f'{total["Conversão valor (%)"]:.2f}%'.replace(".", ","))
+    st.caption(f'Valor total orçado: {brl(total["Valor orçado (R$)"])} | '
+               f'Valor vendido: {brl(total["Valor vendido (R$)"])}')
+
+    st.markdown("#### Comparativo anual")
+    anual = x.copy()
+    anual["grupo"] = anual["ano"].astype(int)
+    por_ano = _conversao_resumo(anual).rename(columns={"grupo": "Ano"}).sort_values("Ano")
+    tipo_grafico = st.radio("Visualizar", ["Comparativo", "Vendas", "Orçamentos"],
+                           horizontal=True, key="ic2_conv_grafico")
+    unidade = st.radio("Medida", ["Quantidade", "Valor (R$)"],
+                      horizontal=True, key="ic2_conv_unidade")
+    col_orc = "Orçamentos (nº)" if unidade == "Quantidade" else "Valor orçado (R$)"
+    col_venda = "Vendas (nº)" if unidade == "Quantidade" else "Valor vendido (R$)"
+    colunas = ([col_orc, col_venda] if tipo_grafico == "Comparativo" else
+               [col_venda] if tipo_grafico == "Vendas" else [col_orc])
+    plot = por_ano.melt(id_vars=["Ano"], value_vars=colunas,
+                        var_name="Indicador", value_name="Resultado")
+    graf = alt.Chart(plot).mark_bar().encode(
+        x=alt.X("Ano:O", title="Ano"),
+        xOffset=alt.XOffset("Indicador:N"),
+        y=alt.Y("Resultado:Q", title=unidade),
+        color=alt.Color("Indicador:N", title=""),
+        tooltip=["Ano:O", "Indicador:N", alt.Tooltip("Resultado:Q", format=",.2f")]
+    ).properties(height=350)
+    st.altair_chart(graf, use_container_width=True)
+    # Conversão no gráfico é sempre por quantidade, inclusive na visualização financeira.
+    taxa = por_ano[["Ano", "Conversão quantidade (%)"]].copy()
+    taxa["Ano"] = taxa["Ano"].astype(str)
+    st.caption("Conversão numérica por ano (E+F ÷ P+E+F): " + " | ".join(
+        f'{r["Ano"]}: {r["Conversão quantidade (%)"]:.1f}%'.replace(".", ",")
+        for _, r in taxa.iterrows()))
+    _conversao_exibir(por_ano, "conversao_por_ano.xlsx")
+
+    st.markdown("#### Detalhamento")
+    dimensao = st.radio("Analisar por", ["Cliente", "Produto"],
+                        horizontal=True, key="ic2_conv_dimensao")
+    if dimensao == "Cliente":
+        clientes = sorted(x["cliente"].unique())
+        escolhido = st.selectbox("Cliente", ["Todos os clientes"] + clientes,
+                                key="ic2_conv_cliente")
+        base = x if escolhido == "Todos os clientes" else x[x["cliente"] == escolhido]
+        base = base.copy()
+        base["grupo"] = base["cliente"]
+        t = _conversao_resumo(base).rename(columns={"grupo": "Cliente"})
+        t = t.sort_values("Orçamentos (nº)", ascending=False)
+        _conversao_exibir(t, "conversao_por_cliente.xlsx")
+        if escolhido != "Todos os clientes":
+            por_cliente_ano = base.copy()
+            por_cliente_ano["grupo"] = por_cliente_ano["ano"].astype(int)
+            st.markdown("**Histórico anual do cliente**")
+            _conversao_exibir(_conversao_resumo(por_cliente_ano).rename(
+                columns={"grupo": "Ano"}).sort_values("Ano"), "conversao_cliente_anos.xlsx")
+    else:
+        if not st.button("Carregar itens para análise de produtos", key="ic2_conv_carregar") and "ic2_conv_itens" not in st.session_state:
+            st.info("Carregue os itens para estudar conversão por produto.")
+            return
+        if "ic2_conv_itens" not in st.session_state:
+            st.session_state["ic2_conv_itens"] = itens(tuple(df["id"].astype(str)))
+        it = st.session_state["ic2_conv_itens"]
+        if it.empty:
+            st.info("Nenhum item encontrado.")
+            return
+        it = it.copy()
+        it["documento_id"] = it["documento_id"].astype(str)
+        it["codigo_erp"] = it["codigo_erp"].astype(str)
+        # Agrupar linhas do mesmo código dentro de um documento evita duplicar propostas.
+        it = it.groupby(["documento_id", "codigo_erp"], as_index=False)["valor_total_item"].sum()
+        base = x.copy()
+        base["id"] = base["id"].astype(str)
+        base = base.merge(it, left_on="id", right_on="documento_id", how="inner")
+        base["valor"] = base["valor_total_item"]
+        produtos = sorted(base["codigo_erp"].unique())
+        selecionado = st.selectbox("Produto", ["Todos os produtos"] + produtos,
+                                  key="ic2_conv_produto")
+        if selecionado != "Todos os produtos":
+            base = base[base["codigo_erp"] == selecionado]
+        base["grupo"] = base["codigo_erp"]
+        t = _conversao_resumo(base).rename(columns={"grupo": "Produto"})
+        t = t.sort_values("Orçamentos (nº)", ascending=False)
+        _conversao_exibir(t, "conversao_por_produto.xlsx")
+        if selecionado != "Todos os produtos":
+            base = base.copy()
+            base["grupo"] = base["ano"].astype(int)
+            st.markdown("**Histórico anual do produto**")
+            _conversao_exibir(_conversao_resumo(base).rename(
+                columns={"grupo": "Ano"}).sort_values("Ano"), "conversao_produto_anos.xlsx")
+    st.caption("A conversão financeira considera os valores registrados no ERP. "
+               "No detalhamento por produto, cada código usa o valor dos próprios itens.")
 
 def pagina_evolucao(df, primeira):
     st.subheader("02 — Evolução do desempenho")
