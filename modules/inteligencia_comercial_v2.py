@@ -485,30 +485,181 @@ def pagina_sazonalidade(df, primeira):
     st.caption("Índice sazonal acima de 100%: período mais forte que a média geral; abaixo de 100%: período mais fraco. "
                "Meses sem movimentação contam como zero. Classificações de crescimento/perda usam somente períodos anuais completos.")
 
+def _recuperacao_agrupar(base, campo, meses_historicos, meses_atuais, inicio_atual):
+    """Histórico anterior à janela móvel; vendas E/F e consultas P/E/F."""
+    x = base.copy()
+    x["venda"] = x["situacao_erp"].isin(["E", "F"])
+    x["mes_ref"] = x["data"].dt.to_period("M")
+    # Um mesmo documento pode conter vários itens da família, mas só uma consulta.
+    x = x.groupby([campo, "id", "mes_ref"], as_index=False).agg(
+        data=("data", "max"), valor=("valor", "sum"),
+        quantidade=("quantidade", "sum"), venda=("venda", "max"))
+    x["valor_vendido"] = x["valor"].where(x["venda"], 0)
+    x["unidades_vendidas"] = x["quantidade"].where(x["venda"], 0)
+    x["pedidos"] = x["venda"].astype(int)
+    x["consultas"] = 1
+    antes = x[x["data"] < inicio_atual]
+    atual = x[x["data"] >= inicio_atual]
+    metricas = ["pedidos", "consultas", "valor_vendido", "valor", "unidades_vendidas"]
+    h = antes.groupby(campo)[metricas].sum().div(meses_historicos / 12).add_prefix("historico_")
+    t = atual.groupby(campo)[metricas].sum().div(meses_atuais / 12).add_prefix("atual_")
+    nomes = h.index.union(t.index)
+    r = h.reindex(nomes, fill_value=0).join(t.reindex(nomes, fill_value=0))
+    anos = antes.assign(ano=antes["data"].dt.year).groupby(campo)["ano"].nunique()
+    meses = antes.groupby(campo)["mes_ref"].nunique()
+    anos_calendario = max(1, len(pd.period_range(
+        start=antes["mes_ref"].min() if not antes.empty else pd.Period("2000-01"),
+        end=(inicio_atual - pd.Timedelta(days=1)).to_period("M"), freq="M")) / 12)
+    # Regularidade é calculada no intervalo de observação, incluindo meses sem compras.
+    meses_com_compra = antes[antes["venda"]].groupby(campo)["mes_ref"].nunique()
+    anos_com_compra = antes[antes["venda"]].assign(ano=lambda z: z["data"].dt.year).groupby(campo)["ano"].nunique()
+    r["Meses com vendas (%)"] = 100 * meses_com_compra.reindex(nomes, fill_value=0) / meses_historicos
+    r["Anos com vendas"] = anos_com_compra.reindex(nomes, fill_value=0)
+    r["Anos observados"] = anos_calendario
+    r["Regularidade anual (%)"] = 100 * r["Anos com vendas"] / anos_calendario
+    r["Perfil"] = pd.cut(r["Regularidade anual (%)"], bins=[-1, 30, 60, 101],
+                        labels=["Pontual", "Intermitente", "Recorrente"], right=False).astype(str)
+    r["Última venda"] = x[x["venda"]].groupby(campo)["data"].max().reindex(nomes)
+    r["Última consulta"] = x.groupby(campo)["data"].max().reindex(nomes)
+    for metrica in metricas:
+        r["deficit_" + metrica] = (r["historico_" + metrica] - r["atual_" + metrica]).clip(lower=0)
+    r["Queda de pedidos (%)"] = 100 * (1 - r["atual_pedidos"] /
+        r["historico_pedidos"].replace(0, float("nan")))
+    r["Queda de valor (%)"] = 100 * (1 - r["atual_valor_vendido"] /
+        r["historico_valor_vendido"].replace(0, float("nan")))
+    r["Conversão histórica (%)"] = 100 * r["historico_pedidos"] / r["historico_consultas"].replace(0, float("nan"))
+    r["Conversão atual (%)"] = 100 * r["atual_pedidos"] / r["atual_consultas"].replace(0, float("nan"))
+    r.index.name = campo
+    return r.reset_index(), x
+
+
+def _recuperacao_tabela(t):
+    formatos = {}
+    for col in t.columns:
+        if "(R$)" in col:
+            formatos[col] = lambda v: "—" if pd.isna(v) else brl(v)
+        elif "(%)" in col:
+            formatos[col] = lambda v: "—" if pd.isna(v) else f"{v:.1f}%".replace(".", ",")
+        elif col in ["Última venda", "Última consulta"]:
+            formatos[col] = lambda v: "—" if pd.isna(v) else v.strftime("%d/%m/%Y")
+        elif col not in ["Cliente", "Produto", "Família", "Perfil"] and pd.api.types.is_numeric_dtype(t[col]):
+            formatos[col] = lambda v: "—" if pd.isna(v) else f"{v:,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    st.dataframe(t.style.format(formatos, na_rep="—"), hide_index=True, use_container_width=True)
+
+
 def pagina_recuperacao(df, primeira):
-    st.subheader("04 — Recuperação de clientes")
-    st.caption("Identifique quem comprava ou orçava regularmente e quando interrompeu a movimentação.")
-    anos = sorted(df.ano.unique())
-    if len(anos)<2:
-        st.info("Histórico insuficiente.")
+    st.subheader("04 — Recuperação comercial")
+    st.caption("Detecte quedas de clientes, produtos e famílias. Compare a média histórica anual "
+               "com os últimos 12 meses completos, distinguindo compras recorrentes de pontuais.")
+    hoje = pd.Timestamp(date.today())
+    inicio_mes = hoje.replace(day=1)
+    inicio_atual = inicio_mes - pd.DateOffset(months=12)
+    base_docs = df[df["data"] < inicio_mes].copy()
+    inicio_historico = base_docs["data"].min().to_period("M").to_timestamp() if not base_docs.empty else inicio_atual
+    meses_historicos = (inicio_atual.year - inicio_historico.year) * 12 + inicio_atual.month - inicio_historico.month
+    if meses_historicos < 12:
+        st.info("É necessário ao menos um ano de histórico antes dos últimos 12 meses completos.")
         return
-    ano = st.selectbox("Ano de comparação", sorted(anos[1:],reverse=True), key="ic2_rec_ano")
-    referencia = df[df.ano<ano]
-    atual = df[df.ano==ano]
-    metrica = st.selectbox("Indicador",["compras","orcamentos","pedidos","cotacoes"],
-        format_func=lambda x: {"compras":"Valor vendido","orcamentos":"Valor orçado","pedidos":"Nº de pedidos","cotacoes":"Nº de orçamentos"}[x],
-        key="ic2_rec_met")
-    classe = seletor_classe("ic2_rec_classe")
-    r = classificacoes(referencia,atual,metrica,referencia.ano.nunique(),1)
-    r = aplicar_classe(r,classe,primeira,metrica)
-    compras = df[df.tipo=="Venda"].groupby("cliente")["data"].max().rename("Última compra")
-    orcs = df[df.tipo=="Orçamento"].groupby("cliente")["data"].max().rename("Último orçamento")
-    r = r.merge(compras,left_on="Cliente",right_index=True,how="left").merge(orcs,left_on="Cliente",right_index=True,how="left")
-    r["Meses desde última compra"] = ((pd.Timestamp.today()-r["Última compra"]).dt.days/30.44).round(1)
-    r["Meses desde último orçamento"] = ((pd.Timestamp.today()-r["Último orçamento"]).dt.days/30.44).round(1)
-    st.dataframe(r,hide_index=True,use_container_width=True)
-    exportar(r,"recuperacao_clientes.xlsx")
-    st.caption("Última movimentação considera todo o histórico. A data exata de início da queda exige análise temporal mais detalhada.")
+    st.caption(f"Referência histórica: {inicio_historico:%m/%Y} a {(inicio_atual - pd.Timedelta(days=1)):%m/%Y} "
+               f"({meses_historicos} meses). Atual: {inicio_atual:%m/%Y} a {(inicio_mes - pd.Timedelta(days=1)):%m/%Y}. "
+               "Médias apresentadas em equivalentes anuais.")
+    dimensao = st.radio("Investigar", ["Clientes", "Produtos", "Famílias"], horizontal=True,
+                        key="ic2_rec_dim")
+    if dimensao == "Clientes":
+        base = base_docs.copy()
+        base["quantidade"] = 0
+        campo = "cliente"
+    else:
+        if not st.button("Carregar itens para recuperação", key="ic2_rec_carregar") and "ic2_rec_itens" not in st.session_state:
+            st.info("Carregue os itens para estudar produtos e famílias.")
+            return
+        if "ic2_rec_itens" not in st.session_state:
+            st.session_state["ic2_rec_itens"] = itens(tuple(df["id"].astype(str)))
+        it = st.session_state["ic2_rec_itens"]
+        if it.empty:
+            st.info("Não há itens disponíveis.")
+            return
+        campo = "codigo_erp" if dimensao == "Produtos" else "familia_sugerida"
+        it = it.copy()
+        it["documento_id"] = it["documento_id"].astype(str)
+        it[campo] = it[campo].astype(str)
+        it = it.groupby(["documento_id", campo], as_index=False)[["quantidade", "valor_total_item"]].sum()
+        base = base_docs.copy()
+        base["id"] = base["id"].astype(str)
+        base = base.merge(it, left_on="id", right_on="documento_id", how="inner")
+        base["valor"] = base["valor_total_item"]
+    if base.empty:
+        st.info("Não há movimentações nessa dimensão.")
+        return
+    r, detalhamento = _recuperacao_agrupar(base, campo, meses_historicos, 12, inicio_atual)
+    perfil = st.selectbox("Perfil de compra", ["Recorrente", "Intermitente", "Pontual", "Todos"],
+                          key="ic2_rec_perfil")
+    criterio = st.radio("Priorizar perdas por", ["Pedidos", "Valor (R$)"] +
+                       (["Unidades vendidas"] if dimensao != "Clientes" else []),
+                       horizontal=True, key="ic2_rec_prioridade")
+    chave = {"Pedidos": "pedidos", "Valor (R$)": "valor_vendido",
+             "Unidades vendidas": "unidades_vendidas"}[criterio]
+    r = r[r["historico_" + chave] > 0].copy()
+    if perfil != "Todos":
+        r = r[r["Perfil"] == perfil]
+    r = r[r["deficit_" + chave] > 0].sort_values("deficit_" + chave, ascending=False)
+    nome = {"Clientes": "Cliente", "Produtos": "Produto", "Famílias": "Família"}[dimensao]
+    r = r.rename(columns={campo: nome})
+    cols = [nome, "Perfil", "historico_" + chave, "atual_" + chave,
+            "deficit_" + chave, "Queda de pedidos (%)", "Queda de valor (%)",
+            "Regularidade anual (%)", "Meses com vendas (%)",
+            "Conversão histórica (%)", "Conversão atual (%)", "Última venda"]
+    rotulos = {"historico_" + chave: "Média histórica anual" + (" (R$)" if chave == "valor_vendido" else ""),
+               "atual_" + chave: "Ritmo atual anual" + (" (R$)" if chave == "valor_vendido" else ""),
+               "deficit_" + chave: "Déficit anual" + (" (R$)" if chave == "valor_vendido" else "")}
+    tabela = r[cols].rename(columns=rotulos)
+    st.markdown("#### Maiores déficits")
+    st.caption("Ordenação por perda absoluta estimada. Perfis usam anos com vendas no histórico: "
+               "recorrente ≥60%, intermitente ≥30%, pontual abaixo de 30%. "
+               "O percentual de meses com vendas ajuda a identificar compras concentradas.")
+    if tabela.empty:
+        st.info("Nenhuma queda identificada com os filtros escolhidos.")
+        return
+    _recuperacao_tabela(tabela)
+    exportar(tabela, "recuperacao_comercial.xlsx")
+    escolha = st.selectbox(f"Detalhar {nome.lower()}", r[nome].tolist(), key="ic2_rec_alvo")
+    linha = r[r[nome] == escolha].iloc[0]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Déficit de pedidos/ano", f'{linha["deficit_pedidos"]:.1f}'.replace(".", ","))
+    c2.metric("Déficit financeiro/ano", brl(linha["deficit_valor_vendido"]))
+    c3.metric("Regularidade anual", f'{linha["Regularidade anual (%)"]:.1f}%'.replace(".", ","))
+    st.caption(f'Última venda: {linha["Última venda"]:%d/%m/%Y}' if pd.notna(linha["Última venda"]) else "Nenhuma venda registrada.")
+    detalhe = detalhamento[detalhamento[campo] == escolha].copy()
+    detalhe["Ano"] = detalhe["data"].dt.year.astype(int)
+    anos = list(range(int(base_docs["ano"].min()), int(base_docs["ano"].max()) + 1))
+    agrupado = detalhe.groupby("Ano").agg(
+        **{"Vendas": ("pedidos", "sum"), "Consultas (P+E+F)": ("consultas", "sum"),
+           "Valor vendido (R$)": ("valor_vendido", "sum"),
+           "Valor consultado (R$)": ("valor", "sum"),
+           "Unidades vendidas": ("unidades_vendidas", "sum")})
+    agrupado = agrupado.reindex(anos, fill_value=0).reset_index()
+    agrupado["Conversão (%)"] = (100 * agrupado["Vendas"] /
+                                 agrupado["Consultas (P+E+F)"].replace(0, float("nan")))
+    st.markdown("#### Evolução anual")
+    st.caption("O ano em andamento mostra apenas os meses completos transcorridos; "
+               "compare-o com o ritmo atual anualizado da tabela acima.")
+    modo = st.radio("Visualizar", ["Quantidade", "Valor (R$)"], horizontal=True, key="ic2_rec_graf_modo")
+    series = (["Vendas", "Consultas (P+E+F)"] if modo == "Quantidade"
+              else ["Valor vendido (R$)", "Valor consultado (R$)"])
+    dados = agrupado.melt(id_vars="Ano", value_vars=series, var_name="Indicador", value_name="Total")
+    st.altair_chart(alt.Chart(dados).mark_line(point=True).encode(
+        x=alt.X("Ano:O", title="Ano"), y=alt.Y("Total:Q", title=modo),
+        color="Indicador:N", tooltip=["Ano:O", "Indicador:N", alt.Tooltip("Total:Q", format=",.2f")]
+    ).properties(height=350), use_container_width=True)
+    st.markdown("**Conversão anual por quantidade**")
+    st.altair_chart(alt.Chart(agrupado).mark_line(point=True).encode(
+        x=alt.X("Ano:O"), y=alt.Y("Conversão (%):Q", scale=alt.Scale(domain=[0, 100])),
+        tooltip=["Ano:O", alt.Tooltip("Conversão (%):Q", format=".1f")]
+    ).properties(height=220), use_container_width=True)
+    _recuperacao_tabela(agrupado)
+    exportar(agrupado, "recuperacao_historico_detalhado.xlsx")
+    st.caption("Consultas = P+E+F; vendas = E+F. A queda de conversão é um indício, "
+               "não uma confirmação de problema de preço. Valores de produtos e famílias vêm dos itens.")
 
 def pagina_inteligencia_comercial():
     if not st.session_state.get("logado") or st.session_state.get("setor") != "ADMINISTRADOR":
