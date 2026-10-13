@@ -2,6 +2,7 @@
 from datetime import date
 from io import BytesIO
 import unicodedata
+import time
 import pandas as pd
 import streamlit as st
 import altair as alt
@@ -48,13 +49,27 @@ def itens(ids):
     if not ids:
         return pd.DataFrame()
     registros = []
-    for p in range(0, len(ids), 100):
-        grupo = list(ids[p:p+100])
+    # Consultas menores e retentativas para desconexões transitórias HTTP/2.
+    for p in range(0, len(ids), 40):
+        grupo = list(ids[p:p+40])
         offset = 0
         while True:
-            lote = (supabase.table("itens_comerciais").select(ITEM_COLS)
-                    .in_("documento_id", grupo).order("id")
-                    .range(offset, offset+PAGE-1).execute().data or [])
+            for tentativa in range(4):
+                try:
+                    lote = (supabase.table("itens_comerciais").select(ITEM_COLS)
+                            .in_("documento_id", grupo).order("id")
+                            .range(offset, offset+PAGE-1).execute().data or [])
+                    break
+                except (ConnectionError, TimeoutError) as exc:
+                    if tentativa == 3:
+                        raise RuntimeError("Falha de conexão ao carregar itens comerciais. Tente novamente.") from exc
+                    time.sleep(0.5 * (2 ** tentativa))
+                except Exception as exc:
+                    # Erros transitórios do transporte httpx (inclui RemoteProtocolError).
+                    import httpx
+                    if not isinstance(exc, (httpx.TransportError, httpx.TimeoutException)) or tentativa == 3:
+                        raise
+                    time.sleep(0.5 * (2 ** tentativa))
             registros.extend(lote)
             if len(lote) < PAGE:
                 break
@@ -553,11 +568,23 @@ def _recuperacao_tabela(t):
 
 def _recuperacao_produtos_cliente(base_docs, cliente, inicio_atual, meses_historicos):
     """Compara o mix do cliente com os mesmos códigos vendidos aos demais clientes."""
-    ids = tuple(base_docs["id"].astype(str))
-    if st.session_state.get("ic2_rec_mix_ids") != ids:
-        with st.spinner("Carregando itens para comparar cliente e mercado atendido..."):
-            st.session_state["ic2_rec_mix_itens"] = itens(ids)
-            st.session_state["ic2_rec_mix_ids"] = ids
+    # Carregamento explícito: selecionar cliente não dispara milhares de consultas.
+    ids = tuple(base_docs.loc[base_docs["situacao_erp"].isin(["E", "F"]), "id"].astype(str))
+    chave = (len(ids), ids[0] if ids else None, ids[-1] if ids else None)
+    if st.session_state.get("ic2_rec_mix_chave") != chave:
+        st.session_state.pop("ic2_rec_mix_itens", None)
+        st.session_state["ic2_rec_mix_chave"] = chave
+    if "ic2_rec_mix_itens" not in st.session_state:
+        if not st.button("Carregar comparação de produtos", key="ic2_rec_mix_carregar"):
+            st.caption("A comparação consulta os itens vendidos do histórico. Clique para carregar quando necessário.")
+            return
+        try:
+            with st.spinner("Carregando itens vendidos para comparação..."):
+                st.session_state["ic2_rec_mix_itens"] = itens(ids)
+        except Exception as exc:
+            st.warning("Não foi possível carregar os itens agora. Tente novamente pelo botão.")
+            st.caption(f"Detalhe técnico: {type(exc).__name__}")
+            return
     it = st.session_state["ic2_rec_mix_itens"]
     if it.empty:
         st.info("Não há itens disponíveis para análise de produtos.")
