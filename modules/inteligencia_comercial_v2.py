@@ -514,7 +514,8 @@ def _recuperacao_agrupar(base, campo, meses_historicos, meses_atuais, inicio_atu
     # Regularidade é calculada no intervalo de observação, incluindo meses sem compras.
     meses_com_compra = antes[antes["venda"]].groupby(campo)["mes_ref"].nunique()
     anos_com_compra = antes[antes["venda"]].assign(ano=lambda z: z["data"].dt.year).groupby(campo)["ano"].nunique()
-    r["Meses com vendas (%)"] = 100 * meses_com_compra.reindex(nomes, fill_value=0) / meses_historicos
+    r["Meses com vendas"] = meses_com_compra.reindex(nomes, fill_value=0).astype(int)
+    r["Meses observados"] = meses_historicos
     r["Anos com vendas"] = anos_com_compra.reindex(nomes, fill_value=0)
     r["Anos observados"] = anos_calendario
     r["Regularidade anual (%)"] = 100 * r["Anos com vendas"] / anos_calendario
@@ -537,6 +538,8 @@ def _recuperacao_agrupar(base, campo, meses_historicos, meses_atuais, inicio_atu
 def _recuperacao_tabela(t):
     formatos = {}
     for col in t.columns:
+        if col in ["Regularidade anual", "Frequência mensal"]:
+            continue
         if "(R$)" in col:
             formatos[col] = lambda v: "—" if pd.isna(v) else brl(v)
         elif "(%)" in col:
@@ -606,18 +609,31 @@ def pagina_recuperacao(df, primeira):
     r = r[r["deficit_" + chave] > 0].sort_values("deficit_" + chave, ascending=False)
     nome = {"Clientes": "Cliente", "Produtos": "Produto", "Famílias": "Família"}[dimensao]
     r = r.rename(columns={campo: nome})
-    cols = [nome, "Perfil", "historico_" + chave, "atual_" + chave,
-            "deficit_" + chave, "Queda de pedidos (%)", "Queda de valor (%)",
-            "Regularidade anual (%)", "Meses com vendas (%)",
-            "Conversão histórica (%)", "Conversão atual (%)", "Última venda"]
-    rotulos = {"historico_" + chave: "Média histórica anual" + (" (R$)" if chave == "valor_vendido" else ""),
-               "atual_" + chave: "Ritmo atual anual" + (" (R$)" if chave == "valor_vendido" else ""),
-               "deficit_" + chave: "Déficit anual" + (" (R$)" if chave == "valor_vendido" else "")}
-    tabela = r[cols].rename(columns=rotulos)
+    visual = st.radio("Exibir médias em", ["Quantidade", "Financeiro (R$)"],
+                      horizontal=True, key="ic2_rec_visual")
+    if visual == "Quantidade":
+        medidas = [("historico_pedidos", "Vendas históricas (nº/ano)"),
+                   ("atual_pedidos", "Vendas atuais (nº/ano)"),
+                   ("historico_consultas", "Consultas históricas (nº/ano)"),
+                   ("atual_consultas", "Consultas atuais (nº/ano)")]
+    else:
+        medidas = [("historico_valor_vendido", "Vendas históricas (R$)"),
+                   ("atual_valor_vendido", "Vendas atuais (R$)"),
+                   ("historico_valor", "Consultas históricas (R$)"),
+                   ("atual_valor", "Consultas atuais (R$)")]
+    tabela = r[[nome, "Perfil"] + [col for col, _ in medidas] +
+               ["Conversão histórica (%)", "Conversão atual (%)", "Última venda"]].copy()
+    tabela = tabela.rename(columns=dict(medidas))
+    tabela.insert(6, "Regularidade anual",
+                  r["Anos com vendas"].astype(int).astype(str) + " de " +
+                  r["Anos observados"].astype(int).astype(str))
+    tabela.insert(7, "Frequência mensal",
+                  r["Meses com vendas"].astype(int).astype(str) + " de " +
+                  r["Meses observados"].astype(int).astype(str))
     st.markdown("#### Maiores déficits")
-    st.caption("Ordenação por perda absoluta estimada. Perfis usam anos com vendas no histórico: "
-               "recorrente ≥60%, intermitente ≥30%, pontual abaixo de 30%. "
-               "O percentual de meses com vendas ajuda a identificar compras concentradas.")
+    st.caption("Ordenação pelo maior déficit absoluto. Regularidade anual = anos com compras / anos observados; "
+               "frequência mensal = meses com compras / meses completos do histórico. "
+               "Recorrente ≥60% dos anos, intermitente ≥30%, pontual abaixo de 30%.")
     if tabela.empty:
         st.info("Nenhuma queda identificada com os filtros escolhidos.")
         return
@@ -628,7 +644,7 @@ def pagina_recuperacao(df, primeira):
     c1, c2, c3 = st.columns(3)
     c1.metric("Déficit de pedidos/ano", f'{linha["deficit_pedidos"]:.1f}'.replace(".", ","))
     c2.metric("Déficit financeiro/ano", brl(linha["deficit_valor_vendido"]))
-    c3.metric("Regularidade anual", f'{linha["Regularidade anual (%)"]:.1f}%'.replace(".", ","))
+    c3.metric("Regularidade anual", f'{int(linha["Anos com vendas"])} de {int(linha["Anos observados"])}')
     st.caption(f'Última venda: {linha["Última venda"]:%d/%m/%Y}' if pd.notna(linha["Última venda"]) else "Nenhuma venda registrada.")
     detalhe = detalhamento[detalhamento[campo] == escolha].copy()
     detalhe["Ano"] = detalhe["data"].dt.year.astype(int)
