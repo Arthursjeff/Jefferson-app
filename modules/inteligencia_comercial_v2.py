@@ -321,60 +321,175 @@ def pagina_conversao(df):
     st.caption("A conversão financeira considera os valores registrados no ERP. "
                "No detalhamento por produto, cada código usa o valor dos próprios itens.")
 
-def pagina_evolucao(df, primeira):
-    st.subheader("02 — Evolução do desempenho")
-    st.caption("Análise aprofundada de um único cliente, produto ou família por vez.")
-    dim = st.radio("Investigar", ["Cliente","Produto","Família"], horizontal=True, key="ic2_evol_dim")
-    base = df.copy()
-    if dim != "Cliente":
-        if not st.button("Carregar produtos e famílias", key="ic2_evol_carregar") and "ic2_evol_itens" not in st.session_state:
-            st.info("Carregue os itens para selecionar um produto ou família.")
+def pagina_produtos(df, primeira):
+    """Portfólio: tendência, recorrência, alcance e concentração comercial."""
+    st.subheader("02 — Produtos")
+    st.caption("Identifique produtos e famílias em expansão ou queda, sua frequência de saída, "
+               "quantidade de clientes atendidos e dependência comercial. Apenas vendas E/F.")
+    inicio_mes = pd.Timestamp(date.today()).replace(day=1)
+    inicio_atual = inicio_mes - pd.DateOffset(months=12)
+    docs = df[(df["data"] < inicio_mes) & df["situacao_erp"].isin(["E", "F"])].copy()
+    if docs.empty:
+        st.info("Não há vendas em meses completos.")
+        return
+    inicio_hist = docs["data"].min().to_period("M").to_timestamp()
+    meses_hist = (inicio_atual.year - inicio_hist.year) * 12 + inicio_atual.month - inicio_hist.month
+    meses_total = (inicio_mes.year - inicio_hist.year) * 12 + inicio_mes.month - inicio_hist.month
+    if meses_hist < 12:
+        st.info("São necessários pelo menos 12 meses históricos anteriores ao período atual.")
+        return
+    if "ic2_prod_itens" not in st.session_state:
+        if not st.button("Carregar análise do portfólio", key="ic2_prod_carregar"):
+            st.info("Clique para carregar os itens vendidos. O carregamento pode levar algum tempo.")
             return
-        if "ic2_evol_itens" not in st.session_state:
-            st.session_state["ic2_evol_itens"] = itens(tuple(df.id.astype(str)))
-        it = st.session_state["ic2_evol_itens"]
-        if it.empty:
-            st.info("Não há itens associados.")
+        try:
+            with st.spinner("Consultando itens vendidos no Supabase..."):
+                st.session_state["ic2_prod_itens"] = itens(tuple(docs["id"].astype(str)))
+        except Exception as exc:
+            st.warning("A conexão com o Supabase foi interrompida. Tente carregar novamente.")
+            st.caption("Tipo de falha: " + type(exc).__name__)
             return
-        coluna = "codigo_erp" if dim=="Produto" else "familia_sugerida"
-        opcoes = sorted(it[coluna].astype(str).unique())
-        escolha = st.selectbox(dim, opcoes, key="ic2_evol_alvo")
-        it = it[it[coluna].astype(str)==escolha]
-        base = base.merge(it[["documento_id","valor_total_item","quantidade"]], left_on="id",right_on="documento_id")
-        base["valor"] = base["valor_total_item"]
-    else:
-        escolha = st.selectbox("Cliente", sorted(df.cliente.unique()), key="ic2_evol_cliente")
-        base = base[base.cliente==escolha]
-    c1,c2 = st.columns(2)
-    inicio = c1.date_input("Início", date(2020,1,1), key="ic2_evol_ini")
-    fim = c2.date_input("Fim", date.today(), key="ic2_evol_fim")
-    if inicio>fim:
-        st.warning("Período inválido.")
+    it = st.session_state["ic2_prod_itens"]
+    if it.empty:
+        st.info("Não há itens comerciais vinculados às vendas.")
         return
-    base = filtros_data(base, inicio, fim)
-    tempo = st.selectbox("Agrupamento", ["Mensal","Trimestral","Anual"], key="ic2_evol_tempo")
-    medida = st.selectbox("Indicador", ["Valor (R$)","Documentos","Unidades"], key="ic2_evol_medida",
-                         disabled=False)
-    if medida=="Unidades" and dim=="Cliente":
-        st.info("Unidades são disponíveis somente para produtos e famílias.")
+    base = it.copy()
+    base["documento_id"] = base["documento_id"].astype(str)
+    docs["id"] = docs["id"].astype(str)
+    base = base.merge(docs[["id", "cliente", "data"]], left_on="documento_id",
+                      right_on="id", how="inner")
+    if base.empty:
+        st.info("Não há itens de venda correspondentes aos documentos.")
         return
-    freq = {"Mensal":"M","Trimestral":"Q","Anual":"Y"}[tempo]
-    base["periodo"] = base.data.dt.to_period(freq).astype(str)
-    if medida=="Valor (R$)":
-        t = base.groupby(["periodo","tipo"])["valor"].sum().reset_index(name="resultado")
-    elif medida=="Documentos":
-        t = base.groupby(["periodo","tipo"])["id"].nunique().reset_index(name="resultado")
-    else:
-        t = base.groupby(["periodo","tipo"])["quantidade"].sum().reset_index(name="resultado")
-    if t.empty:
-        st.info("Sem dados para o período.")
+    base["mes_ref"] = base["data"].dt.to_period("M")
+    base["janela"] = base["data"].ge(inicio_atual).map({True: "Atual", False: "Histórico"})
+    dimensao = st.radio("Analisar por", ["Produto", "Família"], horizontal=True, key="ic2_prod_dim")
+    campo = "codigo_erp" if dimensao == "Produto" else "familia_sugerida"
+    base[campo] = base[campo].fillna("Não identificado").astype(str).str.strip()
+    base = base[base[campo].ne("")]
+    if base.empty:
+        st.info("Nenhum item identificado.")
         return
-    st.altair_chart(alt.Chart(t).mark_line(point=True).encode(
-        x=alt.X("periodo:N",sort=None), y="resultado:Q",color="tipo:N",
-        tooltip=["periodo","tipo","resultado"]).properties(height=360),use_container_width=True)
-    st.dataframe(t,hide_index=True,use_container_width=True)
-    exportar(t,"evolucao_comercial.xlsx")
-    st.caption("Valores de produtos/famílias são calculados pelos itens, não pelo cabeçalho do documento.")
+    base["valor"] = base["valor_total_item"]
+    grupo = base.groupby([campo, "janela"])[["quantidade", "valor"]].sum().unstack(fill_value=0)
+    nomes = grupo.index
+    def col(metrica, periodo):
+        chave = (metrica, periodo)
+        return grupo[chave] if chave in grupo.columns else pd.Series(0., index=nomes)
+    res = pd.DataFrame(index=nomes)
+    for sigla, metrica in [("q", "quantidade"), ("r", "valor")]:
+        res[f"h_{sigla}"] = col(metrica, "Histórico") * 12 / meses_hist
+        res[f"a_{sigla}"] = col(metrica, "Atual")
+    res["Clientes distintos"] = base.groupby(campo)["cliente"].nunique().reindex(nomes, fill_value=0)
+    res["Clientes atuais"] = base[base["janela"] == "Atual"].groupby(campo)["cliente"].nunique().reindex(nomes, fill_value=0)
+    res["Meses com vendas"] = base.groupby(campo)["mes_ref"].nunique().reindex(nomes, fill_value=0)
+    res["Frequência (%)"] = res["Meses com vendas"] * 100 / meses_total
+    res["Última venda"] = base.groupby(campo)["data"].max().reindex(nomes)
+    participacao = base.groupby([campo, "cliente"])["valor"].sum()
+    total = participacao.groupby(level=0).sum()
+    maior = participacao.groupby(level=0).max()
+    res["Maior cliente (%)"] = 100 * maior.reindex(nomes, fill_value=0) / total.reindex(nomes).replace(0, float("nan"))
+    for sigla in ["q", "r"]:
+        res[f"Variação {sigla} (%)"] = 100 * (res[f"a_{sigla}"] / res[f"h_{sigla}"].replace(0, float("nan")) - 1)
+        res[f"Diferença {sigla}"] = res[f"a_{sigla}"] - res[f"h_{sigla}"]
+    def classificar(linha):
+        h, a = linha["h_q"], linha["a_q"]
+        if h <= 0:
+            return "Novo / sem histórico" if a > 0 else "Sem saída"
+        variacao = 100 * (a / h - 1)
+        if variacao < -15:
+            return "Em queda"
+        if variacao > 15:
+            return "Em crescimento"
+        return "Estável"
+    res["Tendência"] = res.apply(classificar, axis=1)
+    res["Perfil"] = res.apply(
+        lambda x: "Concentrado" if x["Clientes distintos"] == 1 or
+        (pd.notna(x["Maior cliente (%)"]) and x["Maior cliente (%)"] >= 70)
+        else "Diversificado", axis=1)
+    res["Importância"] = res.apply(
+        lambda x: "Estratégico em queda" if x["Tendência"] == "Em queda" and
+        (x["Frequência (%)"] >= 50 or x["Clientes distintos"] >= 10)
+        else x["Tendência"], axis=1)
+    st.caption(f"Histórico: {inicio_hist:%m/%Y} a {(inicio_atual - pd.Timedelta(days=1)):%m/%Y} "
+               f"({meses_hist} meses). Atual: últimos 12 meses completos. "
+               f"Frequência: meses com vendas de {meses_total} meses observados. "
+               "Tendência: variação de unidades superior a ±15%; concentração: maior cliente ≥70%.")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Itens com vendas", len(res))
+    c2.metric("Em queda", int(res["Tendência"].eq("Em queda").sum()))
+    c3.metric("Em crescimento", int(res["Tendência"].eq("Em crescimento").sum()))
+    f1, f2, f3 = st.columns(3)
+    tendencia = f1.selectbox("Filtrar tendência", ["Todos", "Em queda", "Em crescimento", "Estável", "Novo / sem histórico", "Estratégico em queda"], key="ic2_prod_tendencia")
+    perfil = f2.selectbox("Perfil de clientes", ["Todos", "Concentrado", "Diversificado"], key="ic2_prod_perfil")
+    indicador = f3.radio("Ordenar e comparar por", ["Unidades", "Faturamento"], key="ic2_prod_indicador")
+    ranking = st.selectbox("Ranking", ["Maiores perdas", "Maiores ganhos", "Maior saída", "Mais clientes", "Mais frequentes", "Maior faturamento"], key="ic2_prod_ranking")
+    filtrado = res.copy()
+    if tendencia != "Todos":
+        filtro_col = "Importância" if tendencia == "Estratégico em queda" else "Tendência"
+        filtrado = filtrado[filtrado[filtro_col] == tendencia]
+    if perfil != "Todos":
+        filtrado = filtrado[filtrado["Perfil"] == perfil]
+    sigla = "q" if indicador == "Unidades" else "r"
+    ordenacoes = {
+        "Maiores perdas": (f"Diferença {sigla}", True),
+        "Maiores ganhos": (f"Diferença {sigla}", False),
+        "Maior saída": ("a_q", False),
+        "Mais clientes": ("Clientes distintos", False),
+        "Mais frequentes": ("Frequência (%)", False),
+        "Maior faturamento": ("a_r", False),
+    }
+    coluna_ordem, asc = ordenacoes[ranking]
+    filtrado = filtrado.sort_values(coluna_ordem, ascending=asc)
+    tabela = filtrado.reset_index().rename(columns={
+        campo: dimensao, "h_q": "Unidades históricas (nº/ano)",
+        "a_q": "Unidades atuais (nº/ano)",
+        "h_r": "Faturamento histórico (R$)", "a_r": "Faturamento atual (R$)",
+        "Meses com vendas": "Meses com vendas (nº)",
+        "Clientes distintos": "Clientes históricos + atuais (nº)",
+        "Clientes atuais": "Clientes atuais (nº)"})
+    colunas = [dimensao, "Tendência", "Importância", "Perfil",
+               "Unidades históricas (nº/ano)", "Unidades atuais (nº/ano)",
+               "Faturamento histórico (R$)", "Faturamento atual (R$)",
+               "Variação q (%)", "Variação r (%)",
+               "Clientes históricos + atuais (nº)", "Clientes atuais (nº)",
+               "Meses com vendas (nº)", "Frequência (%)", "Maior cliente (%)", "Última venda"]
+    st.markdown("#### Ranking do portfólio")
+    if tabela.empty:
+        st.info("Nenhum item corresponde aos filtros.")
+        return
+    _recuperacao_tabela(tabela[colunas])
+    exportar(tabela[colunas], "analise_produtos.xlsx")
+    escolha = st.selectbox(f"Detalhar {dimensao.lower()}", filtrado.index.tolist(), key="ic2_prod_escolha")
+    linha = res.loc[escolha]
+    st.markdown("#### Diagnóstico individual")
+    st.write(f"**{escolha}** — {linha['Importância']}; perfil {linha['Perfil'].lower()}.")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Média histórica mensal (peças)", f"{linha['h_q']/12:.1f}".replace(".", ","))
+    m2.metric("Média atual mensal (peças)", f"{linha['a_q']/12:.1f}".replace(".", ","))
+    m3.metric("Frequência de saída", f"{int(linha['Meses com vendas'])} de {meses_total} meses")
+    st.caption(f"Clientes distintos: {int(linha['Clientes distintos'])} | "
+               f"Maior cliente representa {linha['Maior cliente (%)']:.1f}% do valor vendido no histórico completo.")
+    detalhe = base[base[campo] == escolha].copy()
+    clientes = detalhe.groupby("cliente").agg(
+        **{"Unidades": ("quantidade", "sum"), "Faturamento (R$)": ("valor", "sum"),
+           "Última venda": ("data", "max")}).sort_values("Faturamento (R$)", ascending=False).reset_index().rename(columns={"cliente": "Cliente"})
+    st.markdown("**Principais clientes compradores**")
+    _recuperacao_tabela(clientes.head(20))
+    detalhe["Ano"] = detalhe["data"].dt.year
+    anos = list(range(inicio_hist.year, (inicio_mes - pd.Timedelta(days=1)).year + 1))
+    anual = detalhe.groupby("Ano")[["quantidade", "valor"]].sum().reindex(anos, fill_value=0).reset_index().rename(
+        columns={"quantidade": "Unidades vendidas", "valor": "Faturamento (R$)"})
+    st.markdown("**Evolução anual**")
+    serie = st.radio("Visualizar evolução", ["Unidades vendidas", "Faturamento (R$)"], horizontal=True, key="ic2_prod_graf")
+    st.altair_chart(alt.Chart(anual).mark_line(point=True).encode(
+        x=alt.X("Ano:O"), y=alt.Y(f"{serie}:Q"),
+        tooltip=["Ano:O", alt.Tooltip(f"{serie}:Q", format=",.2f")]
+    ).properties(height=310), use_container_width=True)
+    st.caption("O ano atual contém apenas meses completos; compare o ritmo anualizado na tabela principal.")
+    _recuperacao_tabela(anual)
+    exportar(anual, "produto_evolucao_anual.xlsx")
+
 
 def _sazonalidade_tabela(df, meses, indicador, hoje=None):
     """Média sazonal de períodos completos e média geral equivalente.
@@ -857,11 +972,11 @@ def pagina_inteligencia_comercial():
         st.info("Não há registros comerciais disponíveis.")
         return
     primeira = df.groupby("cliente")["data"].min()
-    tabs = st.tabs(["01 · Conversão","02 · Evolução","03 · Sazonalidade","04 · Recuperação"])
+    tabs = st.tabs(["01 · Conversão","02 · Produtos","03 · Sazonalidade","04 · Recuperação"])
     with tabs[0]:
         pagina_conversao(df)
     with tabs[1]:
-        pagina_evolucao(df,primeira)
+        pagina_produtos(df,primeira)
     with tabs[2]:
         pagina_sazonalidade(df,primeira)
     with tabs[3]:
