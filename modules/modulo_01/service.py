@@ -1,3 +1,4 @@
+from modules.modulo_01.rastreabilidade import validar_rastreabilidade
 from modules.modulo_01.sinalizacoes import enriquecer_pedidos
 from core.pedidos import (
     criar_pedido,
@@ -398,6 +399,11 @@ def avancar_pedido(pedido: dict, usuario: str, setor_usuario: str):
 
     if destino == "MONTADOS" and not dados_peso_volumes_validos(pedido):
         return False, "Informe o peso total e a quantidade de volumes antes de avançar para Montados."
+
+    if destino == "MONTADOS":
+        valido, mensagem = validar_rastreabilidade(pedido["id"])
+        if not valido:
+            return False, mensagem
 
     sucesso = mover_pedido(
         pedido_id=pedido["id"],
