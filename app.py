@@ -1,3 +1,4 @@
+from modules.modulo_01.rastreabilidade import interface_rastreabilidade, salvar_rastreabilidade, exibir_series_card, validar_rastreabilidade
 from modules.modulo_01.cadastro_integrado import pagina_cadastro_integrado, mostrar_itens_do_card
 import streamlit as st
 import json
@@ -187,6 +188,8 @@ def modal_peso_volume():
         key=f"quantidade_volumes_{pedido['id']}",
     )
 
+    entradas_series = interface_rastreabilidade(pedido) if avancar else None
+
     c1, c2 = st.columns(2)
 
     with c1:
@@ -203,6 +206,18 @@ def modal_peso_volume():
             use_container_width=True,
         ):
             if avancar:
+                if st.session_state.setor not in ("MONTAGEM", "ADMINISTRADOR"):
+                    st.error("Sem permissão para finalizar montagem.")
+                    return
+                try:
+                    sucesso_series, mensagem_series = salvar_rastreabilidade(
+                        pedido["id"], entradas_series, st.session_state.nome)
+                except Exception as exc:
+                    st.error(f"Erro ao salvar rastreabilidade: {exc}")
+                    return
+                if not sucesso_series:
+                    st.warning(mensagem_series)
+                    return
                 sucesso, mensagem = salvar_peso_volumes_e_avancar(
                     pedido=pedido,
                     peso_total=peso,
@@ -913,6 +928,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     st.markdown(f"**{label}**")
                     render_sinalizacao_pedido(pedido,estado)
                     mostrar_itens_do_card(pedido)
+                    exibir_series_card(pedido)
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
@@ -1089,7 +1105,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                                 else:
                                     destino = obter_destino_pedido(pedido)
 
-                                    if destino == "MONTADOS" and not dados_peso_volumes_validos(pedido):
+                                    if destino == "MONTADOS" and (not dados_peso_volumes_validos(pedido) or not validar_rastreabilidade(pedido_id)[0]):
                                         abrir_modal_peso_volume(pedido, avancar=True)
                                         st.rerun()
 
