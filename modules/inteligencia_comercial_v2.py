@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 from core.database import supabase
+from core.permissoes import tem_acesso_modulo
 
 PAGE = 1000
 COLS = "id,situacao_erp,data_documento,data_faturamento,cliente_nome_erp,valor_total_cabecalho"
@@ -967,7 +968,9 @@ def pagina_recuperacao(df, primeira):
                "não uma confirmação de problema de preço. Valores de produtos e famílias vêm dos itens.")
 
 def pagina_inteligencia_comercial():
-    if not st.session_state.get("logado") or st.session_state.get("setor") != "ADMINISTRADOR":
+    if not st.session_state.get("logado") or not tem_acesso_modulo(
+        st.session_state.get("usuario"), st.session_state.get("setor"), "Inteligência Comercial"
+    ):
         st.error("Acesso restrito ao administrador.")
         st.stop()
     st.title("Inteligência Comercial")
