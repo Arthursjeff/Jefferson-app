@@ -12,6 +12,7 @@ from modules.laboratorio_codigos import pagina_laboratorio_codigos
 from modules.consertos import pagina_consertos
 from modules.consulta_fotos import pagina_consulta_pedidos
 from core.auth import validar_login, USUARIOS
+from core.permissoes import tem_acesso_modulo
 from modules.modulo_01.service import (
     ESTADOS_FILA,
     LABEL_ESTADOS,
@@ -1244,6 +1245,9 @@ with st.sidebar:
             "Clientes",
         ]
 
+    if tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Inteligência Comercial") and "Inteligência Comercial" not in paginas:
+        paginas.append("Inteligência Comercial")
+
     pagina = st.radio(
         "Navegação",
         paginas,
@@ -1297,7 +1301,7 @@ elif pagina == "Análises":
 
 elif pagina == "Inteligência Comercial":
 
-    if st.session_state.setor != "ADMINISTRADOR":
+    if not tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Inteligência Comercial"):
         st.error("Esta página é exclusiva para administradores.")
         st.stop()
 
