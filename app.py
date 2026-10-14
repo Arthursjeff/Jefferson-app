@@ -1,3 +1,4 @@
+from modules.modulo_01.cadastro_integrado import pagina_cadastro_integrado, mostrar_itens_do_card
 import streamlit as st
 import json
 from modules.modulo_01.sinalizacoes import registrar_sinalizacao, dados_evento
@@ -649,48 +650,7 @@ def tela_login():
         st.rerun()
 
 def pagina_criar_pedido():
-    st.title("➕ Criar Pedido")
-
-    with st.form(f"form_criar_pedido_{st.session_state.form_pedido_id}"):
-
-        numero = st.text_input("Número do pedido")
-
-        cliente = st.text_input("Cliente")
-
-        tipo_pedido = st.selectbox(
-            "Tipo do pedido",
-            ["NORMAL", "PROGRAMADO", "IMPORTACAO"]
-        )
-
-        data_prevista_faturamento = st.date_input(
-            "Data prevista de faturamento"
-        )
-
-        criar = st.form_submit_button(
-            "Criar pedido",
-            type="primary"
-        )
-
-    if criar:
-        sucesso, mensagem = criar_novo_pedido(
-            numero_pedido=numero,
-            cliente=cliente,
-            usuario=st.session_state.nome,
-            setor_usuario=st.session_state.setor,
-            tipo_pedido=tipo_pedido,
-            data_prevista_faturamento=data_prevista_faturamento,
-        )
-
-        if sucesso:
-            st.success(mensagem)
-
-            # Gera um formulário completamente novo
-            st.session_state.form_pedido_id += 1
-
-            st.rerun()
-
-        else:
-            st.warning(mensagem)
+    pagina_cadastro_integrado()
 
 def verificar_notificacoes():
     if not st.session_state.logado:
@@ -952,6 +912,7 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                 with st.container(border=True):
                     st.markdown(f"**{label}**")
                     render_sinalizacao_pedido(pedido,estado)
+                    mostrar_itens_do_card(pedido)
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
