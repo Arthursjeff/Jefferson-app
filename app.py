@@ -10,6 +10,7 @@ from modules.modulo_orcamentos.clientes_ui import pagina_clientes
 from modules.modulo_orcamentos.clientes_importacao_ui import pagina_importar_clientes
 from modules.analises import pagina_analises
 from modules.inteligencia_comercial import pagina_inteligencia_comercial
+from modules.atualizacao_erp import pagina_atualizacao_erp
 from modules.laboratorio_codigos import pagina_laboratorio_codigos
 from modules.consertos import pagina_consertos
 from modules.consulta_fotos import pagina_consulta_pedidos
@@ -1191,6 +1192,7 @@ with st.sidebar:
             "Orçamentos",
             "Clientes",
             "Importar Clientes",
+            "Atualização ERP",
             "Análises",
             "Inteligência Comercial",
             "Laboratório de Códigos",
@@ -1266,6 +1268,12 @@ elif pagina == "Importar Clientes":
 
     pagina_importar_clientes()
 
+
+elif pagina == "Atualização ERP":
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("Acesso exclusivo da Administração.")
+        st.stop()
+    pagina_atualizacao_erp()
 
 elif pagina == "Análises":
 
