@@ -65,6 +65,25 @@ class RegrasTests(unittest.TestCase):
             self.assertEqual(x["codigo_inicial"], "ERP3")
             self.assertIn("CONFLITO", x["situacao"])
 
+    def test_historico_completo_prevalece_sem_conflito(self):
+        with patch.object(motor, "_mapa", return_value={}), patch.object(
+                motor, "_historico_completo",
+                return_value=({"030XLA08": "2030LA08"}, set())):
+            x = motor.sugerir_codigo({
+                "codigo_erp": "030XLA08",
+                "descricao_original": "VALVULA SOLENOIDE"})
+            self.assertEqual(x["codigo_inicial"], "2030LA08")
+            self.assertIn("HISTORICO_COMPLETO", x["origem_sugestao"])
+
+    def test_tabela_historica_com_duplicidade_conflitante(self):
+        with patch.object(motor, "_mapa", return_value={}), patch.object(
+                motor, "_historico_completo",
+                return_value=({"ERP_DUP": "2030LA08"}, {"ERP_DUP"})):
+            x = motor.sugerir_codigo({
+                "codigo_erp": "ERP_DUP", "descricao_original": "VALVULA"})
+            self.assertIn("CONFLITO", x["situacao"])
+            self.assertEqual(x["codigo_inicial"], "ERP_DUP")
+
     def test_sem_conversao_de_bobina_por_regra_valvula(self):
         with patch.object(motor, "_mapa", return_value={}):
             x = motor.sugerir_codigo({
