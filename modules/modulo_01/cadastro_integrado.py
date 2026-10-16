@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date
 from decimal import Decimal
 from core.database import supabase
+from core.conversor_erp_pedido import sugerir_codigo
 from core.pedido_itens_comerciais import numero_erp, buscar_orcamento, gravar_itens_confirmados, listar_itens_pedido
 from core.permissions import pode_criar_pedido
 from core.pedidos import criar_pedido
@@ -26,7 +27,10 @@ def pagina_cadastro_integrado():
             st.session_state["erp_chave"] = chave
             st.session_state["erp_cliente"] = achado["documento"].get("cliente_nome_erp") or "" if achado else ""
             st.session_state["erp_itens"] = [
-                {"Código": i.get("codigo_erp") or i.get("codigo_tecnico_sugerido") or "",
+                {"Código ERP (original)": sugerir_codigo(i)["codigo_erp"],
+                 "Código sugerido": sugerir_codigo(i)["codigo_sugerido"],
+                 "Situação": sugerir_codigo(i)["situacao"],
+                 "Código": sugerir_codigo(i)["codigo_inicial"],
                  "Tensão": i.get("tensao_original") or "",
                  "Quantidade": float(i.get("quantidade") or 0),
                  "Valor unitário": float(i.get("preco_unitario") or 0)}
@@ -47,12 +51,13 @@ def pagina_cadastro_integrado():
     cliente = st.text_input("Cliente", key="erp_cliente")
     origem = st.session_state.get("erp_itens") or [{"Código": "", "Tensão": "", "Quantidade": 1.0, "Valor unitário": 0.0}]
     editados = st.data_editor(origem, num_rows="dynamic", hide_index=True, use_container_width=True,
+                              disabled=["Código ERP (original)", "Código sugerido", "Situação"],
                               key="erp_editor_" + str(st.session_state.get("erp_versao", 0)))
     linhas = editados.to_dict("records") if hasattr(editados, "to_dict") else editados
     itens = []
     for i, linha in enumerate(linhas):
         original = achado["itens"][i] if achado and i < len(achado["itens"]) else None
-        referencia = original.get("id") if original and linha.get("Código") == origem[i].get("Código") else None
+        referencia = original.get("id") if original and i < len(origem) else None
         itens.append({"codigo": linha.get("Código"), "tensao": linha.get("Tensão"),
                       "quantidade": linha.get("Quantidade"), "valor_unitario": linha.get("Valor unitário"),
                       "item_comercial_id": referencia})
