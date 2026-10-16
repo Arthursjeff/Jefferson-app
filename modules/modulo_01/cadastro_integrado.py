@@ -27,7 +27,8 @@ def pagina_cadastro_integrado():
             st.session_state["erp_chave"] = chave
             st.session_state["erp_cliente"] = achado["documento"].get("cliente_nome_erp") or "" if achado else ""
             st.session_state["erp_itens"] = [
-                {"Código ERP (original)": sugerir_codigo(i)["codigo_erp"],
+                {"ID origem": str(i.get("id") or ""),
+                 "Código ERP (original)": sugerir_codigo(i)["codigo_erp"],
                  "Código sugerido": sugerir_codigo(i)["codigo_sugerido"],
                  "Situação": sugerir_codigo(i)["situacao"],
                  "Código": sugerir_codigo(i)["codigo_inicial"],
@@ -51,13 +52,15 @@ def pagina_cadastro_integrado():
     cliente = st.text_input("Cliente", key="erp_cliente")
     origem = st.session_state.get("erp_itens") or [{"Código": "", "Tensão": "", "Quantidade": 1.0, "Valor unitário": 0.0}]
     editados = st.data_editor(origem, num_rows="dynamic", hide_index=True, use_container_width=True,
-                              disabled=["Código ERP (original)", "Código sugerido", "Situação"],
+                              disabled=["ID origem", "Código ERP (original)", "Código sugerido", "Situação"],
+                              column_config={"ID origem": None},
                               key="erp_editor_" + str(st.session_state.get("erp_versao", 0)))
     linhas = editados.to_dict("records") if hasattr(editados, "to_dict") else editados
     itens = []
+    ids_validos = {str(i.get("id")) for i in (achado["itens"] if achado else []) if i.get("id") is not None}
     for i, linha in enumerate(linhas):
-        original = achado["itens"][i] if achado and i < len(achado["itens"]) else None
-        referencia = original.get("id") if original and i < len(origem) else None
+        identificador = str(linha.get("ID origem") or "")
+        referencia = identificador if identificador in ids_validos else None
         itens.append({"codigo": linha.get("Código"), "tensao": linha.get("Tensão"),
                       "quantidade": linha.get("Quantidade"), "valor_unitario": linha.get("Valor unitário"),
                       "item_comercial_id": referencia})
@@ -68,6 +71,7 @@ def pagina_cadastro_integrado():
         st.warning("Revise as quantidades e valores.")
     tipo = st.selectbox("Tipo do pedido", ["NORMAL", "PROGRAMADO", "IMPORTACAO"])
     previsao = st.date_input("Data prevista de faturamento")
+    st.caption("Os códigos técnicos são apenas sugestões não auditadas. Confira cada linha antes de confirmar.")
     confirmado = st.checkbox("Confirmei o cliente, os códigos, tensões, quantidades e valores.")
     if st.button("Criar pedido", type="primary", disabled=not confirmado):
         try:
