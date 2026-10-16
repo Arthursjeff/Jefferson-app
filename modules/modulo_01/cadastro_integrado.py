@@ -31,6 +31,8 @@ def pagina_cadastro_integrado():
                  "Código ERP (original)": sugerir_codigo(i)["codigo_erp"],
                  "Código sugerido": sugerir_codigo(i)["codigo_sugerido"],
                  "Situação": sugerir_codigo(i)["situacao"],
+                 "Origem da sugestão": sugerir_codigo(i)["origem_sugestao"],
+                 "Tipo provável": sugerir_codigo(i)["tipo_provavel"],
                  "Código": sugerir_codigo(i)["codigo_inicial"],
                  "Tensão": i.get("tensao_original") or "",
                  "Quantidade": float(i.get("quantidade") or 0),
@@ -52,10 +54,14 @@ def pagina_cadastro_integrado():
     cliente = st.text_input("Cliente", key="erp_cliente")
     origem = st.session_state.get("erp_itens") or [{"Código": "", "Tensão": "", "Quantidade": 1.0, "Valor unitário": 0.0}]
     editados = st.data_editor(origem, num_rows="dynamic", hide_index=True, use_container_width=True,
-                              disabled=["ID origem", "Código ERP (original)", "Código sugerido", "Situação"],
+                              disabled=["ID origem", "Código ERP (original)", "Código sugerido", "Situação",
+                                        "Origem da sugestão", "Tipo provável"],
                               column_config={"ID origem": None},
                               key="erp_editor_" + str(st.session_state.get("erp_versao", 0)))
     linhas = editados.to_dict("records") if hasattr(editados, "to_dict") else editados
+    conflitos = sum(1 for linha in linhas if "CONFLITO" in str(linha.get("Situação") or ""))
+    if conflitos:
+        st.warning(f"{conflitos} item(ns) têm divergência entre regras e referências. Confira o código antes de criar o pedido.")
     itens = []
     ids_validos = {str(i.get("id")) for i in (achado["itens"] if achado else []) if i.get("id") is not None}
     for i, linha in enumerate(linhas):
