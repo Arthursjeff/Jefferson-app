@@ -68,9 +68,9 @@ class RegrasTests(unittest.TestCase):
     def test_historico_completo_prevalece_sem_conflito(self):
         with patch.object(motor, "_mapa", return_value={}), patch.object(
                 motor, "_historico_completo",
-                return_value=({"030XLA08": "2030LA08"}, set())):
+                return_value=({"ERP_HIST": "2030LA08"}, set())):
             x = motor.sugerir_codigo({
-                "codigo_erp": "030XLA08",
+                "codigo_erp": "ERP_HIST",
                 "descricao_original": "VALVULA SOLENOIDE"})
             self.assertEqual(x["codigo_inicial"], "2030LA08")
             self.assertIn("HISTORICO_COMPLETO", x["origem_sugestao"])
