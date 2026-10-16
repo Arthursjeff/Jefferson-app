@@ -25,7 +25,7 @@ def buscar_orcamento(numero, ano=None):
         return None
     documento = docs[0]
     itens = (supabase.table("itens_comerciais")
-             .select("id,codigo_erp,codigo_tecnico_sugerido,tensao_original,quantidade,preco_unitario,valor_total_item,ordem_item")
+             .select("id,codigo_erp,codigo_tecnico_sugerido,descricao_original,tensao_original,quantidade,preco_unitario,valor_total_item,ordem_item")
              .eq("documento_id", documento["id"])
              .order("ordem_item").execute().data or [])
     return {"documento": documento, "itens": itens, "candidatos": len(docs)}
