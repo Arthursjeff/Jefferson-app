@@ -1,0 +1,28 @@
+name: Testar motor ERP Jefferson
+on:
+  push:
+    paths:
+      - 'core/conversor_erp_pedido.py'
+      - 'core/motor_erp_regras.py'
+      - 'core/data/erp_equivalencias_455.csv'
+      - 'core/data/erp_equivalencias_historicas.tsv'
+      - 'tests/test_conversor_erp_pedido.py'
+      - '.github/workflows/test-conversor-erp.yml'
+  pull_request:
+    paths:
+      - 'core/conversor_erp_pedido.py'
+      - 'core/motor_erp_regras.py'
+      - 'core/data/**'
+      - 'tests/test_conversor_erp_pedido.py'
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validar sintaxe
+        run: python -m compileall -q core/motor_erp_regras.py core/conversor_erp_pedido.py tests/test_conversor_erp_pedido.py
+      - name: Executar testes de conversao
+        run: python -m unittest discover -s tests -p 'test_conversor_erp_pedido.py' -v
