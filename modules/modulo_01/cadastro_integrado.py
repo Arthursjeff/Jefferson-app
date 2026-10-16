@@ -56,7 +56,7 @@ def pagina_cadastro_integrado():
     editados = st.data_editor(origem, num_rows="dynamic", hide_index=True, use_container_width=True,
                               disabled=["ID origem", "Código ERP (original)", "Código sugerido", "Situação",
                                         "Origem da sugestão", "Tipo provável"],
-                              column_config={"ID origem": None},
+                              column_config={"ID origem": None, "Código sugerido": None, "Situação": None, "Origem da sugestão": None, "Tipo provável": None},
                               key="erp_editor_" + str(st.session_state.get("erp_versao", 0)))
     linhas = editados.to_dict("records") if hasattr(editados, "to_dict") else editados
     conflitos = sum(1 for linha in linhas if "CONFLITO" in str(linha.get("Situação") or ""))
