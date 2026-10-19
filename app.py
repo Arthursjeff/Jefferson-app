@@ -12,6 +12,7 @@ from modules.analises import pagina_analises
 from modules.inteligencia_comercial import pagina_inteligencia_comercial
 from modules.atualizacao_erp import pagina_atualizacao_erp
 from modules.laboratorio_codigos import pagina_laboratorio_codigos
+from modules.laboratorio_transformacoes import pagina_laboratorio_transformacoes
 from modules.consertos import pagina_consertos
 from modules.consulta_fotos import pagina_consulta_pedidos
 from core.auth import validar_login, USUARIOS
@@ -1196,6 +1197,7 @@ with st.sidebar:
             "Análises",
             "Inteligência Comercial",
             "Laboratório de Códigos",
+            "Laboratório de Transformações",
             "Consertos",
             "Consulta de Pedidos",
         ]
@@ -1300,6 +1302,13 @@ elif pagina == "Laboratório de Códigos":
         st.stop()
 
     pagina_laboratorio_codigos()
+
+
+elif pagina == "Laboratório de Transformações":
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("Acesso exclusivo da Administração durante os testes.")
+        st.stop()
+    pagina_laboratorio_transformacoes()
 
 
 elif pagina == "Consertos":
