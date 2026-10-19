@@ -1,5 +1,5 @@
 import unittest
-from core.motor_transformacoes import normalizar, consolidar_estoque, avaliar
+from core.motor_transformacoes import normalizar, consolidar_estoque, avaliar, corpo_oposto
 
 
 class TestLaboratorioTransformacoes(unittest.TestCase):
@@ -31,6 +31,33 @@ class TestLaboratorioTransformacoes(unittest.TestCase):
         r = avaliar("Z1335BE04", "TORRE", "VALVULA_VALVULA",
                     {"1335BE04": 3, "Z1335BA04": 2}, regras)
         self.assertEqual(r["status"], "SIMULACAO_POSSIVEL")
+
+    def test_corpo_bsp_busca_base_npt(self):
+        r = avaliar("1342BV08", "CORPO", "VALVULA_VALVULA",
+                    {"1342BV08T": 7})
+        self.assertEqual(r["base"][0]["codigo"], "1342BV08T")
+        self.assertEqual(r["conexao_destino"], "BSP")
+        self.assertEqual(r["conexao_base"], "NPT")
+        self.assertEqual(r["status"], "BASE_LOCALIZADA")
+
+    def test_corpo_npt_busca_base_bsp(self):
+        r = avaliar("1342BV08T", "CORPO", "VALVULA_VALVULA",
+                    {"1342BV08": 2})
+        self.assertEqual(r["base"][0]["codigo"], "1342BV08")
+        self.assertEqual(r["conexao_destino"], "NPT")
+
+    def test_corpo_preserva_torre_e_indicador(self):
+        self.assertEqual(corpo_oposto("Z1335BE04TINA"),
+                         ("NPT", "BSP", "Z1335BE04INA"))
+        self.assertEqual(corpo_oposto("Z1335BE04INA"),
+                         ("BSP", "NPT", "Z1335BE04TINA"))
+
+    def test_corpo_nao_inventa_para_codigos_ambiguos(self):
+        self.assertIsNone(corpo_oposto("Z1335BE04B"))
+        self.assertIsNone(corpo_oposto("SEM_FAMILIA"))
+        r = avaliar("1342BV08T", "CORPO", "VALVULA_VALVULA", {})
+        self.assertFalse(r["base"])
+        self.assertEqual(r["codigo_base_esperado"], "1342BV08")
 
     def test_sem_regras_vedacao_nao_inventa_compatibilidade(self):
         r = avaliar("Z1335BE04", "VEDACAO", "VALVULA_KIT",
