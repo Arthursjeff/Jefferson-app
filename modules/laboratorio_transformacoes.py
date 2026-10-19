@@ -91,6 +91,13 @@ def pagina_laboratorio_transformacoes():
     st.subheader("Resultado da análise")
     st.write("Destino:", resultado["destino"])
     st.write("Saldo exato informado:", resultado["estoque_exato"])
+    if resultado["tipo"] == "CORPO" and resultado.get("codigo_base_esperado"):
+        st.write(
+            f"Corpo solicitado: **{resultado['conexao_destino']}**. "
+            f"Buscar válvula base com corpo **{resultado['conexao_base']}**:"
+        )
+        st.code(resultado["codigo_base_esperado"])
+        st.caption("Todos os demais atributos técnicos permanecem no código.")
     if resultado["base"]:
         st.success("Base candidata localizada no estoque provisório.")
         st.dataframe(pd.DataFrame(resultado["base"]), hide_index=True, use_container_width=True)
