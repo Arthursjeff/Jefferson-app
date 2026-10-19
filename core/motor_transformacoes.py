@@ -7,7 +7,10 @@ from collections import defaultdict
 import re
 
 def normalizar(codigo):
-    return re.sub(r"\s+", "", str(codigo or "").upper()).replace("-", "")
+    texto = re.sub(r"\s+", "", str(codigo or "").upper())
+    # Hífens internos e sufixos técnicos (-I4, -72 etc.) são significativos.
+    # Somente a separação gráfica entre prefixo e família é removida.
+    return re.sub(r"^([A-Z]{1,4})-(?=(?:13|20|30)\d{2})", r"\1", texto)
 
 def consolidar_estoque(registros):
     """Admite linhas ERP {codigo, quantidade, numero_serie?}; serial opcional."""
