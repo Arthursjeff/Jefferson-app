@@ -56,6 +56,39 @@ _PADRAO_CORPO_ROSCADO = re.compile(
 )
 
 
+# Para doadores de corpo, só família, tamanho e rosca são relevantes.
+# Vedação, torre e complementos elétricos não interferem nesta busca.
+_PADRAO_CHAVE_CORPO = re.compile(
+    r"^[A-Z]{0,4}(?P<familia>(?:13|20|30)\d{2})"
+    r"[A-Z]{1,6}(?P<tamanho>\d{2})(?P<npt>T?)(?:INA)?(?:-[A-Z0-9]+)?$"
+)
+
+
+def chave_corpo(codigo):
+    """Retorna (familia, tamanho, rosca) apenas para códigos reconhecidos."""
+    encontrado = _PADRAO_CHAVE_CORPO.fullmatch(normalizar(codigo))
+    if not encontrado:
+        return None
+    return (
+        encontrado.group("familia"),
+        encontrado.group("tamanho"),
+        "NPT" if encontrado.group("npt") == "T" else "BSP",
+    )
+
+
+def localizar_doadores_corpo(codigo_destino, estoque):
+    """Lista válvulas com o corpo solicitado disponíveis no estoque."""
+    procurada = chave_corpo(codigo_destino)
+    if procurada is None:
+        return []
+    candidatos = []
+    for codigo, quantidade in estoque.items():
+        if quantidade > 0 and normalizar(codigo) != normalizar(codigo_destino):
+            if chave_corpo(codigo) == procurada:
+                candidatos.append({"codigo": codigo, "quantidade": quantidade})
+    return sorted(candidatos, key=lambda item: (-item["quantidade"], item["codigo"]))
+
+
 def corpo_oposto(codigo):
     """Obtém (tipo_destino, tipo_origem, codigo_base) sem alterar outros atributos."""
     codigo = normalizar(codigo)
@@ -123,16 +156,27 @@ def avaliar(codigo_destino, tipo, metodo, estoque, regras=None):
         qtd = estoque.get(candidato, 0)
         if qtd > 0:
             resultado["base"].append({"codigo": candidato, "quantidade": qtd})
-            resultado["status"] = "BASE_LOCALIZADA"
-            resultado["pendencias"].append(
-                "Base encontrada. A origem do corpo %s e a recomposição residual "
-                "ainda exigem regras próprias." % destino_rosca
-            )
         else:
             resultado["pendencias"].append(
                 "Válvula base %s (%s) sem saldo no estoque carregado." %
                 (candidato, origem_rosca)
             )
+        resultado["doadores"] = localizar_doadores_corpo(codigo, estoque)
+        if not resultado["doadores"]:
+            resultado["pendencias"].append(
+                "Nenhuma válvula com corpo %s da família e tamanho solicitados "
+                "foi encontrada no estoque informado." % destino_rosca
+            )
+        if resultado["base"] and resultado["doadores"]:
+            resultado["status"] = "SIMULACAO_POSSIVEL"
+            resultado["pendencias"].append(
+                "Base e doadores identificados. Recomposição dos componentes "
+                "restantes ainda não implementada."
+            )
+        elif resultado["base"]:
+            resultado["status"] = "BASE_LOCALIZADA"
+        elif resultado["doadores"]:
+            resultado["status"] = "DOADORES_LOCALIZADOS"
         return resultado
     regra = regras.get(resultado["familia"], {}).get(tipo.lower(), {})
     if not regra:
