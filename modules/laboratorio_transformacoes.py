@@ -2,7 +2,7 @@
 import io
 import pandas as pd
 import streamlit as st
-from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar
+from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo
 
 
 def _ler_estoque(arquivo):
@@ -104,10 +104,42 @@ def pagina_laboratorio_transformacoes():
     if resultado["doadores"]:
         st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Origens homologadas disponíveis para o componente:")
         opcoes = [x["codigo"] for x in resultado["doadores"]]
-        st.selectbox("Selecione a origem utilizada", opcoes)
+        doadora = st.selectbox("Selecione a origem utilizada", opcoes)
         st.caption("A origem selecionada é apenas uma simulação. Nenhum item será consumido ou reservado.")
+        if resultado["tipo"] == "CORPO":
+            if resultado["base"]:
+                try:
+                    simulacao = calcular_residual_corpo(resultado, doadora)
+                except ValueError as exc:
+                    st.warning(f"Não foi possível calcular o residual: {exc}")
+                else:
+                    st.subheader("Resultado da troca de corpos")
+                    esquerda, direita = st.columns(2)
+                    with esquerda:
+                        st.markdown("**Válvula final (pedido)**")
+                        st.code(simulacao["produto_final"])
+                    with direita:
+                        st.markdown("**Válvula residual (retorno)**")
+                        st.code(simulacao["produto_residual"])
+                    st.caption(
+                        f"Retirar corpo {simulacao['corpo_destino']} de {doadora}, "
+                        f"transferir para {simulacao['valvula_base']} e montar "
+                        f"o corpo {simulacao['corpo_origem']} na válvula doadora."
+                    )
+                    assinatura = (
+                        simulacao["produto_final"], simulacao["valvula_base"],
+                        simulacao["valvula_doadora"], simulacao["produto_residual"]
+                    )
+                    if st.button("Validar os dois códigos", key="validar_residual_corpo"):
+                        st.session_state["residual_corpo_validado"] = assinatura
+                    if st.session_state.get("residual_corpo_validado") == assinatura:
+                        st.success("Códigos validados pelo operador nesta simulação.")
+                    else:
+                        st.info("Confirme os códigos da válvula vendida e da válvula residual.")
+            else:
+                st.warning("A válvula base não está disponível para formar o produto final.")
     if resultado["pendencias"]:
         for texto in resultado["pendencias"]:
             st.warning(texto)
-    st.caption("Nenhuma peça é presumida compatível apenas por aparência do código. "
-               "As regras de doadores, kits e produtos residuais serão cadastradas por família.")
+    st.caption("As sugestões usam regras por família, tamanho e rosca. "
+               "A validação não movimenta estoque e não substitui a conferência técnica física.")
