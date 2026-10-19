@@ -45,6 +45,33 @@ def base_sem_z(codigo):
     return ""
 
 
+
+# Regra direta de conversão de corpo roscado: o código permanece idêntico,
+# exceto pelo indicador T após o tamanho (NPT); sem T significa BSP.
+# Somente formatos sem ambiguidade são aceitos. Variantes não reconhecidas
+# devem ser cadastradas explicitamente antes de usar na produção.
+_PADRAO_CORPO_ROSCADO = re.compile(
+    r"^(?P<base>[A-Z]{0,4}(?:13|20|30)\d{2}[A-Z]{1,6}\d{2})"
+    r"(?P<npt>T?)(?P<indicador>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
+)
+
+
+def corpo_oposto(codigo):
+    """Obtém (tipo_destino, tipo_origem, codigo_base) sem alterar outros atributos."""
+    codigo = normalizar(codigo)
+    encontrado = _PADRAO_CORPO_ROSCADO.fullmatch(codigo)
+    if not encontrado:
+        return None
+    partes = encontrado.groupdict()
+    if partes["npt"] == "T":
+        return "NPT", "BSP", (
+            partes["base"] + (partes["indicador"] or "") + (partes["eletrico"] or "")
+        )
+    return "BSP", "NPT", (
+        partes["base"] + "T" + (partes["indicador"] or "") + (partes["eletrico"] or "")
+    )
+
+
 # Registro incremental de regras por família / construção.
 # Nenhuma equivalência de torre é assumida entre famílias.
 REGRAS = {
@@ -77,6 +104,35 @@ def avaliar(codigo_destino, tipo, metodo, estoque, regras=None):
         return resultado
     if metodo not in ("VALVULA_VALVULA", "VALVULA_KIT"):
         resultado["pendencias"].append("Selecione Válvula–Válvula ou Válvula–Kit.")
+        return resultado
+    if tipo == "CORPO":
+        if metodo != "VALVULA_VALVULA":
+            resultado["pendencias"].append("Troca de corpo só admite Válvula–Válvula.")
+            return resultado
+        oposto = corpo_oposto(codigo)
+        if oposto is None:
+            resultado["pendencias"].append(
+                "Formato de código não reconhecido para troca BSP/NPT. "
+                "Não foi gerada uma sugestão automática."
+            )
+            return resultado
+        destino_rosca, origem_rosca, candidato = oposto
+        resultado["conexao_destino"] = destino_rosca
+        resultado["conexao_base"] = origem_rosca
+        resultado["codigo_base_esperado"] = candidato
+        qtd = estoque.get(candidato, 0)
+        if qtd > 0:
+            resultado["base"].append({"codigo": candidato, "quantidade": qtd})
+            resultado["status"] = "BASE_LOCALIZADA"
+            resultado["pendencias"].append(
+                "Base encontrada. A origem do corpo %s e a recomposição residual "
+                "ainda exigem regras próprias." % destino_rosca
+            )
+        else:
+            resultado["pendencias"].append(
+                "Válvula base %s (%s) sem saldo no estoque carregado." %
+                (candidato, origem_rosca)
+            )
         return resultado
     regra = regras.get(resultado["familia"], {}).get(tipo.lower(), {})
     if not regra:
