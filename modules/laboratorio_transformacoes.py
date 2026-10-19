@@ -102,10 +102,10 @@ def pagina_laboratorio_transformacoes():
         st.success("Base candidata localizada no estoque provisório.")
         st.dataframe(pd.DataFrame(resultado["base"]), hide_index=True, use_container_width=True)
     if resultado["doadores"]:
-        st.write("Origens homologadas disponíveis para o componente:")
+        st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Origens homologadas disponíveis para o componente:")
         opcoes = [x["codigo"] for x in resultado["doadores"]]
         st.selectbox("Selecione a origem utilizada", opcoes)
-        st.caption("A escolha é apenas uma simulação e não será gravada.")
+        st.caption("A origem selecionada é apenas uma simulação. Nenhum item será consumido ou reservado.")
     if resultado["pendencias"]:
         for texto in resultado["pendencias"]:
             st.warning(texto)
