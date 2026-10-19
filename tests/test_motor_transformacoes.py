@@ -1,5 +1,5 @@
 import unittest
-from core.motor_transformacoes import normalizar, consolidar_estoque, avaliar, corpo_oposto, chave_corpo, localizar_doadores_corpo
+from core.motor_transformacoes import normalizar, consolidar_estoque, avaliar, corpo_oposto, chave_corpo, localizar_doadores_corpo, calcular_residual_corpo
 
 
 class TestLaboratorioTransformacoes(unittest.TestCase):
@@ -75,6 +75,39 @@ class TestLaboratorioTransformacoes(unittest.TestCase):
         self.assertIsNone(chave_corpo("1342BE08B"))
         self.assertEqual(localizar_doadores_corpo("1342BV08T",
                                                   {"1342BE08B": 5}), [])
+
+    def test_residual_corpo_npt_doado_para_bsp(self):
+        estoque = {"1342BV08": 45, "1342BA08T": 3}
+        avaliacao = avaliar("1342BV08T", "CORPO", "VALVULA_VALVULA", estoque)
+        produto = calcular_residual_corpo(avaliacao, "1342BA08T")
+        self.assertEqual(produto["produto_final"], "1342BV08T")
+        self.assertEqual(produto["produto_residual"], "1342BA08")
+        self.assertEqual(produto["valvula_base"], "1342BV08")
+        self.assertTrue(produto["simulacao"])
+
+    def test_residual_corpo_bsp_doado_para_npt(self):
+        estoque = {"1342BV08T": 5, "1342BE08": 1}
+        avaliacao = avaliar("1342BV08", "CORPO", "VALVULA_VALVULA", estoque)
+        produto = calcular_residual_corpo(avaliacao, "1342BE08")
+        self.assertEqual(produto["produto_residual"], "1342BE08T")
+
+    def test_residual_preserva_variantes_doadora(self):
+        estoque = {"Z1335BE04INA": 2, "Z1335BA04TINA": 1}
+        avaliacao = avaliar("Z1335BE04TINA", "CORPO", "VALVULA_VALVULA", estoque)
+        produto = calcular_residual_corpo(avaliacao, "Z1335BA04TINA")
+        self.assertEqual(produto["produto_residual"], "Z1335BA04INA")
+
+    def test_residual_rejeita_doadora_fora_da_lista(self):
+        r = avaliar("1342BV08T", "CORPO", "VALVULA_VALVULA",
+                    {"1342BV08": 3, "1342BA08T": 1})
+        with self.assertRaises(ValueError):
+            calcular_residual_corpo(r, "1342BE08T")
+
+    def test_residual_exige_base_e_doadora(self):
+        r = avaliar("1342BV08T", "CORPO", "VALVULA_VALVULA",
+                    {"1342BA08T": 3})
+        with self.assertRaises(ValueError):
+            calcular_residual_corpo(r, "1342BA08T")
 
     def test_corpo_nao_inventa_para_codigos_ambiguos(self):
         self.assertIsNone(corpo_oposto("Z1335BE04B"))
