@@ -51,7 +51,7 @@ def base_sem_z(codigo):
 # Somente formatos sem ambiguidade são aceitos. Variantes não reconhecidas
 # devem ser cadastradas explicitamente antes de usar na produção.
 _PADRAO_CORPO_ROSCADO = re.compile(
-    r"^(?P<base>[A-Z]{0,4}(?:13|20|30)\\d{2}[A-Z]{1,6}\\d{2})"
+    r"^(?P<base>[A-Z]{0,4}(?:13|20|30)\d{2}[A-Z]{1,6}\d{2})"
     r"(?P<npt>T?)(?P<indicador>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
 )
 
