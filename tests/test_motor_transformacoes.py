@@ -5,6 +5,8 @@ from core.motor_transformacoes import normalizar, consolidar_estoque, avaliar
 class TestLaboratorioTransformacoes(unittest.TestCase):
     def test_normalizacao_sem_mudar_componente(self):
         self.assertEqual(normalizar("Z-1335 BE 04"), "Z1335BE04")
+        self.assertEqual(normalizar("ZC1335BA04-I4"), "ZC1335BA04-I4")
+        self.assertEqual(normalizar("1335BA04-72"), "1335BA04-72")
 
     def test_estoque_com_series_agrupadas(self):
         saldo, series, invalidos = consolidar_estoque([
