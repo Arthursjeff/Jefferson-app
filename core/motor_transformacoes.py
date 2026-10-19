@@ -105,6 +105,53 @@ def corpo_oposto(codigo):
     )
 
 
+def calcular_residual_corpo(resultado, codigo_doadora):
+    """Simula saída de produto vendido + residual após permuta dos corpos.
+
+    A válvula base fornece os componentes não corporais do produto vendido;
+    a doadora fornece o corpo requerido e conserva os seus demais componentes
+    com o corpo retirado da base. Não efetua nenhuma movimentação.
+    """
+    if resultado.get("tipo") != "CORPO":
+        raise ValueError("Cálculo residual disponível somente para troca de corpo.")
+    if resultado.get("status") != "SIMULACAO_POSSIVEL":
+        raise ValueError("A transformação requer base e doadora disponíveis.")
+    if not resultado.get("base"):
+        raise ValueError("Nenhuma válvula base disponível.")
+    doadora = normalizar(codigo_doadora)
+    opcoes = {normalizar(x["codigo"]) for x in resultado.get("doadores", [])}
+    if doadora not in opcoes:
+        raise ValueError("Doadora não está entre as opções disponíveis.")
+    destino = resultado["destino"]
+    base = normalizar(resultado["base"][0]["codigo"])
+    chave_destino = chave_corpo(destino)
+    chave_base = chave_corpo(base)
+    chave_doadora = chave_corpo(doadora)
+    if not all([chave_destino, chave_base, chave_doadora]):
+        raise ValueError("Código de válvula não reconhecido para permuta.")
+    if chave_doadora != chave_destino:
+        raise ValueError("A doadora não fornece o corpo requerido.")
+    if (chave_base[:2] != chave_destino[:2]
+            or chave_base[2] == chave_destino[2]):
+        raise ValueError("O corpo da base não corresponde à rosca oposta.")
+    oposto = corpo_oposto(doadora)
+    if oposto is None or oposto[0] != chave_doadora[2] or oposto[1] != chave_base[2]:
+        raise ValueError("Não foi possível reconstruir o código residual.")
+    residual = oposto[2]
+    if chave_corpo(residual) != chave_base:
+        raise ValueError("O código residual não manteve família, tamanho e rosca.")
+    return {
+        "valvula_base": base,
+        "valvula_doadora": doadora,
+        "produto_final": destino,
+        "produto_residual": residual,
+        "corpo_origem": chave_base[2],
+        "corpo_destino": chave_destino[2],
+        "quantidade": 1,
+        "simulacao": True,
+    }
+
+
 # Registro incremental de regras por família / construção.
 # Nenhuma equivalência de torre é assumida entre famílias.
 REGRAS = {
@@ -170,8 +217,8 @@ def avaliar(codigo_destino, tipo, metodo, estoque, regras=None):
         if resultado["base"] and resultado["doadores"]:
             resultado["status"] = "SIMULACAO_POSSIVEL"
             resultado["pendencias"].append(
-                "Base e doadores identificados. Recomposição dos componentes "
-                "restantes ainda não implementada."
+                "Base e doadoras encontradas. Selecione a doadora para simular "
+                "o código residual e validar a transformação."
             )
         elif resultado["base"]:
             resultado["status"] = "BASE_LOCALIZADA"
