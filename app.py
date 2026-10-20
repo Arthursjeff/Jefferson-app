@@ -552,6 +552,42 @@ def modal_editar_pedido():
         value=pedido.get("nota_fiscal") or "",
     )
 
+    itens_atuais = listar_itens_pedido(pedido["id"])
+    itens_editados = None
+    series_editadas = {}
+    if itens_atuais:
+        st.markdown("#### Itens do pedido")
+        base = [{"ID": str(i["id"]), "Código": i["codigo"], "Tensão": i.get("tensao") or "",
+                 "Quantidade": float(i["quantidade"]), "Preço unitário": float(i["valor_unitario"])}
+                for i in itens_atuais]
+        editados = st.data_editor(base, num_rows="dynamic", hide_index=True, disabled=["ID"],
+                                  use_container_width=True, key=f"admin_itens_{pedido['id']}")
+        itens_editados = editados.to_dict("records")
+        st.caption("Adicione ou remova linhas para incluir ou excluir itens.")
+        series_salvas = listar_series(pedido["id"])
+        for item in itens_atuais:
+            ident = str(item["id"])
+            with st.expander(f"Números de série — {item['codigo']}"):
+                existentes = [s for s in series_salvas if str(s["pedido_item_id"]) == ident]
+                sem = st.checkbox("Sem número de série",
+                    value=bool(existentes and existentes[0].get("sem_numero")),
+                    key=f"adm_sem_{pedido['id']}_{ident}")
+                if sem:
+                    quantidade = next((x["Quantidade"] for x in itens_editados if str(x.get("ID")) == ident), item["quantidade"])
+                    series_editadas[ident] = [{"sem_numero": True, "quantidade": quantidade, "numero_serie": None}]
+                else:
+                    base_series = [{"Número de série": s.get("numero_serie") or "",
+                                    "Quantidade": float(s["quantidade"])}
+                                   for s in existentes if not s.get("sem_numero")]
+                    tabela_series = st.data_editor(base_series, num_rows="dynamic",
+                        hide_index=True, key=f"adm_series_{pedido['id']}_{ident}")
+                    series_editadas[ident] = [
+                        {"sem_numero": False, "numero_serie": x.get("Número de série"),
+                         "quantidade": x.get("Quantidade")}
+                        for x in tabela_series.to_dict("records")]
+    else:
+        st.info("Pedido sem itens cadastrados: edição dos dados gerais disponível.")
+
     c1, c2 = st.columns(2)
 
     with c1:
@@ -570,6 +606,8 @@ def modal_editar_pedido():
                 nota_fiscal=nota_fiscal,
                 usuario=st.session_state.nome,
                 setor_usuario=st.session_state.setor,
+                itens_editados=itens_editados,
+                series_editadas=series_editadas,
             )
 
             if sucesso:
