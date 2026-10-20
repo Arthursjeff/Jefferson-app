@@ -936,8 +936,8 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                 with st.container(border=True):
                     st.markdown(f"**{label}**")
                     render_sinalizacao_pedido(pedido,estado)
-                    mostrar_itens_do_card(pedido)
-                    exibir_series_card(pedido)
+                    itens_card = mostrar_itens_do_card(pedido)
+                    exibir_series_card(pedido, itens=itens_card)
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
