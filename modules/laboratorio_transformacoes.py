@@ -3,6 +3,7 @@ import io
 import pandas as pd
 import streamlit as st
 from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo, calcular_residual_torre
+from core.transformacoes_kit_2030 import OPCOES, parse as parse_kit_2030, avaliar as avaliar_kit_2030, calcular_residual as calcular_residual_kit_2030
 
 
 def _ler_estoque(arquivo):
@@ -73,28 +74,94 @@ def pagina_laboratorio_transformacoes():
 
     st.subheader("Simular transformação")
     codigo = st.text_input("Código técnico vendido", value="Z1335BE04")
-    tipo = st.radio("Tipo de transformação", ("Torre", "Vedação", "Corpo"),
+    tipo = st.radio("Tipo de transformação", ("Torre", "Kit de Reparo", "Corpo"),
                     horizontal=True)
-    metodos = ("Válvula–Válvula", "Válvula–Kit") if tipo == "Vedação" else ("Válvula–Válvula",)
-    metodo = st.radio("Origem do componente", metodos, horizontal=True)
+    op_kit = None
+    carreteis = {}
+    if tipo == "Kit de Reparo":
+        if parse_kit_2030(codigo):
+            op_kit = st.radio("Operação de Kit de Reparo", list(OPCOES),
+                              format_func=lambda v: OPCOES[v], horizontal=True)
+            if op_kit == "NA_NF" and parse_kit_2030(codigo)["vedacao"] == "A":
+                st.caption("Buna-N: identifique os códigos reais ERP dos carretéis G4 NA e NF. "
+                           "O laboratório não inventa referências de estoque.")
+                col_na, col_nf = st.columns(2)
+                with col_na:
+                    carreteis["NA"] = normalizar(st.text_input("Código ERP do carretel NA", key="kit_carretel_na"))
+                with col_nf:
+                    carreteis["NF"] = normalizar(st.text_input("Código ERP do carretel NF", key="kit_carretel_nf"))
+        else:
+            st.info("As operações de Kit de Reparo estão cadastradas inicialmente para "
+                    "2030L, tamanhos 12/16 e 10 com R/D, vedações A/V.")
+        metodo = "Válvula–Válvula"
+    else:
+        metodo = "Válvula–Válvula"
     if st.button("Analisar possibilidades", type="primary"):
-        st.session_state["laboratorio_transformacoes_resultado"] = avaliar(
-            codigo, tipo.upper().replace("Ç", "C").replace("Ã", "A"),
-            "VALVULA_KIT" if metodo == "Válvula–Kit" else "VALVULA_VALVULA",
-            saldos)
+        if tipo == "Kit de Reparo":
+            st.session_state["laboratorio_transformacoes_resultado"] = avaliar_kit_2030(
+                codigo, op_kit, saldos, carreteis)
+        else:
+            st.session_state["laboratorio_transformacoes_resultado"] = avaliar(
+                codigo, tipo.upper(), "VALVULA_VALVULA", saldos)
     resultado = st.session_state.get("laboratorio_transformacoes_resultado")
     if not resultado:
         return
-    tipo_atual = tipo.upper().replace("Ç", "C").replace("Ã", "A")
-    metodo_atual = "VALVULA_KIT" if metodo == "Válvula–Kit" else "VALVULA_VALVULA"
+    tipo_atual = "KIT" if tipo == "Kit de Reparo" else tipo.upper()
     if (normalizar(codigo) != resultado["destino"]
             or tipo_atual != resultado["tipo"]
-            or metodo_atual != resultado["metodo"]):
+            or (tipo_atual == "KIT" and op_kit != resultado.get("operacao"))):
         st.info("A seleção mudou. Clique em Analisar possibilidades para atualizar a simulação.")
         return
     st.subheader("Resultado da análise")
     st.write("Destino:", resultado["destino"])
     st.write("Saldo exato informado:", resultado["estoque_exato"])
+    if resultado["tipo"] == "KIT":
+        st.caption("Operação: " + OPCOES.get(resultado.get("operacao"), "não cadastrada"))
+        st.write("Configuração vendida:", resultado.get("configuracao", "não reconhecida"))
+        if resultado.get("codigo_base_esperado"):
+            st.write("Base esperada:")
+            st.code(resultado["codigo_base_esperado"])
+        if resultado.get("codigo_kit_esperado"):
+            st.write("Kit esperado:")
+            st.code(resultado["codigo_kit_esperado"])
+        if resultado["base"]:
+            st.success("Bases disponíveis encontradas no estoque provisório.")
+            st.dataframe(pd.DataFrame(resultado["base"]), hide_index=True, use_container_width=True)
+        if resultado["doadores"]:
+            st.success("Origens disponíveis encontradas no estoque provisório.")
+            st.dataframe(pd.DataFrame(resultado["doadores"]), hide_index=True, use_container_width=True)
+        if resultado["base"] and resultado["doadores"]:
+            base = st.selectbox("Escolha a válvula base", [x["codigo"] for x in resultado["base"]],
+                                key="kit_base", format_func=lambda v: v)
+            doadora = st.selectbox("Escolha a doadora / kit / carretel",
+                                   [x["codigo"] for x in resultado["doadores"]],
+                                   key="kit_doadora")
+            try:
+                simu = calcular_residual_kit_2030(resultado, base, doadora, carreteis)
+            except ValueError as exc:
+                st.warning("Combinação ainda não validada: " + str(exc))
+            else:
+                st.subheader("Resultado da transformação por kit")
+                col_saida, col_retorno = st.columns(2)
+                with col_saida:
+                    st.markdown("**Válvula vendida**")
+                    st.code(simu["produto_final"])
+                with col_retorno:
+                    st.markdown("**Residual previsto (" + simu["tipo_residual"] + ")**")
+                    st.code(simu["produto_residual"])
+                assinatura = (simu["produto_final"], simu["valvula_base"],
+                              simu["origem"], simu["produto_residual"])
+                if st.button("Validar os dois códigos", key="validar_residual_kit"):
+                    st.session_state["residual_kit_validado"] = assinatura
+                if st.session_state.get("residual_kit_validado") == assinatura:
+                    st.success("Códigos validados pelo operador nesta simulação.")
+                else:
+                    st.info("Confirme produto final e residual antes de validar.")
+        for pendencia in resultado["pendencias"]:
+            st.warning(pendencia)
+        st.caption("Simulação técnica; não baixa nem reserva válvulas, carretéis ou kits. "
+                   "A execução real requer conferência dos conjuntos G2/G4 e seus componentes.")
+        return
     if resultado["tipo"] == "CORPO" and resultado.get("codigo_base_esperado"):
         st.write(
             f"Corpo solicitado: **{resultado['conexao_destino']}**. "
