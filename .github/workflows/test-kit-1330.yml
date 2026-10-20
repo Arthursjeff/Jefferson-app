@@ -1,0 +1,31 @@
+name: Testes Kit 1330 e 2030
+on:
+  push:
+    branches:
+      - feature/kit-reparo-1330-uma-polegada
+      - main
+    paths:
+      - 'core/transformacoes_kit_2030.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'tests/test_kit_reparo_1330.py'
+      - 'tests/test_kit_reparo_2030.py'
+      - '.github/workflows/test-kit-1330.yml'
+  pull_request:
+    paths:
+      - 'core/transformacoes_kit_2030.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'tests/test_kit_reparo_1330.py'
+      - '.github/workflows/test-kit-1330.yml'
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m compileall -q core/transformacoes_kit_2030.py modules/laboratorio_transformacoes.py
+      - run: python -m unittest discover -s tests -p 'test_kit_reparo_1330.py' -v
+      - run: python -m unittest discover -s tests -p 'test_kit_reparo_2030.py' -v
+      - run: python -m unittest discover -s tests -p 'test_motor_transformacoes.py' -v
+      - run: python -m unittest discover -s tests -p 'test_transformacoes_torre_g1.py' -v
