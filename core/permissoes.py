@@ -1,7 +1,7 @@
 """Permissões individuais adicionais, sem alterar o grupo principal."""
 
 PERMISSOES_EXTRAS = {
-    "ricardo": {"Inteligência Comercial"},
+    "ricardo": {"Inteligência Comercial", "Laboratório de Transformações"},
 }
 
 

@@ -1229,6 +1229,9 @@ with st.sidebar:
     if tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Inteligência Comercial") and "Inteligência Comercial" not in paginas:
         paginas.append("Inteligência Comercial")
 
+    if tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Laboratório de Transformações") and "Laboratório de Transformações" not in paginas:
+        paginas.append("Laboratório de Transformações")
+
     pagina = st.radio(
         "Navegação",
         paginas,
@@ -1305,8 +1308,8 @@ elif pagina == "Laboratório de Códigos":
 
 
 elif pagina == "Laboratório de Transformações":
-    if st.session_state.setor != "ADMINISTRADOR":
-        st.error("Acesso exclusivo da Administração durante os testes.")
+    if not tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Laboratório de Transformações"):
+        st.error("Você não possui permissão para acessar este laboratório.")
         st.stop()
     pagina_laboratorio_transformacoes()
 
