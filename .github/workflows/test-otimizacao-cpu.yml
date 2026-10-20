@@ -34,6 +34,13 @@ jobs:
         run: pip install -r requirements.txt
       - name: Verificar sintaxe de todos os modulos
         run: python -m compileall -q app.py core modules components tests
+      - name: Inicializacao real do Streamlit sem login
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          tela = AppTest.from_file("app.py", default_timeout=30).run()
+          assert not tela.exception, [str(x.message) for x in tela.exception]
+          PY
       - name: Testar otimizacao da fila
         run: python -m unittest discover -s tests -p 'test_otimizacao_cpu.py' -v
       - name: Testar regressoes existentes
