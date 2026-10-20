@@ -578,12 +578,21 @@ def editar_dados_pedido(
     nota_fiscal: str,
     usuario: str,
     setor_usuario: str,
+    itens_editados=None,
+    series_editadas=None,
 ):
     if setor_usuario != "ADMINISTRADOR":
         return False, "Somente ADMINISTRADOR pode editar pedidos."
 
     if not numero_pedido or not cliente:
         return False, "Número do pedido e cliente são obrigatórios."
+
+    if itens_editados is not None:
+        from core.pedido_itens_comerciais import editar_itens_administrador
+        try:
+            editar_itens_administrador(pedido["id"], itens_editados, series_editadas or {}, usuario)
+        except (ValueError, Exception) as exc:
+            return False, f"Não foi possível editar os itens: {exc}"
 
     sucesso = editar_pedido(
         pedido_id=pedido["id"],
