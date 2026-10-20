@@ -21,7 +21,7 @@ def resolver_g1(familia, material=None, estado=None, construcao=None, vedacao=No
     if f=="2036" and b in {"12","1 1/2", '1 1/2"'}:
         grupo_torre="GENERICO"
     else:
-        grupo_torre=grupo
+        grupo_torre="GENERICO" if f in {"1342","1327","1390","1365","1325"} and not (f=="1390" and m=="INOX") else grupo
     if f=="1335" and m=="INOX" and b in {"04","06",'1/2"','3/4"',"1/2","3/4"}:
         tamanho_interno="MEIO_TRES_QUARTOS"
     else:
