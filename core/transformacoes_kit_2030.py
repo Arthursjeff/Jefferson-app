@@ -61,6 +61,10 @@ def conjunto_igual(a, b):
     """Compara construção, vedação, NA/NF e identidade G2; tamanho pode variar."""
     if not a or not b or a["na"] != b["na"]:
         return False
+    # Na 1330 de 1 polegada, a variante R altera o conjunto de reforço;
+    # nunca oferecer não reforçada para uma transformação de vedação reforçada.
+    if a["familia"] == "1330" and b["familia"] == "1330" and a["reforco"] != b["reforco"]:
+        return False
     g4a = identificar_conjunto_carretel(a["familia"], "NA" if a["na"] else "NF")
     g4b = identificar_conjunto_carretel(b["familia"], "NA" if b["na"] else "NF")
     return (identidade_g2(a) is not None and identidade_g2(a) == identidade_g2(b)
