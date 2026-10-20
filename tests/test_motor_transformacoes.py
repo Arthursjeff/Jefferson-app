@@ -71,6 +71,56 @@ class TestLaboratorioTransformacoes(unittest.TestCase):
         self.assertEqual(r["base"][0]["codigo"], "1342BV08T")
         self.assertEqual([x["codigo"] for x in r["doadores"]], ["1342BE08"])
 
+    def test_1314_com_final_a_e_t_deve_ser_npt(self):
+        self.assertEqual(chave_corpo("1314BA16AT"), ("1314", "16", "B", "NPT"))
+        self.assertEqual(chave_corpo("1314BA16A"), ("1314", "16", "B", "BSP"))
+        self.assertEqual(corpo_oposto("1314BA16AT"),
+                         ("NPT", "BSP", "1314BA16A"))
+        self.assertEqual(corpo_oposto("1314BA16A"),
+                         ("BSP", "NPT", "1314BA16AT"))
+
+    def test_1314_localiza_base_doadora_e_residual(self):
+        estoque = {
+            "1314BA16A": 4,
+            "1314BE16AT": 2,
+            "1314IA16AT": 9,
+            "1314BA12AT": 8,
+        }
+        resultado = avaliar("1314BA16AT", "CORPO", "VALVULA_VALVULA", estoque)
+        self.assertEqual(resultado["codigo_base_esperado"], "1314BA16A")
+        self.assertEqual(resultado["conexao_destino"], "NPT")
+        self.assertEqual([d["codigo"] for d in resultado["doadores"]],
+                         ["1314BE16AT"])
+        self.assertEqual(
+            calcular_residual_corpo(resultado, "1314BE16AT")["produto_residual"],
+            "1314BE16A",
+        )
+
+    def test_material_corpo_diferente_nao_pode_doar(self):
+        estoque = {
+            "1342BV08": 4, "1342IA08T": 10,
+            "1342BA08T": 2, "1342IV08T": 12,
+        }
+        resultado = avaliar("1342BV08T", "CORPO", "VALVULA_VALVULA", estoque)
+        self.assertEqual(chave_corpo("1342IA08T"),
+                         ("1342", "08", "I", "NPT"))
+        self.assertEqual([d["codigo"] for d in resultado["doadores"]],
+                         ["1342BA08T"])
+        with self.assertRaises(ValueError):
+            calcular_residual_corpo(resultado, "1342IA08T")
+
+    def test_material_da_base_nao_se_altera(self):
+        resultado = avaliar(
+            "1342IV08T", "CORPO", "VALVULA_VALVULA",
+            {"1342BV08": 5, "1342IV08": 1, "1342IA08T": 2},
+        )
+        self.assertEqual(resultado["codigo_base_esperado"], "1342IV08")
+        self.assertEqual(resultado["base"][0]["codigo"], "1342IV08")
+        self.assertEqual(
+            calcular_residual_corpo(resultado, "1342IA08T")["produto_residual"],
+            "1342IA08",
+        )
+
     def test_formato_desconhecido_nao_e_doador(self):
         self.assertIsNone(chave_corpo("1342BE08B"))
         self.assertEqual(localizar_doadores_corpo("1342BV08T",

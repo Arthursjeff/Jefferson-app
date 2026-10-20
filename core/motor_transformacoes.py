@@ -46,38 +46,41 @@ def base_sem_z(codigo):
 
 
 
-# Regra direta de conversão de corpo roscado: o código permanece idêntico,
-# exceto pelo indicador T após o tamanho (NPT); sem T significa BSP.
-# Somente formatos sem ambiguidade são aceitos. Variantes não reconhecidas
-# devem ser cadastradas explicitamente antes de usar na produção.
+# Estrutura técnica reconhecida para troca de corpo:
+#   [construção] [família] [material do corpo] [configuração] [tamanho]
+#   [final A, quando presente] [T=NPT, ausência=BSP] [INA] [-elétrico]
+# O primeiro caractere após a família identifica a construção/material do
+# corpo. Usamos a letra exata como chave, sem presumir equivalências.
+# Construções especiais não reconhecidas não entram automaticamente na troca.
 _PADRAO_CORPO_ROSCADO = re.compile(
-    r"^(?P<base>[A-Z]{0,4}(?:13|20|30)\d{2}[A-Z]{1,6}\d{2})"
-    r"(?P<npt>T?)(?P<indicador>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
+    r"^(?P<prefixo>[A-Z]{0,4})(?P<familia>(?:13|20|30)\d{2})"
+    r"(?P<material>[A-Z])(?P<configuracao>[A-Z]{0,5})"
+    r"(?P<tamanho>\d{2})(?P<final>A?)(?P<npt>T?)"
+    r"(?P<indicador>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
 )
 
 
-# Para doadores de corpo, só família, tamanho e rosca são relevantes.
-# Vedação, torre e complementos elétricos não interferem nesta busca.
-_PADRAO_CHAVE_CORPO = re.compile(
-    r"^[A-Z]{0,4}(?P<familia>(?:13|20|30)\d{2})"
-    r"[A-Z]{1,6}(?P<tamanho>\d{2})(?P<npt>T?)(?:INA)?(?:-[A-Z0-9]+)?$"
-)
+def _partes_corpo(codigo):
+    """Interpreta rosca e material sem confundir A final com BSP/NPT."""
+    encontrado = _PADRAO_CORPO_ROSCADO.fullmatch(normalizar(codigo))
+    return encontrado.groupdict() if encontrado else None
 
 
 def chave_corpo(codigo):
-    """Retorna (familia, tamanho, rosca) apenas para códigos reconhecidos."""
-    encontrado = _PADRAO_CHAVE_CORPO.fullmatch(normalizar(codigo))
-    if not encontrado:
+    """Retorna (familia, tamanho, material, rosca)."""
+    partes = _partes_corpo(codigo)
+    if partes is None:
         return None
     return (
-        encontrado.group("familia"),
-        encontrado.group("tamanho"),
-        "NPT" if encontrado.group("npt") == "T" else "BSP",
+        partes["familia"],
+        partes["tamanho"],
+        partes["material"],
+        "NPT" if partes["npt"] == "T" else "BSP",
     )
 
 
 def localizar_doadores_corpo(codigo_destino, estoque):
-    """Lista válvulas com o corpo solicitado disponíveis no estoque."""
+    """Lista válvulas com família, tamanho, MATERIAL e rosca correspondentes."""
     procurada = chave_corpo(codigo_destino)
     if procurada is None:
         return []
@@ -90,19 +93,19 @@ def localizar_doadores_corpo(codigo_destino, estoque):
 
 
 def corpo_oposto(codigo):
-    """Obtém (tipo_destino, tipo_origem, codigo_base) sem alterar outros atributos."""
-    codigo = normalizar(codigo)
-    encontrado = _PADRAO_CORPO_ROSCADO.fullmatch(codigo)
-    if not encontrado:
+    """Obtém (rosca_destino, rosca_oposta, código com rosca invertida)."""
+    partes = _partes_corpo(codigo)
+    if partes is None:
         return None
-    partes = encontrado.groupdict()
-    if partes["npt"] == "T":
-        return "NPT", "BSP", (
-            partes["base"] + (partes["indicador"] or "") + (partes["eletrico"] or "")
-        )
-    return "BSP", "NPT", (
-        partes["base"] + "T" + (partes["indicador"] or "") + (partes["eletrico"] or "")
+    comum = (
+        partes["prefixo"] + partes["familia"] + partes["material"]
+        + partes["configuracao"] + partes["tamanho"] + partes["final"]
     )
+    restante = (partes["indicador"] or "") + (partes["eletrico"] or "")
+    if partes["npt"] == "T":
+        return "NPT", "BSP", comum + restante
+    return "BSP", "NPT", comum + "T" + restante
+
 
 
 def calcular_residual_corpo(resultado, codigo_doadora):
@@ -131,22 +134,22 @@ def calcular_residual_corpo(resultado, codigo_doadora):
         raise ValueError("Código de válvula não reconhecido para permuta.")
     if chave_doadora != chave_destino:
         raise ValueError("A doadora não fornece o corpo requerido.")
-    if (chave_base[:2] != chave_destino[:2]
-            or chave_base[2] == chave_destino[2]):
+    if (chave_base[:3] != chave_destino[:3]
+            or chave_base[3] == chave_destino[3]):
         raise ValueError("O corpo da base não corresponde à rosca oposta.")
     oposto = corpo_oposto(doadora)
-    if oposto is None or oposto[0] != chave_doadora[2] or oposto[1] != chave_base[2]:
+    if oposto is None or oposto[0] != chave_doadora[3] or oposto[1] != chave_base[3]:
         raise ValueError("Não foi possível reconstruir o código residual.")
     residual = oposto[2]
     if chave_corpo(residual) != chave_base:
-        raise ValueError("O código residual não manteve família, tamanho e rosca.")
+        raise ValueError("O código residual não manteve família, tamanho, material e rosca.")
     return {
         "valvula_base": base,
         "valvula_doadora": doadora,
         "produto_final": destino,
         "produto_residual": residual,
-        "corpo_origem": chave_base[2],
-        "corpo_destino": chave_destino[2],
+        "corpo_origem": chave_base[3],
+        "corpo_destino": chave_destino[3],
         "quantidade": 1,
         "simulacao": True,
     }
@@ -211,7 +214,7 @@ def avaliar(codigo_destino, tipo, metodo, estoque, regras=None):
         resultado["doadores"] = localizar_doadores_corpo(codigo, estoque)
         if not resultado["doadores"]:
             resultado["pendencias"].append(
-                "Nenhuma válvula com corpo %s da família e tamanho solicitados "
+                "Nenhuma válvula com corpo %s da família, tamanho e material solicitados "
                 "foi encontrada no estoque informado." % destino_rosca
             )
         if resultado["base"] and resultado["doadores"]:
