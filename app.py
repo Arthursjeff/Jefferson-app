@@ -3,10 +3,9 @@ from modules.modulo_01.cadastro_integrado import pagina_cadastro_integrado, most
 from core.pedido_itens_comerciais import listar_itens_pedido
 from modules.modulo_01.rastreabilidade import listar_series
 import streamlit as st
-import json
 from modules.modulo_01.sinalizacoes import registrar_sinalizacao, dados_evento
-import streamlit.components.v1 as components
 from core.admin import apagar_tudo
+from core.fila_revisao import obter_versao_fila
 from modules.modulo_orcamentos.orcamentos_ui import pagina_orcamentos
 from modules.modulo_orcamentos.clientes_ui import pagina_clientes
 from modules.modulo_orcamentos.clientes_importacao_ui import pagina_importar_clientes
@@ -27,8 +26,6 @@ from modules.modulo_01.service import (
     pesquisar_historico_retirados,
     salvar_foto_e_avancar,
     criar_novo_pedido,
-    obter_notificacoes_pendentes,
-    visualizar_notificacao,
     avancar_pedido,
     faturar_com_nota,
     alterar_status_expedicao,
@@ -56,69 +53,6 @@ st.set_page_config(
     page_icon="assets/icone_jefferson.png",
     layout="wide",
 )
-
-def ativar_notificacoes():
-    components.html(
-        """
-        <div id="ativar_notificacoes"></div>
-
-        <script>
-        async function iniciar() {
-
-            if (!("Notification" in window)) {
-                document.getElementById("ativar_notificacoes").innerHTML =
-                    "<b>Este navegador não suporta notificações.</b>";
-                return;
-            }
-
-            if (Notification.permission === "granted") {
-                return;
-            }
-
-            if (Notification.permission === "denied") {
-                document.getElementById("ativar_notificacoes").innerHTML =
-                    "<b>⚠️ As notificações estão bloqueadas neste navegador.</b>";
-                return;
-            }
-
-            document.getElementById("ativar_notificacoes").innerHTML = `
-                <button onclick="pedirPermissao()"
-                    style="
-                        background:#0e7490;
-                        color:white;
-                        border:none;
-                        padding:10px 18px;
-                        border-radius:8px;
-                        cursor:pointer;
-                        font-weight:bold;
-                    ">
-                    🔔 Ativar notificações
-                </button>
-            `;
-        }
-
-        async function pedirPermissao(){
-
-            const permissao = await Notification.requestPermission();
-
-            if(permissao==="granted"){
-
-                new Notification("Jefferson App",{
-                    body:"Notificações ativadas com sucesso!"
-                });
-
-                location.reload();
-
-            }
-
-        }
-
-        iniciar();
-
-        </script>
-        """,
-        height=70,
-    )
 
 def init_session():
     st.session_state.setdefault("logado", False)
@@ -746,45 +680,41 @@ def tela_login():
 def pagina_criar_pedido():
     pagina_cadastro_integrado()
 
-def verificar_notificacoes():
-    if not st.session_state.logado:
+@st.fragment(run_every="30s")
+def monitor_revisao_fila():
+    """Verifica apenas uma versão no banco, sem reconstruir a fila inteira.
+
+    Se o recurso de revisão estiver indisponível, usa atualização de reserva
+    a cada 120 segundos para não perder a sincronização entre computadores.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    data_local = agora.date().isoformat()
+
+    try:
+        versao = obter_versao_fila()
+    except Exception:
+        ultima = st.session_state.get("fila_ultimo_fallback")
+        if ultima is None:
+            st.session_state["fila_ultimo_fallback"] = agora
+        elif (agora - ultima).total_seconds() >= 120:
+            st.session_state["fila_ultimo_fallback"] = agora
+            st.rerun()
         return
 
-    usuario = st.session_state.usuario
+    st.session_state.pop("fila_ultimo_fallback", None)
+    anterior = st.session_state.get("fila_versao_vista")
+    dia_anterior = st.session_state.get("fila_data_vista")
+    st.session_state["fila_versao_vista"] = versao
+    st.session_state["fila_data_vista"] = data_local
 
-    notificacoes = obter_notificacoes_pendentes(usuario)
+    if anterior is not None and (anterior != versao or dia_anterior != data_local):
+        st.rerun()
 
-    if not notificacoes:
-        return
 
-    for notif in notificacoes:
-        titulo = "Jefferson App"
-        mensagem = notif.get("mensagem", "Nova notificação")
-
-        components.html(
-            f"""
-            <script>
-            if ("Notification" in window && Notification.permission === "granted") {{
-                new Notification({json.dumps(titulo)}, {{
-                    body: {json.dumps(mensagem)},
-                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png",
-                    requireInteraction: true
-                }});
-            }}
-            </script>
-            """,
-            height=1,
-        )
-
-        visualizar_notificacao(notif["id"])
-
-    st.rerun()
-    
-@st.fragment(run_every="15s")
-def monitor_notificacoes():
-    verificar_notificacoes()
-
-@st.fragment(run_every="60s")
+@st.fragment
 def render_kanban():
     pedidos_por_estado = obter_pedidos_por_estado()
     contagens_mensagens = obter_contagens_mensagens()
@@ -835,7 +765,6 @@ def modal_teste_camera():
 
 def pagina_fila():
     st.title("📦 Fila de Pedidos")
-    ativar_notificacoes()
     if st.session_state.setor == "ADMINISTRADOR":
         with st.expander("⚙️ Administração"):
             c_admin1, c_admin2 = st.columns(2)
@@ -876,6 +805,7 @@ def pagina_fila():
     if st.button("🔄 Atualizar"):
         st.rerun()
     
+    monitor_revisao_fila()
     render_kanban()
 
 def icone_tipo_pedido(tipo_pedido):
@@ -1006,8 +936,8 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                 with st.container(border=True):
                     st.markdown(f"**{label}**")
                     render_sinalizacao_pedido(pedido,estado)
-                    mostrar_itens_do_card(pedido)
-                    exibir_series_card(pedido)
+                    itens_card = mostrar_itens_do_card(pedido)
+                    exibir_series_card(pedido, itens=itens_card)
                     st.caption(f"Criado por: {pedido.get('criado_por', '')}")
                     st.caption(f"Criado em: {pedido.get('criado_data', '')} às {pedido.get('criado_hora', '')}")
                     if pedido.get("nota_fiscal"):
@@ -1238,7 +1168,6 @@ if st.session_state.show_peso_volume_modal and st.session_state.pedido_peso_volu
 if st.session_state.show_trocar_operador:
     modal_trocar_operador()
 
-monitor_notificacoes()
 
 if st.session_state.show_foto_modal and st.session_state.pedido_foto:
     pedido_foto = st.session_state.pedido_foto

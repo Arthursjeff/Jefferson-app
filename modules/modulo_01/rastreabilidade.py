@@ -3,8 +3,9 @@ from decimal import Decimal
 from core.database import supabase
 from core.pedido_itens_comerciais import listar_itens_pedido
 
-def listar_series(pedido_id):
-    itens = listar_itens_pedido(pedido_id)
+def listar_series(pedido_id, itens=None):
+    if itens is None:
+        itens = listar_itens_pedido(pedido_id)
     if not itens:
         return []
     ids = [i["id"] for i in itens]
@@ -107,12 +108,14 @@ def interface_rastreabilidade(pedido):
                 for x in (linhas.to_dict("records") if hasattr(linhas, "to_dict") else linhas)]
     return entradas
 
-def exibir_series_card(pedido):
+def exibir_series_card(pedido, itens=None):
     import streamlit as st
     with st.expander("Rastreabilidade / números de série"):
         try:
-            series = listar_series(pedido["id"])
-            itens = {i["id"]: i for i in listar_itens_pedido(pedido["id"])}
+            if itens is None:
+                itens = listar_itens_pedido(pedido["id"])
+            series = listar_series(pedido["id"], itens=itens)
+            itens = {i["id"]: i for i in itens}
             if not series:
                 st.caption("Nenhum número de série registrado.")
             else:

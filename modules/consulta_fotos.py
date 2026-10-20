@@ -264,57 +264,62 @@ def pagina_consulta_pedidos():
     st.title("🔎 Consulta de Pedidos")
     st.caption("Consulte todo o histórico por cliente, número do pedido ou nota fiscal.")
 
-    aba_cliente, aba_pedido, aba_nota = st.tabs(["Cliente", "Número do pedido", "Nota"])
+    aba_cliente, aba_pedido, aba_nota = st.tabs(
+        ["Cliente", "Número do pedido", "Nota"], on_change="rerun", key="consulta_pedidos_aba_ativa"
+    )
 
     with aba_cliente:
-        termo = st.text_input(
-            "Cliente",
-            placeholder="Digite nome, razão social, CNPJ/CPF ou código do cliente",
-            key="consulta_pedido_cliente",
-        )
-        clientes = buscar_clientes(termo, limite=30) if termo.strip() else []
-
-        if termo.strip() and not clientes:
-            st.info("Nenhum cliente encontrado.")
-
-        if clientes:
-            cliente = st.selectbox(
-                "Selecione o cliente",
-                clientes,
-                format_func=_rotulo_cliente,
-                key="consulta_pedido_cliente_selecionado",
+        if aba_cliente.open:
+            termo = st.text_input(
+                "Cliente",
+                placeholder="Digite nome, razão social, CNPJ/CPF ou código do cliente",
+                key="consulta_pedido_cliente",
             )
-            pedido = _selecionar_resultado(
-                _pedidos_do_cliente(cliente),
-                "consulta_pedido_resultado_cliente",
-            )
-            if pedido:
-                _mostrar_pedido(pedido)
+            clientes = buscar_clientes(termo, limite=30) if termo.strip() else []
+
+            if termo.strip() and not clientes:
+                st.info("Nenhum cliente encontrado.")
+
+            if clientes:
+                cliente = st.selectbox(
+                    "Selecione o cliente",
+                    clientes,
+                    format_func=_rotulo_cliente,
+                    key="consulta_pedido_cliente_selecionado",
+                )
+                pedido = _selecionar_resultado(
+                    _pedidos_do_cliente(cliente),
+                    "consulta_pedido_resultado_cliente",
+                )
+                if pedido:
+                    _mostrar_pedido(pedido)
 
     with aba_pedido:
-        numero = st.text_input(
-            "Número do pedido",
-            placeholder="Digite o número do pedido",
-            key="consulta_pedido_numero",
-        )
-        if numero.strip():
-            pedido = _selecionar_resultado(
-                _buscar_por_pedido(numero),
-                "consulta_pedido_resultado_numero",
+        if aba_pedido.open:
+            numero = st.text_input(
+                "Número do pedido",
+                placeholder="Digite o número do pedido",
+                key="consulta_pedido_numero",
             )
-            if pedido:
-                _mostrar_pedido(pedido)
+            if numero.strip():
+                pedido = _selecionar_resultado(
+                    _buscar_por_pedido(numero),
+                    "consulta_pedido_resultado_numero",
+                )
+                if pedido:
+                    _mostrar_pedido(pedido)
 
     with aba_nota:
-        nota = st.text_input(
-            "Nota",
-            placeholder="Ex.: 32.000 ou 32000",
-            key="consulta_pedido_nota",
-        )
-        if nota.strip():
-            pedido = _selecionar_resultado(
-                _buscar_por_nota(nota),
-                "consulta_pedido_resultado_nota",
+        if aba_nota.open:
+            nota = st.text_input(
+                "Nota",
+                placeholder="Ex.: 32.000 ou 32000",
+                key="consulta_pedido_nota",
             )
-            if pedido:
-                _mostrar_pedido(pedido)
+            if nota.strip():
+                pedido = _selecionar_resultado(
+                    _buscar_por_nota(nota),
+                    "consulta_pedido_resultado_nota",
+                )
+                if pedido:
+                    _mostrar_pedido(pedido)

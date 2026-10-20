@@ -986,13 +986,21 @@ def pagina_inteligencia_comercial():
         st.info("Não há registros comerciais disponíveis.")
         return
     primeira = df.groupby("cliente")["data"].min()
-    tabs = st.tabs(["01 · Conversão","02 · Produtos","03 · Sazonalidade","04 · Recuperação"])
+    # Manter as abas; executar somente os cálculos da aba ativa.
+    tabs = st.tabs(
+        ["01 · Conversão", "02 · Produtos", "03 · Sazonalidade", "04 · Recuperação"],
+        on_change="rerun", key="ic2_aba_ativa",
+    )
     with tabs[0]:
-        pagina_conversao(df)
+        if tabs[0].open:
+            pagina_conversao(df)
     with tabs[1]:
-        pagina_produtos(df,primeira)
+        if tabs[1].open:
+            pagina_produtos(df, primeira)
     with tabs[2]:
-        pagina_sazonalidade(df,primeira)
+        if tabs[2].open:
+            pagina_sazonalidade(df, primeira)
     with tabs[3]:
-        pagina_recuperacao(df,primeira)
+        if tabs[3].open:
+            pagina_recuperacao(df, primeira)
     st.caption("Classificações: Top 20, Principais perdas, Novos entrantes (sem movimentação antes de 2024), Potenciais players (compras em crescimento) e Oportunidades (orçamentos em crescimento).")

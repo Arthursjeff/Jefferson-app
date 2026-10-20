@@ -95,8 +95,10 @@ def obter_pedidos():
     return listar_pedidos(status="ATIVO")
 
 
-def _mapa_retiradas():
-    movimentacoes = listar_movimentacoes_destino("RETIRADO", origem="EMBALADO")
+def _mapa_retiradas(criado_desde=None):
+    movimentacoes = listar_movimentacoes_destino(
+        "RETIRADO", origem="EMBALADO", criado_desde=criado_desde
+    )
     mapa = {}
 
     # A consulta vem da mais recente para a mais antiga. Mantemos a última
@@ -124,8 +126,11 @@ STATUS_EXPEDICAO = {
 }
 
 
-def _mapa_status_expedicao():
-    movimentacoes = listar_movimentacoes_tipo("STATUS_EXPEDICAO")
+def _mapa_status_expedicao(pedidos=None):
+    ids = None if pedidos is None else [
+        p["id"] for p in pedidos if p.get("setor_atual") in ("FATURADO", "EMBALADO")
+    ]
+    movimentacoes = listar_movimentacoes_tipo("STATUS_EXPEDICAO", pedido_ids=ids)
     mapa = {}
 
     # A consulta vem da mais recente para a mais antiga.
@@ -153,11 +158,21 @@ def obter_pedidos_por_estado():
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
 
-    pedidos = enriquecer_pedidos(obter_pedidos())
     agrupado = {estado: [] for estado in ESTADOS_FILA}
-    retiradas = _mapa_retiradas()
-    status_expedicao = _mapa_status_expedicao()
     limite_retirados = datetime.now(ZoneInfo("America/Sao_Paulo")) - timedelta(days=3)
+
+    # A maioria dos pedidos ATIVOS já foi retirada. Limitar no SQL,
+    # preservando a busca completa de histórico em pesquisar_historico_retirados.
+    retiradas = _mapa_retiradas(criado_desde=limite_retirados.isoformat())
+    nao_retirados = listar_pedidos(status="ATIVO", excluir_setor="RETIRADO")
+    retirados_recentes = listar_pedidos(status="ATIVO", ids=list(retiradas))
+    retirados_recentes = [
+        p for p in retirados_recentes if p.get("setor_atual") == "RETIRADO"
+    ]
+    pedidos = enriquecer_pedidos(
+        sorted(nao_retirados + retirados_recentes, key=lambda pedido: pedido["id"])
+    )
+    status_expedicao = _mapa_status_expedicao(pedidos)
 
     for pedido in pedidos:
         estado = pedido.get("setor_atual")
