@@ -223,6 +223,9 @@ def identificar_conjunto_torre(
         # Mantemos somente o que foi validado, sem fabricar regras.
         identidade_base = {
             "sistema": sistema["grupo"],
+            "material_corpo": material,
+            "construcao": construcao,
+            "vedacao": vedacao,
         }
 
         resultado["componentes"]["torre"] = identidade_base.copy()
