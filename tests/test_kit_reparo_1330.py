@@ -35,14 +35,14 @@ class TestKit1330(unittest.TestCase):
 
     def test_vedacao_1330_multiplas_bases_e_doadora_reforcada(self):
         estoque = {"1330LVR10": 1, "1330LAR10NA": 2,
-                   "1330LAR10": 2, "1330LA10": 10}
+                   "1330LAR10T": 2, "1330LA10": 10
         r = avaliar("1330LAR10", "VEDACAO", estoque)
         self.assertEqual({x["codigo"] for x in r["base"]},
                          {"1330LVR10", "1330LAR10NA", "1330LA10"})
-        self.assertEqual({x["codigo"] for x in r["doadores"]}, {"1330LAR10"})
+        self.assertEqual({x["codigo"] for x in r["doadores"]}, {"1330LAR10T"})
         self.assertEqual(
-            calcular_residual(r, "1330LVR10", "1330LAR10")["produto_residual"],
-            "1330LVR10",
+            calcular_residual(r, "1330LVR10", "1330LAR10T")["produto_residual"],
+            "1330LVR10T",
         )
 
     def test_vedacao_nao_aceita_conjunto_sem_reforco(self):
