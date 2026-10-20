@@ -129,6 +129,7 @@ REGRAS_3_LETRAS = {
     "2030": {
         "LAR": 2,
         "LAD": 2,
+        "LVD": 2,
 	"LVR": 2,	
     },
 
