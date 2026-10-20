@@ -85,8 +85,12 @@ def pagina_laboratorio_transformacoes():
     resultado = st.session_state.get("laboratorio_transformacoes_resultado")
     if not resultado:
         return
-    if normalizar(codigo) != resultado["destino"]:
-        st.info("O código mudou. Clique em Analisar possibilidades para atualizar a simulação.")
+    tipo_atual = tipo.upper().replace("Ç", "C").replace("Ã", "A")
+    metodo_atual = "VALVULA_KIT" if metodo == "Válvula–Kit" else "VALVULA_VALVULA"
+    if (normalizar(codigo) != resultado["destino"]
+            or tipo_atual != resultado["tipo"]
+            or metodo_atual != resultado["metodo"]):
+        st.info("A seleção mudou. Clique em Analisar possibilidades para atualizar a simulação.")
         return
     st.subheader("Resultado da análise")
     st.write("Destino:", resultado["destino"])
@@ -111,7 +115,11 @@ def pagina_laboratorio_transformacoes():
     if resultado["doadores"]:
         st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Origens homologadas disponíveis para o componente:")
         opcoes = [x["codigo"] for x in resultado["doadores"]]
-        doadora = st.selectbox("Selecione a origem utilizada", opcoes)
+        legendas = {x["codigo"]: x for x in resultado["doadores"]}
+        doadora = st.selectbox("Selecione a origem utilizada", opcoes,
+            format_func=lambda c: ("%s — prioridade %s — saldo %s" %
+                (c, legendas[c]["prioridade"], legendas[c]["quantidade"]))
+                if "prioridade" in legendas[c] else c)
         st.caption("A origem selecionada é apenas uma simulação. Nenhum item será consumido ou reservado.")
         if resultado["tipo"] == "TORRE" and resultado["base"]:
             try:
