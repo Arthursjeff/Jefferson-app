@@ -91,8 +91,8 @@ def pagina_laboratorio_transformacoes():
                 with col_nf:
                     carreteis["NF"] = normalizar(st.text_input("Código ERP do carretel NF", key="kit_carretel_nf"))
         else:
-            st.info("As operações de Kit de Reparo estão cadastradas inicialmente para "
-                    "2030L, tamanhos 12/16 e 10 com R/D, vedações A/V.")
+            st.info("Operações de Kit de Reparo disponíveis para 2030L grande "
+                    "(12/16 e 10 R/D) ou 1330L de 1 polegada (10), em A/V.")
         metodo = "Válvula–Válvula"
     else:
         metodo = "Válvula–Válvula"
