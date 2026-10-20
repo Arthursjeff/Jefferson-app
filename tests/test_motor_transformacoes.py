@@ -30,7 +30,10 @@ class TestLaboratorioTransformacoes(unittest.TestCase):
             "base_sem_z": True, "doadores_confirmados": ["Z1335BA04"]}}}
         r = avaliar("Z1335BE04", "TORRE", "VALVULA_VALVULA",
                     {"1335BE04": 3, "Z1335BA04": 2}, regras)
-        self.assertEqual(r["status"], "SIMULACAO_POSSIVEL")
+        self.assertEqual(r["status"], "BASE_LOCALIZADA")
+        self.assertFalse(r["doadores"])
+        self.assertEqual([x["codigo"] for x in r["doadores_combinadas"]],
+                         ["Z1335BA04"])
 
     def test_corpo_bsp_busca_base_npt(self):
         r = avaliar("1342BV08", "CORPO", "VALVULA_VALVULA",

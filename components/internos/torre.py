@@ -19,7 +19,6 @@ from components.internos.regras_g1 import resolver_g1
 FAMILIAS_SISTEMA_GENERICO = {
     "1342",
     "1327",
-    "1335",
     "1390",
     "1365",
     "1325",
@@ -118,10 +117,10 @@ def identificar_sistema_torre(familia, material):
             "regra_detalhada": False,
         }
 
-    if familia == "1335" and material == "INOX":
+    if familia == "1335":
         return {
             "tipo": "EXCLUSIVO_FAMILIA",
-            "grupo": "1335_INOX",
+            "grupo": "1335",
             "regra_detalhada": False,
         }
 
@@ -224,6 +223,9 @@ def identificar_conjunto_torre(
         # Mantemos somente o que foi validado, sem fabricar regras.
         identidade_base = {
             "sistema": sistema["grupo"],
+            "material_corpo": material,
+            "construcao": construcao,
+            "vedacao": vedacao,
         }
 
         resultado["componentes"]["torre"] = identidade_base.copy()

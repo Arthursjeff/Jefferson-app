@@ -155,6 +155,130 @@ def calcular_residual_corpo(resultado, codigo_doadora):
     }
 
 
+
+# O conjunto G1 distingue torre EXTERNA de internos (assento, mola, núcleo).
+# O grupo standard pode fornecer a torre apenas nas famílias cadastradas.
+from components.internos.torre import identificar_sistema_torre
+
+_PADRAO_TORRE = re.compile(
+    r"^(?P<z>Z?)(?P<familia>(?:13|20|30)\d{2})"
+    r"(?P<material>[BI])(?P<vedacao>[A-Z])(?P<tamanho>\d{2})"
+    r"(?P<final>A?)(?P<npt>T?)(?P<ina>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
+)
+
+def _torre_partes(codigo):
+    m = _PADRAO_TORRE.fullmatch(normalizar(codigo))
+    return m.groupdict() if m else None
+
+def _torre_construcao(p):
+    return ("Z_INA" if p["z"] and p["ina"] else
+            "Z" if p["z"] else "INA" if p["ina"] else "REGULAR")
+
+def _torre_grupo(p):
+    material = "LATAO" if p["material"] == "B" else "INOX"
+    return identificar_sistema_torre(p["familia"], material)["grupo"]
+
+def _torre_compatibilidade(destino, candidata):
+    """Comparação da torre externa; internos ainda não liberados como equivalentes."""
+    if not destino or not candidata:
+        return False
+    return (_torre_grupo(destino) == _torre_grupo(candidata)
+            and destino["material"] == candidata["material"]
+            and _torre_construcao(destino) == _torre_construcao(candidata))
+
+def _torre_montar(p, z, ina):
+    return (( "Z" if z else "") + p["familia"] + p["material"]
+            + p["vedacao"] + p["tamanho"] + p["final"] + p["npt"]
+            + ("INA" if ina else "") + (p["eletrico"] or ""))
+
+def _avaliar_torre(codigo, estoque, resultado):
+    p = _torre_partes(codigo)
+    if not p or _torre_construcao(p) == "REGULAR":
+        resultado["pendencias"].append(
+            "A transformação exige código reconhecido com torre Z, INA ou Z+INA.")
+        return resultado
+    grupo = _torre_grupo(p)
+    resultado["grupo_torre"] = grupo
+    resultado["construcao_torre"] = _torre_construcao(p)
+    base = _torre_montar(p, False, False)
+    resultado["codigo_base_esperado"] = base
+    if estoque.get(base, 0) > 0:
+        resultado["base"].append({"codigo": base, "quantidade": estoque[base]})
+    else:
+        resultado["pendencias"].append("Válvula base sem torre especial %s sem saldo." % base)
+    doadoras = []
+    combinadas = []
+    for codigo_estoque, quantidade in estoque.items():
+        if quantidade <= 0 or normalizar(codigo_estoque) == codigo:
+            continue
+        item = _torre_partes(codigo_estoque)
+        if not _torre_compatibilidade(p, item):
+            continue
+        # Nunca oferecer item de outra família para a 1335 (nem vice-versa).
+        if p["familia"] == "1335" and item["familia"] != "1335":
+            continue
+        mesma_vedacao = item["vedacao"] == p["vedacao"]
+        if mesma_vedacao and item["familia"] == p["familia"]:
+            prioridade = 1
+        elif (mesma_vedacao and item["familia"] == "1327"
+              and p["familia"] != "1335"):
+            prioridade = 2
+        elif item["familia"] == p["familia"] and not mesma_vedacao:
+            prioridade = 3
+        else:
+            continue
+        candidato = {"codigo": normalizar(codigo_estoque),
+                     "quantidade": quantidade, "prioridade": prioridade,
+                     "vedacao_compativel": mesma_vedacao}
+        if prioridade == 3:
+            combinadas.append(candidato)
+        else:
+            doadoras.append(candidato)
+    resultado["doadores"] = sorted(
+        doadoras, key=lambda x: (x["prioridade"], -x["quantidade"], x["codigo"]))
+    resultado["doadores_combinadas"] = sorted(
+        combinadas, key=lambda x: (-x["quantidade"], x["codigo"]))
+    if combinadas:
+        resultado["pendencias"].append(
+            "Há doadoras com vedação diferente (prioridade 3), mas a transformação "
+            "Torre + Vedação está bloqueada até a definição do assento e demais componentes.")
+    if not doadoras:
+        resultado["pendencias"].append(
+            "Não há doadora com a mesma vedação e torre G1 compatível em estoque.")
+    if resultado["base"] and doadoras:
+        resultado["status"] = "SIMULACAO_POSSIVEL"
+    elif resultado["base"]:
+        resultado["status"] = "BASE_LOCALIZADA"
+    elif doadoras:
+        resultado["status"] = "DOADORES_LOCALIZADOS"
+    return resultado
+
+def calcular_residual_torre(resultado, codigo_doadora):
+    """Permuta construção da torre mantendo a identidade da doadora.
+
+    Somente simulação de torre com vedação igual, com doadora homologada.
+    """
+    if resultado.get("tipo") != "TORRE" or resultado.get("status") != "SIMULACAO_POSSIVEL":
+        raise ValueError("É necessária uma base e uma doadora compatível.")
+    doadora = normalizar(codigo_doadora)
+    opcao = next((d for d in resultado["doadores"] if d["codigo"] == doadora), None)
+    if not opcao or not opcao["vedacao_compativel"]:
+        raise ValueError("A doadora não está liberada para torre simples.")
+    p = _torre_partes(doadora)
+    destino = _torre_partes(resultado["destino"])
+    base = _torre_partes(resultado["base"][0]["codigo"])
+    if not _torre_compatibilidade(destino, p) or _torre_construcao(base) != "REGULAR":
+        raise ValueError("Conjunto G1 incompatível.")
+    residual = _torre_montar(p, False, False)
+    return {"valvula_base": resultado["base"][0]["codigo"],
+            "valvula_doadora": doadora,
+            "produto_final": resultado["destino"],
+            "produto_residual": residual,
+            "quantidade": 1, "simulacao": True,
+            "observacao": "Código residual calculado pela troca da configuração de torre; "
+                          "conferir os componentes internos G1 antes da execução real."}
+
+
 # Registro incremental de regras por família / construção.
 # Nenhuma equivalência de torre é assumida entre famílias.
 REGRAS = {
@@ -228,6 +352,11 @@ def avaliar(codigo_destino, tipo, metodo, estoque, regras=None):
         elif resultado["doadores"]:
             resultado["status"] = "DOADORES_LOCALIZADOS"
         return resultado
+    if tipo == "TORRE":
+        if metodo != "VALVULA_VALVULA":
+            resultado["pendencias"].append("Transformação de torre exige Válvula–Válvula.")
+            return resultado
+        return _avaliar_torre(codigo, estoque, resultado)
     regra = regras.get(resultado["familia"], {}).get(tipo.lower(), {})
     if not regra:
         resultado["pendencias"].append(

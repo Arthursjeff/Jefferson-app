@@ -149,7 +149,7 @@ def consultar_codigo(codigo, tensao=""):
     pendencias = []
     grupos = {}
     regras = {
-        "G1 — Torre e núcleo": lambda: identificar_conjunto_torre(familia, material=material, estado=estado, vedacao=vedacao, final=letra, bitola=tamanho, construcao="Z" if "Z" in (parser.get("prefixos") or []) else None),
+        "G1 — Torre e núcleo": lambda: identificar_conjunto_torre(familia, material=material, estado=estado, vedacao=vedacao, final=letra, bitola=tamanho, construcao=("Z INA" if "Z" in (parser.get("prefixos") or []) and "INA" in str(codigo).upper() else "Z" if "Z" in (parser.get("prefixos") or []) else "INA" if "INA" in str(codigo).upper() else None)),
         "G2 — Diafragma": lambda: identificar_conjunto_diafragma(familia, tamanho=tamanho, vedacao=vedacao, material_corpo=material, tamanho_codigo=parser.get("codigo_conexao"), variante=variante, sufixos=sufixos),
         "G3 — Pistão": lambda: identificar_conjunto_pistao(familia, tamanho=tamanho, vedacao=vedacao, material_corpo=material, sufixos=list(sufixos) + ([letra] if letra else [])),
         "G4 — Carretel": lambda: identificar_conjunto_carretel(familia, estado=estado, material_corpo=material),
