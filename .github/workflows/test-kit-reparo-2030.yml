@@ -1,0 +1,31 @@
+name: Testes Kit de Reparo 2030
+on:
+  push:
+    branches:
+      - feature/kit-reparo-2030-operacoes
+      - main
+    paths:
+      - 'core/transformacoes_kit_2030.py'
+      - 'core/motor_transformacoes.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'motor_descricao.py'
+      - 'tests/test_kit_reparo_2030.py'
+      - '.github/workflows/test-kit-reparo-2030.yml'
+  pull_request:
+    paths:
+      - 'core/transformacoes_kit_2030.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'motor_descricao.py'
+      - 'tests/test_kit_reparo_2030.py'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m compileall -q core/transformacoes_kit_2030.py modules/laboratorio_transformacoes.py motor_descricao.py
+      - run: python -m unittest discover -s tests -p 'test_kit_reparo_2030.py' -v
+      - run: python -m unittest discover -s tests -p 'test_motor_transformacoes.py' -v
+      - run: python -m unittest discover -s tests -p 'test_transformacoes_torre_g1.py' -v
