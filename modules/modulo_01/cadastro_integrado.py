@@ -119,10 +119,11 @@ def mostrar_itens_do_card(pedido):
             itens = listar_itens_pedido(pedido["id"])
             if not itens:
                 st.caption("Pedido sem itens cadastrados.")
-                return
+                return itens
             st.dataframe([{"Código": i["codigo"], "Tensão": i["tensao"], "Quantidade": i["quantidade"],
                            "Valor unitário": i["valor_unitario"], "Valor total": i["valor_total"]}
                           for i in itens], hide_index=True, use_container_width=True)
             st.caption("Valor total confirmado: R$ " + f"{float(pedido.get('valor_total_confirmado') or 0):,.2f}")
+            return itens
         except Exception as exc:
             st.warning(f"Não foi possível consultar os itens: {exc}")
