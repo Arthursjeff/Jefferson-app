@@ -1,12 +1,20 @@
-"""Laboratório: transformação por kit (2030 grande), sem movimentar estoque."""
+"""Transformação por kit: 2030 grande e 1330 de 1 polegada, sem movimentar estoque."""
 import re
 from components.internos.carretel import identificar_conjunto_carretel
 from components.internos.diafragma import identificar_conjunto_diafragma
 
 OPCOES = {"NA_NF": "NA – NF", "VEDACAO": "Troca de vedação", "REFORCO": "Troca de reforço"}
-# NA é o estado aberto 2030, sem NA é NF. NPT pode ser representado por T.
-_P = re.compile(r"^2030L(?P<vedacao>[AV])(?P<variante>[RD]?)(?P<tamanho>10|12|16)(?P<resto>(?:NA)?T?|TNA)$")
-_K = re.compile(r"^K030(?P<vedacao>[AV])(?P<reforco>R?)2$")
+# NA é o estado aberto, sem NA é NF; NPT usa T.
+_P = re.compile(r"^(?P<familia>2030|1330)L(?P<vedacao>[AV])(?P<variante>[RD]?)(?P<tamanho>08|10|12|16)(?P<resto>(?:NA)?T?|TNA)$")
+_K = re.compile(r"^K(?P<prefixo>030|30)(?P<vedacao>[AV])(?P<reforco>R?)2$")
+
+
+def codigo_kit(p, reforco=None):
+    """A identificação comercial do grupo 2 depende da família."""
+    prefixo = "K30" if p["familia"] == "1330" else "K030"
+    r = p["reforco"] if reforco is None else reforco
+    return prefixo + p["vedacao"] + ("R" if r else "") + "2"
+
 
 
 def parse(codigo):
@@ -14,18 +22,21 @@ def parse(codigo):
     if not m:
         return None
     p = m.groupdict()
-    if (p["tamanho"] == "10" and p["variante"] not in ("R", "D")) or (
-            p["tamanho"] in ("12", "16") and p["variante"] == "D"):
+    if p["familia"] == "2030":
+        if (p["tamanho"] == "10" and p["variante"] not in ("R", "D")) or (
+                p["tamanho"] in ("12", "16") and p["variante"] == "D") or p["tamanho"] == "08":
+            return None
+    elif p["tamanho"] != "10" or p["variante"] == "D":
         return None
     resto = p.pop("resto")
-    p.update(codigo=m.group(), familia="2030", corpo="L", na="NA" in resto,
+    p.update(codigo=m.group(), corpo="L", na="NA" in resto,
              rosca="NPT" if "T" in resto else "BSP",
              reforco=p["variante"] == "R")
     return p
 
 
 def montar(p, vedacao=None, variante=None, na=None):
-    c = "2030L" + (p["vedacao"] if vedacao is None else vedacao)
+    c = p["familia"] + "L" + (p["vedacao"] if vedacao is None else vedacao)
     c += p["variante"] if variante is None else variante
     c += p["tamanho"] + ("NA" if (p["na"] if na is None else na) else "")
     c += "T" if p["rosca"] == "NPT" else ""
@@ -37,10 +48,11 @@ def mesmo_corpo(a, b):
 
 
 def identidade_g2(p):
-    tamanho = {"10": '1 1/4"', "12": '1 1/2"', "16": '2"'}[p["tamanho"]]
+    tamanho = ('1"' if p["familia"] == "1330" else
+               {"10": '1 1/4"', "12": '1 1/2"', "16": '2"'}[p["tamanho"]])
     vedacao = {"A": "BUNA-N", "V": "VITON"}[p["vedacao"]]
     g2 = identificar_conjunto_diafragma(
-        "2030", tamanho=tamanho, vedacao=vedacao, material_corpo="LATAO",
+        p["familia"], tamanho=tamanho, vedacao=vedacao, material_corpo="LATAO",
         tamanho_codigo=p["tamanho"], variante=p["variante"])
     return g2["componentes"]["diafragma"] if g2 else None
 
@@ -49,8 +61,8 @@ def conjunto_igual(a, b):
     """Compara construção, vedação, NA/NF e identidade G2; tamanho pode variar."""
     if not a or not b or a["na"] != b["na"]:
         return False
-    g4a = identificar_conjunto_carretel("2030", "NA" if a["na"] else "NF")
-    g4b = identificar_conjunto_carretel("2030", "NA" if b["na"] else "NF")
+    g4a = identificar_conjunto_carretel(a["familia"], "NA" if a["na"] else "NF")
+    g4b = identificar_conjunto_carretel(b["familia"], "NA" if b["na"] else "NF")
     return (identidade_g2(a) is not None and identidade_g2(a) == identidade_g2(b)
             and g4a["identidade"] == g4b["identidade"])
 
@@ -68,12 +80,12 @@ def avaliar(destino, operacao, estoque, carreteis=None):
     """Carretéis avulsos são códigos ERP identificados pelo operador, não inferidos."""
     destino = re.sub(r"\s+", "", str(destino or "").upper())
     p = parse(destino)
-    r = {"tipo": "KIT", "destino": destino, "familia": "2030",
+    r = {"tipo": "KIT", "destino": destino, "familia": p["familia"] if p else "",
          "operacao": operacao, "base": [], "doadores": [], "pendencias": [],
          "status": "EM ESTUDO", "estoque_exato": estoque.get(destino, 0),
          "metodo": ""}
     if not p:
-        r["pendencias"].append("A regra atende 2030L, vedação A/V, tamanho 12/16 ou 10 com R/D.")
+        r["pendencias"].append("A regra atende 2030L grande (12/16 ou 10 R/D) e 1330L de 1 polegada (10), vedações A/V.")
         return r
     if operacao not in OPCOES:
         r["pendencias"].append("Escolha uma operação disponível para a família.")
@@ -98,7 +110,9 @@ def avaliar(destino, operacao, estoque, carreteis=None):
                 r["pendencias"].append("Código e saldo ERP do carretel %s não localizados." % estado)
         else:
             for codigo, qtd, item in valvulas:
-                if codigo != destino and item["vedacao"] == "V" and item["na"] == p["na"]:
+                if (codigo != destino and item["vedacao"] == "V" and item["na"] == p["na"]
+                        and identificar_conjunto_carretel(p["familia"], "NA" if p["na"] else "NF")["identidade"] ==
+                        identificar_conjunto_carretel(item["familia"], "NA" if item["na"] else "NF")["identidade"]):
                     r["doadores"].append(dict(codigo=codigo, quantidade=qtd,
                                               origem="VALVULA"))
     elif operacao == "VEDACAO":
@@ -118,7 +132,7 @@ def avaliar(destino, operacao, estoque, carreteis=None):
         r["codigo_base_esperado"] = base
         if estoque.get(base, 0) > 0:
             r["base"].append(dict(codigo=base, quantidade=estoque[base]))
-        kit = "K030" + p["vedacao"] + ("R" if p["reforco"] else "") + "2"
+        kit = codigo_kit(p)
         r["codigo_kit_esperado"] = kit
         if _K.fullmatch(kit) and estoque.get(kit, 0) > 0:
             r["doadores"].append(dict(codigo=kit, quantidade=estoque[kit], origem="KIT"))
@@ -159,7 +173,9 @@ def calcular_residual(resultado, base, doadora, carreteis=None):
             tipo_residual = "CARRETEL"
         else:
             d = parse(doadora)
-            if not d or d["vedacao"] != "V" or d["na"] != destino["na"]:
+            if not d or d["vedacao"] != "V" or d["na"] != destino["na"] or (
+                    identificar_conjunto_carretel(destino["familia"], "NA" if destino["na"] else "NF")["identidade"] !=
+                    identificar_conjunto_carretel(d["familia"], "NA" if d["na"] else "NF")["identidade"]):
                 raise ValueError("Doadora Viton inadequada.")
             residual, tipo_residual = _oposto_na(d), "VALVULA"
     elif op == "VEDACAO":
@@ -173,7 +189,7 @@ def calcular_residual(resultado, base, doadora, carreteis=None):
     elif op == "REFORCO":
         if base != _oposto_reforco(destino) or doadora != resultado.get("codigo_kit_esperado"):
             raise ValueError("Base ou kit não corresponde à variante desejada.")
-        residual = "K030" + destino["vedacao"] + ("" if destino["reforco"] else "R") + "2"
+        residual = codigo_kit(destino, reforco=not destino["reforco"])
         tipo_residual = "KIT"
         if not _K.fullmatch(residual):
             raise ValueError("Kit residual não reconhecido.")
