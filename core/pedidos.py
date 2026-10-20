@@ -37,12 +37,17 @@ def criar_pedido(numero_pedido: str, cliente: str, usuario: str, tipo_pedido: st
     return pedido
 
 
-def listar_pedidos(status: str = "ATIVO"):
+def listar_pedidos(status: str = "ATIVO", excluir_setor: str = None, ids=None):
+    """Filtros opcionais para montar a fila sem carregar retirados antigos."""
+    if ids is not None and not ids:
+        return []
     query = supabase.table(TABELA_PEDIDOS).select("*")
-
     if status:
         query = query.eq("status", status)
-
+    if excluir_setor:
+        query = query.neq("setor_atual", excluir_setor)
+    if ids is not None:
+        query = query.in_("id", list(ids))
     response = query.order("id", desc=False).execute()
     return response.data or []
 
@@ -159,19 +164,17 @@ def listar_movimentacoes(pedido_id: int):
 
     return response.data or []
 
-def listar_movimentacoes_tipo(tipo_evento: str):
-    response = (
-        supabase
-        .table(TABELA_MOVIMENTACOES)
-        .select("*")
-        .eq("tipo_evento", tipo_evento)
-        .order("criado_em", desc=True)
-        .execute()
-    )
-    return response.data or []
+def listar_movimentacoes_tipo(tipo_evento: str, pedido_ids=None):
+    """Evita carregar os históricos de pedidos que nem estão na expedição."""
+    if pedido_ids is not None and not pedido_ids:
+        return []
+    query = supabase.table(TABELA_MOVIMENTACOES).select("*").eq("tipo_evento", tipo_evento)
+    if pedido_ids is not None:
+        query = query.in_("pedido_id", list(pedido_ids))
+    return query.order("criado_em", desc=True).execute().data or []
 
 
-def listar_movimentacoes_destino(destino: str, origem: str = None):
+def listar_movimentacoes_destino(destino: str, origem: str = None, criado_desde=None):
     query = (
         supabase
         .table(TABELA_MOVIMENTACOES)
@@ -182,6 +185,8 @@ def listar_movimentacoes_destino(destino: str, origem: str = None):
 
     if origem:
         query = query.eq("origem", origem)
+    if criado_desde:
+        query = query.gte("criado_em", criado_desde)
 
     response = query.order("criado_em", desc=True).execute()
     return response.data or []
