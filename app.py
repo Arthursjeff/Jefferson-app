@@ -562,7 +562,7 @@ def modal_editar_pedido():
                 for i in itens_atuais]
         editados = st.data_editor(base, num_rows="dynamic", hide_index=True, disabled=["ID"],
                                   use_container_width=True, key=f"admin_itens_{pedido['id']}")
-        itens_editados = editados.to_dict("records")
+        itens_editados = editados.to_dict("records") if hasattr(editados, "to_dict") else list(editados)
         st.caption("Adicione ou remova linhas para incluir ou excluir itens.")
         series_salvas = listar_series(pedido["id"])
         for item in itens_atuais:
@@ -584,7 +584,7 @@ def modal_editar_pedido():
                     series_editadas[ident] = [
                         {"sem_numero": False, "numero_serie": x.get("Número de série"),
                          "quantidade": x.get("Quantidade")}
-                        for x in tabela_series.to_dict("records")]
+                        for x in (tabela_series.to_dict("records") if hasattr(tabela_series, "to_dict") else list(tabela_series))]
     else:
         st.info("Pedido sem itens cadastrados: edição dos dados gerais disponível.")
 
