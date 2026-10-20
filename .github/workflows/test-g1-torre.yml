@@ -1,0 +1,31 @@
+name: Testes G1 e transformacoes de torre
+on:
+  push:
+    branches:
+      - feature/g1-torre-1335-exclusiva-prioridades
+      - main
+    paths:
+      - 'components/internos/torre.py'
+      - 'components/internos/regras_g1.py'
+      - 'core/motor_transformacoes.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'tests/test_transformacoes_torre_g1.py'
+      - '.github/workflows/test-g1-torre.yml'
+  pull_request:
+    paths:
+      - 'components/internos/torre.py'
+      - 'components/internos/regras_g1.py'
+      - 'core/motor_transformacoes.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'tests/test_transformacoes_torre_g1.py'
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m compileall -q core/motor_transformacoes.py modules/laboratorio_transformacoes.py components/internos/torre.py components/internos/regras_g1.py
+      - run: python -m unittest discover -s tests -p 'test_transformacoes_torre_g1.py' -v
+      - run: python -m unittest discover -s tests -p 'test_motor_transformacoes.py' -v
