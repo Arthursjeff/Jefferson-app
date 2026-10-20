@@ -52,6 +52,7 @@ def _ordenar_tipos(tipos):
     return sorted(tipos, key=lambda tipo: (ordem.get(tipo, 999), tipo))
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def listar_todas_movimentacoes():
     registros = []
     inicio = 0
@@ -109,6 +110,8 @@ def pagina_analises():
 
     st.subheader("Interações operacionais da fila")
     st.caption("Considera criação de pedidos e ações realizadas nas etapas da fila.")
+    if st.button("🔄 Atualizar dados da análise"):
+        listar_todas_movimentacoes.clear()
 
     historico = listar_todas_movimentacoes()
 
