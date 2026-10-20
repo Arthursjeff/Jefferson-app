@@ -30,20 +30,11 @@ def criar_notificacao_para_setor(
     tipo: str,
     mensagem: str,
 ):
-    notificacoes = []
+    """Desativa o envio automático sem mexer nos alertas/mensagens dos pedidos.
 
-    for usuario, dados in USUARIOS.items():
-        if dados.get("setor") == setor_destino:
-            notificacao = criar_notificacao(
-                pedido_id=pedido_id,
-                setor_destino=setor_destino,
-                usuario_destino=usuario,
-                tipo=tipo,
-                mensagem=mensagem,
-            )
-            notificacoes.append(notificacao)
-
-    return notificacoes
+    Os registros antigos de fila_notificacoes permanecem no banco para auditoria.
+    """
+    return []
 
 
 def listar_notificacoes_pendentes(usuario_destino: str):
