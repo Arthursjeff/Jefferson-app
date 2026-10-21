@@ -224,7 +224,7 @@ def modal_foto_obrigatoria():
         tabela = st.data_editor(linhas_itens, num_rows="dynamic", hide_index=True,
                                 disabled=["ID"], use_container_width=True,
                                 key=f"admin_itens_{pedido['id']}")
-        itens_editados = tabela.to_dict("records")
+        itens_editados = tabela.to_dict("records") if hasattr(tabela, "to_dict") else list(tabela)
         st.caption("Para excluir um item, remova sua linha. Novas linhas adicionam itens.")
         series_atuais = listar_series(pedido["id"])
         for item in itens_atuais:
@@ -242,7 +242,7 @@ def modal_foto_obrigatoria():
                                             key=f"admin_series_{pedido['id']}_{item['id']}")
                     series_editadas[str(item["id"])] = [
                         {"sem_numero": False, "numero_serie": x.get("Número de série"),
-                         "quantidade": x.get("Quantidade")} for x in editor.to_dict("records")]
+                         "quantidade": x.get("Quantidade")} for x in (editor.to_dict("records") if hasattr(editor, "to_dict") else list(editor))]
     else:
         st.info("Pedido sem itens cadastrados: os dados gerais continuam editáveis.")
 
