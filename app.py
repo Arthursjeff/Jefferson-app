@@ -2,6 +2,8 @@ from modules.modulo_01.rastreabilidade import interface_rastreabilidade, salvar_
 from modules.modulo_01.cadastro_integrado import pagina_cadastro_integrado, mostrar_itens_do_card
 from core.pedido_itens_comerciais import listar_itens_pedido
 from modules.modulo_01.rastreabilidade import listar_series
+import logging
+import httpx
 import streamlit as st
 from modules.modulo_01.sinalizacoes import registrar_sinalizacao, dados_evento
 from core.admin import apagar_tudo
@@ -46,6 +48,9 @@ from modules.modulo_01.service import (
     registrar_peso_volumes,
     salvar_peso_volumes_e_avancar,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 st.set_page_config(
@@ -716,9 +721,18 @@ def monitor_revisao_fila():
 
 @st.fragment
 def render_kanban():
-    pedidos_por_estado = obter_pedidos_por_estado()
-    contagens_mensagens = obter_contagens_mensagens()
-    contagens_alertas = obter_contagens_alertas()
+    try:
+        pedidos_por_estado = obter_pedidos_por_estado()
+        contagens_mensagens = obter_contagens_mensagens()
+        contagens_alertas = obter_contagens_alertas()
+    except httpx.TransportError:
+        # A SDK ja tenta recuperar falhas transitórias de leitura.
+        # Se a conexao cair mesmo assim, nao derrubar a pagina inteira.
+        logger.exception("Falha de comunicacao com Supabase ao carregar o Kanban")
+        st.error("Falha temporaria de conexao ao carregar a fila. Nenhum pedido foi alterado. Tente novamente.")
+        if st.button("Tentar novamente", key="recarregar_kanban_conexao"):
+            st.rerun()
+        return
 
     pendencias_programados = sum(bool((p.get('_sinalizacao') or {}).get('programado_sinalizado')) for p in pedidos_por_estado['PROGRAMADO'])
     contador = f" — 🔴 {pendencias_programados}" if pendencias_programados else ''
