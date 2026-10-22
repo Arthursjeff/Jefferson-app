@@ -97,7 +97,10 @@ def preparar(arquivo):
         velho=existentes.get(numero)
         status="Novo" if not velho else "Atualizar"
         if velho and _igual(doc,velho,novos,itens_existentes[velho["id"]]):status="Igual"
-        erro=problemas.get(chave,[])
+        # Falha de sugestão técnica não invalida o documento comercial.
+        # Mantemos o código ERP original e a ocorrência visível na auditoria.
+        avisos_tecnicos=[p for p in problemas.get(chave,[]) if p == "Código técnico não reconhecido"]
+        erro=[p for p in problemas.get(chave,[]) if p != "Código técnico não reconhecido"]
         if contagem[numero]>1:erro.append("Número repetido no PRN")
         if not its:erro.append("Documento sem itens")
         if abs(_num(d["diferenca"]))>Decimal("0.02"):erro.append("Divergência de valores")
@@ -105,10 +108,11 @@ def preparar(arquivo):
         if velho and {"P":1,"E":2,"F":3}.get(velho.get("situacao_erp"),0)>{"P":1,"E":2,"F":3}.get(d["situacao_erp"],0):
             erro.append("Regressão de situação")
         if erro:status="Revisar"
+        observacoes=sorted(set(erro)) + (["Código técnico não reconhecido (ERP preservado)"] if avisos_tecnicos else [])
         linhas.append({"Número ERP":numero,"Cliente":doc["cliente_nome_erp"],
                        "Situação ERP":doc["situacao_erp"],"Resultado":status,
                        "Itens":len(novos),"Valor (R$)":float(_num(doc["valor_total_cabecalho"])),
-                       "Observações":"; ".join(sorted(set(erro)))})
+                       "Observações":"; ".join(observacoes)})
         if status in ("Novo","Atualizar"):payload.append((doc,novos))
     return resumo,linhas,payload,auditoria
 
