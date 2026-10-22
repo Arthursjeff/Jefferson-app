@@ -60,7 +60,13 @@ def parse_item(text, document_key, position, source, line):
     tensao=g['tensao'].strip() if g else ''
     desc2=desc[g.end():].strip() if g else desc
     tech=TECH.search(desc2)
-    code=re.sub(r'\s+','',tech['code']).upper() if tech else ''
+    code=re.sub(r'\\s+','',tech['code']).upper() if tech else ''
+    # Bobinas não usam obrigatoriamente a família numérica de quatro dígitos.
+    # Ex.: MH13C BOBINA, MH19C INA BOBINA, BOBINA 3073LH08S (ERP SB254).
+    # Preserva o código do ERP para não inventar um código técnico de válvula.
+    if not code and re.search(r'\\bBOBINA\\b',desc2,re.I):
+        code=start['erp'].upper()
+
     qtd,unit,total=[dec(end[x]) for x in ('qtd','unit','total')]
     if None in (qtd,unit,total):return None,'Valor numérico inválido'
     item={'conjunto_chave':document_key+':R0','ordem':position,'codigo_erp':start['erp'].upper(),
