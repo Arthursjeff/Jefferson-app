@@ -7,6 +7,7 @@ import argparse, csv, hashlib, json, re
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
 from collections import Counter, defaultdict
+from motor_descricao import codigo_parece_bobina, processar_produto
 
 NUM = r'-?\d[\d.]*,\d+'
 HEADER = re.compile(r'^\s*(?P<numero>\d{1,6}/\d{2})\s+(?P<status>[CFEP])\s+(?P<d1>\d{2}/\d{2}/\d{4})(?:\s+(?P<d2>\d{2}/\d{2}/\d{4}))?\s+(?P<resto>.+)$', re.I)
@@ -61,12 +62,17 @@ def parse_item(text, document_key, position, source, line):
     desc2=desc[g.end():].strip() if g else desc
     tech=TECH.search(desc2)
     code=re.sub(r'\\s+','',tech['code']).upper() if tech else ''
-    # Bobinas não usam obrigatoriamente a família numérica de quatro dígitos.
-    # Ex.: MH13C BOBINA, MH19C INA BOBINA, BOBINA 3073LH08S (ERP SB254).
-    # Preserva o código do ERP para não inventar um código técnico de válvula.
-    if not code and re.search(r'\\bBOBINA\\b',desc2,re.I):
-        code=start['erp'].upper()
-
+    if not code:
+        # Reconhecimento compartilhado com o motor oficial de descrição.
+        candidatos = [start['erp'].upper()]
+        candidatos += re.findall(r'\\b[A-Z][A-Z0-9-]{2,}\\b', desc2.upper())
+        for candidato in candidatos:
+            if not codigo_parece_bobina(candidato):
+                continue
+            resultado = processar_produto(candidato, tensao, desc2)
+            if resultado.get("sucesso") and (resultado.get("parser") or {}).get("classe_produto") == "BOBINA":
+                code = candidato
+                break
     qtd,unit,total=[dec(end[x]) for x in ('qtd','unit','total')]
     if None in (qtd,unit,total):return None,'Valor numérico inválido'
     item={'conjunto_chave':document_key+':R0','ordem':position,'codigo_erp':start['erp'].upper(),
