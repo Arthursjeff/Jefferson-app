@@ -1,7 +1,7 @@
 import unittest
 from components.internos.torre import identificar_sistema_torre, identificar_conjunto_torre, FAMILIAS_SISTEMA_GENERICO
 from components.internos.regras_g1 import resolver_g1
-from core.motor_transformacoes import avaliar, calcular_residual_torre
+from core.motor_transformacoes import avaliar, calcular_residual_torre, diagnosticar_componentes_torre
 
 
 class TestTorreG1(unittest.TestCase):
@@ -60,6 +60,35 @@ class TestTorreG1(unittest.TestCase):
         self.assertEqual(len(r["doadores_combinadas"]), 1)
         with self.assertRaises(ValueError):
             calcular_residual_torre(r, "Z1342BA10")
+
+
+    def test_diagnostico_g1_nao_homologa_componentes_internos(self):
+        saldo = {"1342BV08": 1, "Z1342BV10": 1}
+        r = avaliar("Z1342BV08", "TORRE", "VALVULA_VALVULA", saldo)
+        diag = diagnosticar_componentes_torre(r, "Z1342BV10")
+        self.assertEqual(diag["status_engenharia"], "PENDENTE_HOMOLOGACAO_G1")
+        self.assertEqual(diag["torre_externa"], "IDENTIDADE_LOGICA_COINCIDENTE")
+        self.assertEqual(diag["produto_residual_previsto"], "1342BV10")
+        nomes = {x["componente"] for x in diag["componentes_internos"]}
+        self.assertTrue({"nucleo_movel", "assento", "mola_nucleo"} <= nomes)
+        self.assertTrue(all(x["requer_conferencia"] for x in diag["componentes_internos"]))
+
+    def test_diagnostico_z_ina_aponta_conferencia_obrigatoria(self):
+        saldo = {"1335BV04": 1, "Z1335BV06INA": 2}
+        r = avaliar("Z1335BV04INA", "TORRE", "VALVULA_VALVULA", saldo)
+        self.assertEqual(r["status"], "SIMULACAO_POSSIVEL")
+        diag = diagnosticar_componentes_torre(r, "Z1335BV06INA")
+        self.assertTrue(diag["envolve_ina"])
+        self.assertEqual(diag["construcao_destino"], "Z_INA")
+        self.assertEqual(diag["produto_residual_previsto"], "1335BV06")
+        self.assertTrue(any(x["base_destino_diferente"]
+                            for x in diag["componentes_internos"]))
+
+    def test_diagnostico_rejeita_origem_nao_validada(self):
+        saldo = {"1342BV08": 1, "Z1342BV10": 1}
+        r = avaliar("Z1342BV08", "TORRE", "VALVULA_VALVULA", saldo)
+        with self.assertRaises(ValueError):
+            diagnosticar_componentes_torre(r, "Z1335BV08")
 
 
 if __name__ == "__main__":
