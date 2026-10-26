@@ -31,7 +31,13 @@ def resolver_g1(familia, material=None, estado=None, construcao=None, vedacao=No
         final_pendente=True
     else:
         final_pendente=False
-    interno={"grupo":grupo,"construcao":forma,"vedacao":v or None}
+    # As famílias 1327 e 1342 compartilham o sistema G1 genérico.
+    # A 1390 de latão também é genérica; a de inox é exclusiva.
+    # Outras famílias podem compartilhar torre externa sem compartilhar
+    # internos (1365/1325), por isso não generalizar a equivalência.
+    grupo_interno = ("GENERICO" if f in {"1327", "1342"}
+                     or (f == "1390" and m == "LATAO") else grupo)
+    interno={"grupo":grupo_interno,"construcao":forma,"vedacao":v or None}
     if f=="1323":
         interno["final"]=t or None
     if f=="1335" and m=="INOX":
@@ -48,6 +54,11 @@ def resolver_g1(familia, material=None, estado=None, construcao=None, vedacao=No
         "assento":{"grupo":interno["grupo"],"material":v or None,"final":t or None if f=="1323" else None},
         "mola_nucleo":{"grupo":interno["grupo"],"material":mola_material,"construcao":forma},
     }
+    # As versões ancladas da 1335 compartilham a torre externa, mas
+    # núcleo e assento específicos: nunca igualar finais distintos.
+    if f == "1335" and t:
+        componentes["nucleo_movel"]["final"] = t
+        componentes["assento"]["final"] = t
     if achatado:
         componentes["cadeirinha"]={"grupo":interno["grupo"],"construcao":forma}
         componentes["mola_cadeirinha"]={"grupo":"1365" if f=="1365" else "1330_2030_ESPECIAL" if f in {"1330","2030"} else "1325","final":t or None if f=="1365" else None,"material":mola_material}

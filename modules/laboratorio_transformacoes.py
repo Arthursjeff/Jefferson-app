@@ -2,7 +2,7 @@
 import io
 import pandas as pd
 import streamlit as st
-from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo, calcular_residual_torre
+from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo, calcular_residual_torre, diagnosticar_componentes_torre
 from core.transformacoes_kit_2030 import OPCOES, parse as parse_kit_2030, avaliar as avaliar_kit_2030, calcular_residual as calcular_residual_kit_2030
 
 
@@ -180,7 +180,7 @@ def pagina_laboratorio_transformacoes():
         st.success("Base candidata localizada no estoque provisório.")
         st.dataframe(pd.DataFrame(resultado["base"]), hide_index=True, use_container_width=True)
     if resultado["doadores"]:
-        st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Origens homologadas disponíveis para o componente:")
+        st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Conjuntos G1 doadores compatíveis:")
         opcoes = [x["codigo"] for x in resultado["doadores"]]
         legendas = {x["codigo"]: x for x in resultado["doadores"]}
         doadora = st.selectbox("Selecione a origem utilizada", opcoes,
@@ -189,8 +189,14 @@ def pagina_laboratorio_transformacoes():
                 if "prioridade" in legendas[c] else c)
         st.caption("A origem selecionada é apenas uma simulação. Nenhum item será consumido ou reservado.")
         if resultado["tipo"] == "TORRE" and resultado["base"]:
+            bases_validas = legendas[doadora].get("bases_compativeis", [])
+            base_torre = (st.selectbox("Selecione a válvula base", bases_validas,
+                                      key="torre_base")
+                          if len(bases_validas) > 1 else
+                          bases_validas[0] if bases_validas else None)
             try:
-                simulacao_torre = calcular_residual_torre(resultado, doadora)
+                simulacao_torre = calcular_residual_torre(resultado, doadora, base_torre)
+                diagnostico_g1 = diagnosticar_componentes_torre(resultado, doadora, base_torre)
             except ValueError as exc:
                 st.warning(str(exc))
             else:
@@ -202,17 +208,25 @@ def pagina_laboratorio_transformacoes():
                 with c2:
                     st.markdown("**Válvula residual prevista**")
                     st.code(simulacao_torre["produto_residual"])
-                st.caption(simulacao_torre["observacao"])
-                assinatura_torre = (simulacao_torre["produto_final"],
-                                   simulacao_torre["valvula_base"],
-                                   simulacao_torre["valvula_doadora"],
-                                   simulacao_torre["produto_residual"])
-                if st.button("Validar códigos da transformação de torre", key="validar_residual_torre"):
-                    st.session_state["residual_torre_validado"] = assinatura_torre
-                if st.session_state.get("residual_torre_validado") == assinatura_torre:
-                    st.success("Códigos validados pelo operador nesta simulação.")
+                st.markdown("**Permuta integral dos conjuntos G1**")
+                st.caption("A base recebe o conjunto completo da doadora; a doadora recebe o conjunto completo da base.")
+                if diagnostico_g1["divergencias"]:
+                    st.error("Troca bloqueada: incompatibilidades técnicas G1 detectadas.")
+                    for divergencia in diagnostico_g1["divergencias"]:
+                        st.warning(divergencia)
                 else:
-                    st.info("Confira a válvula vendida e o residual antes de validar.")
+                    st.success("Conjuntos G1 compatíveis pelas regras técnicas cadastradas.")
+                    st.caption("A única exceção admitida é a diferença de material da mola inox 303/304.")
+                    assinatura_torre = (simulacao_torre["produto_final"],
+                                       simulacao_torre["valvula_base"],
+                                       simulacao_torre["valvula_doadora"],
+                                       simulacao_torre["produto_residual"])
+                    if st.button("Validar os dois códigos e a troca integral G1", key="validar_residual_torre"):
+                        st.session_state["residual_torre_validado"] = assinatura_torre
+                    if st.session_state.get("residual_torre_validado") == assinatura_torre:
+                        st.success("Troca integral G1 validada nesta simulação, sem movimentação de estoque.")
+                    else:
+                        st.info("Confira os códigos da válvula vendida e do residual.")
         if resultado["tipo"] == "CORPO":
             if resultado["base"]:
                 try:
