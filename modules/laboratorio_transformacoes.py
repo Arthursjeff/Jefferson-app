@@ -180,7 +180,7 @@ def pagina_laboratorio_transformacoes():
         st.success("Base candidata localizada no estoque provisório.")
         st.dataframe(pd.DataFrame(resultado["base"]), hide_index=True, use_container_width=True)
     if resultado["doadores"]:
-        st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Origens homologadas disponíveis para o componente:")
+        st.write("Válvulas doadoras compatíveis encontradas no estoque:" if resultado["tipo"] == "CORPO" else "Conjuntos G1 doadores compatíveis:")
         opcoes = [x["codigo"] for x in resultado["doadores"]]
         legendas = {x["codigo"]: x for x in resultado["doadores"]}
         doadora = st.selectbox("Selecione a origem utilizada", opcoes,
@@ -189,9 +189,14 @@ def pagina_laboratorio_transformacoes():
                 if "prioridade" in legendas[c] else c)
         st.caption("A origem selecionada é apenas uma simulação. Nenhum item será consumido ou reservado.")
         if resultado["tipo"] == "TORRE" and resultado["base"]:
+            bases_validas = legendas[doadora].get("bases_compativeis", [])
+            base_torre = (st.selectbox("Selecione a válvula base", bases_validas,
+                                      key="torre_base")
+                          if len(bases_validas) > 1 else
+                          bases_validas[0] if bases_validas else None)
             try:
-                simulacao_torre = calcular_residual_torre(resultado, doadora)
-                diagnostico_g1 = diagnosticar_componentes_torre(resultado, doadora)
+                simulacao_torre = calcular_residual_torre(resultado, doadora, base_torre)
+                diagnostico_g1 = diagnosticar_componentes_torre(resultado, doadora, base_torre)
             except ValueError as exc:
                 st.warning(str(exc))
             else:
