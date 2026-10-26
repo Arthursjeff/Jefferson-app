@@ -203,38 +203,25 @@ def pagina_laboratorio_transformacoes():
                 with c2:
                     st.markdown("**Válvula residual prevista**")
                     st.code(simulacao_torre["produto_residual"])
-                st.warning(simulacao_torre["observacao"])
-                st.markdown("**Conferência de componentes internos G1 (não homologada)**")
-                if diagnostico_g1["envolve_ina"]:
-                    st.warning(
-                        "A transformação envolve INA. A correspondência da torre externa "
-                        "não comprova a montagem dos componentes internos desta construção."
-                    )
-                st.dataframe(pd.DataFrame([
-                    {
-                        "Componente": p["componente"].replace("_", " ").capitalize(),
-                        "Base x destino": "Identidade diferente"
-                        if p["base_destino_diferente"] else "Sem diferença detectada",
-                        "Doadora x destino": "Identidade diferente"
-                        if p["doadora_destino_diferente"] else "Sem diferença detectada",
-                        "Verificação": "Conferência física necessária",
-                    }
-                    for p in diagnostico_g1["componentes_internos"]
-                ]), hide_index=True, use_container_width=True)
-                st.caption(diagnostico_g1["observacao"])
-                assinatura_torre = (simulacao_torre["produto_final"],
-                                   simulacao_torre["valvula_base"],
-                                   simulacao_torre["valvula_doadora"],
-                                   simulacao_torre["produto_residual"])
-                if st.button("Conferir apenas os códigos da transformação de torre", key="validar_residual_torre"):
-                    st.session_state["residual_torre_validado"] = assinatura_torre
-                if st.session_state.get("residual_torre_validado") == assinatura_torre:
-                    st.info(
-                        "Códigos conferidos nesta simulação. A composição interna G1 "
-                        "ainda não está homologada para execução ou registro como possibilidade validada."
-                    )
+                st.markdown("**Permuta integral dos conjuntos G1**")
+                st.caption("A base recebe o conjunto completo da doadora; a doadora recebe o conjunto completo da base.")
+                if diagnostico_g1["divergencias"]:
+                    st.error("Troca bloqueada: incompatibilidades técnicas G1 detectadas.")
+                    for divergencia in diagnostico_g1["divergencias"]:
+                        st.warning(divergencia)
                 else:
-                    st.info("Confira a válvula vendida e o residual antes de validar.")
+                    st.success("Conjuntos G1 compatíveis pelas regras técnicas cadastradas.")
+                    st.caption("A única exceção admitida é a diferença de material da mola inox 303/304.")
+                    assinatura_torre = (simulacao_torre["produto_final"],
+                                       simulacao_torre["valvula_base"],
+                                       simulacao_torre["valvula_doadora"],
+                                       simulacao_torre["produto_residual"])
+                    if st.button("Validar os dois códigos e a troca integral G1", key="validar_residual_torre"):
+                        st.session_state["residual_torre_validado"] = assinatura_torre
+                    if st.session_state.get("residual_torre_validado") == assinatura_torre:
+                        st.success("Troca integral G1 validada nesta simulação, sem movimentação de estoque.")
+                    else:
+                        st.info("Confira os códigos da válvula vendida e do residual.")
         if resultado["tipo"] == "CORPO":
             if resultado["base"]:
                 try:
