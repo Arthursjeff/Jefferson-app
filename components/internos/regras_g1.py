@@ -54,6 +54,11 @@ def resolver_g1(familia, material=None, estado=None, construcao=None, vedacao=No
         "assento":{"grupo":interno["grupo"],"material":v or None,"final":t or None if f=="1323" else None},
         "mola_nucleo":{"grupo":interno["grupo"],"material":mola_material,"construcao":forma},
     }
+    # As versões ancladas da 1335 compartilham a torre externa, mas
+    # núcleo e assento específicos: nunca igualar finais distintos.
+    if f == "1335" and t:
+        componentes["nucleo_movel"]["final"] = t
+        componentes["assento"]["final"] = t
     if achatado:
         componentes["cadeirinha"]={"grupo":interno["grupo"],"construcao":forma}
         componentes["mola_cadeirinha"]={"grupo":"1365" if f=="1365" else "1330_2030_ESPECIAL" if f in {"1330","2030"} else "1325","final":t or None if f=="1365" else None,"material":mola_material}
