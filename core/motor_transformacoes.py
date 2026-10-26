@@ -159,6 +159,7 @@ def calcular_residual_corpo(resultado, codigo_doadora):
 # O conjunto G1 distingue torre EXTERNA de internos (assento, mola, núcleo).
 # O grupo standard pode fornecer a torre apenas nas famílias cadastradas.
 from components.internos.torre import identificar_sistema_torre
+from components.internos.regras_g1 import resolver_g1
 
 _PADRAO_TORRE = re.compile(
     r"^(?P<z>Z?)(?P<familia>(?:13|20|30)\d{2})"
@@ -275,8 +276,79 @@ def calcular_residual_torre(resultado, codigo_doadora):
             "produto_final": resultado["destino"],
             "produto_residual": residual,
             "quantidade": 1, "simulacao": True,
-            "observacao": "Código residual calculado pela troca da configuração de torre; "
-                          "conferir os componentes internos G1 antes da execução real."}
+            "observacao": "Código residual previsto, ainda não homologado: a identidade "
+                          "da torre externa não garante a compatibilidade dos componentes "
+                          "internos G1. Conferir a composição antes da execução real.",
+             "residual_sujeito_a_conferencia_g1": True}
+
+
+
+def diagnosticar_componentes_torre(resultado, codigo_doadora):
+    """Compara identidades lógicas G1 sem inferir trocas físicas dos internos.
+
+    Não homologa a operação, não modifica estoque nem grava possibilidades.
+    """
+    simulacao = calcular_residual_torre(resultado, codigo_doadora)
+
+    def identificar(codigo):
+        partes = _torre_partes(codigo)
+        if not partes:
+            raise ValueError("Código não reconhecido na conferência G1: %s." % codigo)
+        material = "LATAO" if partes["material"] == "B" else "INOX"
+        g1 = resolver_g1(
+            familia=partes["familia"],
+            material=material,
+            construcao=_torre_construcao(partes),
+            vedacao=partes["vedacao"],
+            final=partes["final"] or None,
+            bitola=partes["tamanho"],
+        )
+        return partes, g1
+
+    partes_destino, destino = identificar(simulacao["produto_final"])
+    _, base = identificar(simulacao["valvula_base"])
+    _, doadora = identificar(simulacao["valvula_doadora"])
+    _, residual = identificar(simulacao["produto_residual"])
+
+    if doadora["torre_externa"] != destino["torre_externa"]:
+        raise ValueError("Torre externa da doadora não corresponde ao destino no G1.")
+    if residual["torre_externa"] != base["torre_externa"]:
+        raise ValueError("Torre externa do residual difere da base no G1.")
+
+    internos = []
+    nomes = sorted(
+        set(destino["componentes_internos"])
+        | set(base["componentes_internos"])
+        | set(doadora["componentes_internos"])
+        | set(residual["componentes_internos"])
+    )
+    for nome in nomes:
+        esperado = destino["componentes_internos"].get(nome)
+        da_base = base["componentes_internos"].get(nome)
+        da_doadora = doadora["componentes_internos"].get(nome)
+        do_residual = residual["componentes_internos"].get(nome)
+        internos.append({
+            "componente": nome,
+            "base_destino_diferente": da_base != esperado,
+            "doadora_destino_diferente": da_doadora != esperado,
+            "doadora_residual_diferente": da_doadora != do_residual,
+            "requer_conferencia": True,
+        })
+
+    return {
+        "status_engenharia": "PENDENTE_HOMOLOGACAO_G1",
+        "torre_externa": "IDENTIDADE_LOGICA_COINCIDENTE",
+        "produto_residual_previsto": simulacao["produto_residual"],
+        "construcao_destino": _torre_construcao(partes_destino),
+        "envolve_ina": bool(partes_destino["ina"]),
+        "componentes_internos": internos,
+        "observacao": (
+            "As identidades G1 não são códigos de peças e não determinam "
+            "automaticamente quais internos devem ser transferidos. "
+            "Diferença lógica indica necessidade de análise; igualdade "
+            "lógica não comprova equivalência física."
+        ),
+    }
 
 
 # Registro incremental de regras por família / construção.
