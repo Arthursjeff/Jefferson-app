@@ -2,7 +2,7 @@
 import io
 import pandas as pd
 import streamlit as st
-from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo, calcular_residual_torre
+from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo, calcular_residual_torre, diagnosticar_componentes_torre
 from core.transformacoes_kit_2030 import OPCOES, parse as parse_kit_2030, avaliar as avaliar_kit_2030, calcular_residual as calcular_residual_kit_2030
 
 
@@ -191,6 +191,7 @@ def pagina_laboratorio_transformacoes():
         if resultado["tipo"] == "TORRE" and resultado["base"]:
             try:
                 simulacao_torre = calcular_residual_torre(resultado, doadora)
+                diagnostico_g1 = diagnosticar_componentes_torre(resultado, doadora)
             except ValueError as exc:
                 st.warning(str(exc))
             else:
@@ -202,15 +203,36 @@ def pagina_laboratorio_transformacoes():
                 with c2:
                     st.markdown("**Válvula residual prevista**")
                     st.code(simulacao_torre["produto_residual"])
-                st.caption(simulacao_torre["observacao"])
+                st.warning(simulacao_torre["observacao"])
+                st.markdown("**Conferência de componentes internos G1 (não homologada)**")
+                if diagnostico_g1["envolve_ina"]:
+                    st.warning(
+                        "A transformação envolve INA. A correspondência da torre externa "
+                        "não comprova a montagem dos componentes internos desta construção."
+                    )
+                st.dataframe(pd.DataFrame([
+                    {
+                        "Componente": p["componente"].replace("_", " ").capitalize(),
+                        "Base x destino": "Identidade diferente"
+                        if p["base_destino_diferente"] else "Sem diferença detectada",
+                        "Doadora x destino": "Identidade diferente"
+                        if p["doadora_destino_diferente"] else "Sem diferença detectada",
+                        "Verificação": "Conferência física necessária",
+                    }
+                    for p in diagnostico_g1["componentes_internos"]
+                ]), hide_index=True, use_container_width=True)
+                st.caption(diagnostico_g1["observacao"])
                 assinatura_torre = (simulacao_torre["produto_final"],
                                    simulacao_torre["valvula_base"],
                                    simulacao_torre["valvula_doadora"],
                                    simulacao_torre["produto_residual"])
-                if st.button("Validar códigos da transformação de torre", key="validar_residual_torre"):
+                if st.button("Conferir apenas os códigos da transformação de torre", key="validar_residual_torre"):
                     st.session_state["residual_torre_validado"] = assinatura_torre
                 if st.session_state.get("residual_torre_validado") == assinatura_torre:
-                    st.success("Códigos validados pelo operador nesta simulação.")
+                    st.info(
+                        "Códigos conferidos nesta simulação. A composição interna G1 "
+                        "ainda não está homologada para execução ou registro como possibilidade validada."
+                    )
                 else:
                     st.info("Confira a válvula vendida e o residual antes de validar.")
         if resultado["tipo"] == "CORPO":
