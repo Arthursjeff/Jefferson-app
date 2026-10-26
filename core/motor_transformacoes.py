@@ -157,7 +157,7 @@ def calcular_residual_corpo(resultado, codigo_doadora):
 
 
 # O conjunto G1 distingue torre EXTERNA de internos (assento, mola, núcleo).
-# O grupo standard pode fornecer a torre apenas nas famílias cadastradas.
+# A permuta transfere sempre o conjunto G1 completo entre as válvulas.
 from components.internos.torre import identificar_sistema_torre
 from components.internos.regras_g1 import resolver_g1
 
@@ -180,7 +180,7 @@ def _torre_grupo(p):
     return identificar_sistema_torre(p["familia"], material)["grupo"]
 
 def _torre_compatibilidade(destino, candidata):
-    """Comparação da torre externa; internos ainda não liberados como equivalentes."""
+    """Pré-filtro da torre externa; o conjunto completo é validado depois."""
     if not destino or not candidata:
         return False
     return (_torre_grupo(destino) == _torre_grupo(candidata)
@@ -284,25 +284,22 @@ def calcular_residual_torre(resultado, codigo_doadora):
 
 
 def diagnosticar_componentes_torre(resultado, codigo_doadora):
-    """Compara identidades lógicas G1 sem inferir trocas físicas dos internos.
+    """Valida a permuta de dois conjuntos G1 INTEIROS, sem desmontar internos.
 
-    Não homologa a operação, não modifica estoque nem grava possibilidades.
+    A única exceção de identidade admitida é mola inox 303 versus 304.
+    Falhas ou identidades G1 desconhecidas bloqueiam a homologação automática.
     """
     simulacao = calcular_residual_torre(resultado, codigo_doadora)
 
     def identificar(codigo):
         partes = _torre_partes(codigo)
         if not partes:
-            raise ValueError("Código não reconhecido na conferência G1: %s." % codigo)
+            raise ValueError("Código G1 não reconhecido: %s." % codigo)
         material = "LATAO" if partes["material"] == "B" else "INOX"
         g1 = resolver_g1(
-            familia=partes["familia"],
-            material=material,
-            construcao=_torre_construcao(partes),
-            vedacao=partes["vedacao"],
-            final=partes["final"] or None,
-            bitola=partes["tamanho"],
-        )
+            familia=partes["familia"], material=material,
+            construcao=_torre_construcao(partes), vedacao=partes["vedacao"],
+            final=partes["final"] or None, bitola=partes["tamanho"])
         return partes, g1
 
     partes_destino, destino = identificar(simulacao["produto_final"])
@@ -310,44 +307,38 @@ def diagnosticar_componentes_torre(resultado, codigo_doadora):
     _, doadora = identificar(simulacao["valvula_doadora"])
     _, residual = identificar(simulacao["produto_residual"])
 
-    if doadora["torre_externa"] != destino["torre_externa"]:
-        raise ValueError("Torre externa da doadora não corresponde ao destino no G1.")
-    if residual["torre_externa"] != base["torre_externa"]:
-        raise ValueError("Torre externa do residual difere da base no G1.")
+    def normalizar_mola(componente, identidade):
+        identidade = dict(identidade)
+        if componente in ("mola_nucleo", "mola_cadeirinha") and identidade.get("material") in ("INOX 303", "INOX 304"):
+            identidade["material"] = "INOX 303/304"
+        return identidade
 
-    internos = []
-    nomes = sorted(
-        set(destino["componentes_internos"])
-        | set(base["componentes_internos"])
-        | set(doadora["componentes_internos"])
-        | set(residual["componentes_internos"])
-    )
-    for nome in nomes:
-        esperado = destino["componentes_internos"].get(nome)
-        da_base = base["componentes_internos"].get(nome)
-        da_doadora = doadora["componentes_internos"].get(nome)
-        do_residual = residual["componentes_internos"].get(nome)
-        internos.append({
-            "componente": nome,
-            "base_destino_diferente": da_base != esperado,
-            "doadora_destino_diferente": da_doadora != esperado,
-            "doadora_residual_diferente": da_doadora != do_residual,
-            "requer_conferencia": True,
-        })
+    divergencias = []
+    comparacoes = (("doadora_destino", doadora, destino),
+                   ("base_residual", base, residual))
+    for nome, origem, esperado in comparacoes:
+        if origem["validacao_pendente"] or esperado["validacao_pendente"]:
+            divergencias.append(nome + ": identidade técnica G1 pendente")
+        if origem["torre_externa"] != esperado["torre_externa"]:
+            divergencias.append(nome + ": torre externa incompatível")
+        nomes = set(origem["componentes_internos"]) | set(esperado["componentes_internos"])
+        for componente in sorted(nomes):
+            x = origem["componentes_internos"].get(componente)
+            y = esperado["componentes_internos"].get(componente)
+            if x is None or y is None or normalizar_mola(componente, x) != normalizar_mola(componente, y):
+                divergencias.append(nome + ": " + componente + " incompatível")
 
     return {
-        "status_engenharia": "PENDENTE_HOMOLOGACAO_G1",
-        "torre_externa": "IDENTIDADE_LOGICA_COINCIDENTE",
+        "status_engenharia": "COMPATIVEL_G1" if not divergencias else "BLOQUEADO_G1",
         "produto_residual_previsto": simulacao["produto_residual"],
         "construcao_destino": _torre_construcao(partes_destino),
         "envolve_ina": bool(partes_destino["ina"]),
-        "componentes_internos": internos,
-        "observacao": (
-            "As identidades G1 não são códigos de peças e não determinam "
-            "automaticamente quais internos devem ser transferidos. "
-            "Diferença lógica indica necessidade de análise; igualdade "
-            "lógica não comprova equivalência física."
-        ),
+        "tipo_troca": "CONJUNTO_G1_COMPLETO",
+        "excecao_mola": "Somente inox 303 e inox 304",
+        "divergencias": divergencias,
+        "observacao": ("Permuta integral dos conjuntos G1, sem substituições individuais. "
+                       "Validação baseada nas identidades técnicas G1 cadastradas; "
+                       "não substitui a conferência física."),
     }
 
 
