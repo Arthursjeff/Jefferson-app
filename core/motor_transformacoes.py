@@ -192,60 +192,164 @@ def _torre_montar(p, z, ina):
             + p["vedacao"] + p["tamanho"] + p["final"] + p["npt"]
             + ("INA" if ina else "") + (p["eletrico"] or ""))
 
-def _avaliar_torre(codigo, estoque, resultado):
+# As construções são identidades do conjunto G1 inteiro, não listas de peças.
+_CONSTRUCOES_G1 = {
+    "REGULAR": (False, False), "Z": (True, False),
+    "INA": (False, True), "Z_INA": (True, True),
+}
+
+
+def _torre_codigo_construcao(partes, construcao):
+    z, ina = _CONSTRUCOES_G1[construcao]
+    return _torre_montar(partes, z, ina)
+
+
+def _torre_mesma_valvula_sem_g1(destino, candidata):
+    """A base difere do produto desejado SOMENTE pela construção do G1."""
+    return (destino and candidata and
+            all(destino[chave] == candidata[chave] for chave in
+                ("familia", "material", "vedacao", "tamanho",
+                 "final", "npt", "eletrico")))
+
+
+def _g1_identificar(codigo):
     p = _torre_partes(codigo)
-    if not p or _torre_construcao(p) == "REGULAR":
+    if not p:
+        raise ValueError("Código não reconhecido pelo motor G1: %s." % codigo)
+    return p, resolver_g1(
+        familia=p["familia"],
+        material="LATAO" if p["material"] == "B" else "INOX",
+        construcao=_torre_construcao(p),
+        vedacao=p["vedacao"], final=p["final"] or None,
+        bitola=p["tamanho"])
+
+
+def _g1_normalizar_identidade(componente, identidade):
+    """Única exceção: a mola inox 303 e a inox 304 são permutáveis."""
+    if identidade is None:
+        return None
+    dados = dict(identidade)
+    if (componente in ("mola_nucleo", "mola_cadeirinha")
+            and dados.get("material") in ("INOX 303", "INOX 304")):
+        dados["material"] = "INOX 303/304"
+    return dados
+
+
+def _g1_validar_permuta(destino, base, doadora):
+    """Verifica B + G1(C) = A e C + G1(B) = D integralmente."""
+    p_base, g_base = _g1_identificar(base)
+    _, g_destino = _g1_identificar(destino)
+    p_doadora, g_doadora = _g1_identificar(doadora)
+    residual = _torre_codigo_construcao(p_doadora, _torre_construcao(p_base))
+    _, g_residual = _g1_identificar(residual)
+    divergencias = []
+
+    if not _torre_mesma_valvula_sem_g1(_torre_partes(destino), p_base):
+        divergencias.append("base: corpo/configuração diferente do destino")
+    if not _torre_mesma_valvula_sem_g1(p_doadora, _torre_partes(residual)):
+        divergencias.append("residual: corpo/configuração diferente da doadora")
+
+    for nome, origem, esperado in (
+            ("doadora para produto final", g_doadora, g_destino),
+            ("base para produto residual", g_base, g_residual)):
+        if origem["validacao_pendente"] or esperado["validacao_pendente"]:
+            divergencias.append(nome + ": regra G1 pendente")
+        if origem["torre_externa"] != esperado["torre_externa"]:
+            divergencias.append(nome + ": torre externa incompatível")
+        internos_a = origem["componentes_internos"]
+        internos_b = esperado["componentes_internos"]
+        for componente in sorted(set(internos_a) | set(internos_b)):
+            x = _g1_normalizar_identidade(componente, internos_a.get(componente))
+            y = _g1_normalizar_identidade(componente, internos_b.get(componente))
+            if x is None or y is None or x != y:
+                divergencias.append(nome + ": " + componente + " incompatível")
+    return residual, divergencias
+
+
+def _avaliar_torre(codigo, estoque, resultado):
+    destino = _torre_partes(codigo)
+    if not destino:
         resultado["pendencias"].append(
-            "A transformação exige código reconhecido com torre Z, INA ou Z+INA.")
+            "Código sem construção G1 reconhecida; transformação não sugerida.")
         return resultado
-    grupo = _torre_grupo(p)
-    resultado["grupo_torre"] = grupo
-    resultado["construcao_torre"] = _torre_construcao(p)
-    base = _torre_montar(p, False, False)
-    resultado["codigo_base_esperado"] = base
-    if estoque.get(base, 0) > 0:
-        resultado["base"].append({"codigo": base, "quantidade": estoque[base]})
-    else:
-        resultado["pendencias"].append("Válvula base sem torre especial %s sem saldo." % base)
+    construcao = _torre_construcao(destino)
+    resultado["grupo_torre"] = _torre_grupo(destino)
+    resultado["construcao_torre"] = construcao
+
+    # Preserva prioridade da base regular já existente; também permite a
+    # retirada de Z/INA e permutas entre construções especiais.
+    ordem_base = (["REGULAR", "Z", "INA", "Z_INA"] if construcao != "REGULAR"
+                  else ["Z", "INA", "Z_INA"])
+    ordem_base = [c for c in ordem_base if c != construcao]
+    resultado["codigo_base_esperado"] = _torre_codigo_construcao(destino, ordem_base[0])
+    for configuracao in ordem_base:
+        candidato = _torre_codigo_construcao(destino, configuracao)
+        if estoque.get(candidato, 0) > 0:
+            resultado["base"].append({
+                "codigo": candidato, "quantidade": estoque[candidato],
+                "construcao": configuracao})
+
+    if not resultado["base"]:
+        resultado["pendencias"].append(
+            "Nenhuma base com o mesmo corpo e G1 de construção distinta em estoque.")
+
     doadoras = []
     combinadas = []
+    bloqueadas_g1 = 0
     for codigo_estoque, quantidade in estoque.items():
         if quantidade <= 0 or normalizar(codigo_estoque) == codigo:
             continue
-        item = _torre_partes(codigo_estoque)
-        if not _torre_compatibilidade(p, item):
+        doadora = _torre_partes(codigo_estoque)
+        if not _torre_compatibilidade(destino, doadora):
             continue
-        # Nunca oferecer item de outra família para a 1335 (nem vice-versa).
-        if p["familia"] == "1335" and item["familia"] != "1335":
+
+        # Não ampliar intercambiabilidade entre famílias exclusivas.
+        if (destino["familia"] == "1335") != (doadora["familia"] == "1335"):
             continue
-        mesma_vedacao = item["vedacao"] == p["vedacao"]
-        if mesma_vedacao and item["familia"] == p["familia"]:
-            prioridade = 1
-        elif (mesma_vedacao and item["familia"] == "1327"
-              and p["familia"] != "1335"):
+        mesma_vedacao = doadora["vedacao"] == destino["vedacao"]
+        if doadora["familia"] == destino["familia"]:
+            prioridade = 1 if mesma_vedacao else 3
+        elif mesma_vedacao and doadora["familia"] == "1327":
             prioridade = 2
-        elif item["familia"] == p["familia"] and not mesma_vedacao:
-            prioridade = 3
         else:
             continue
-        candidato = {"codigo": normalizar(codigo_estoque),
-                     "quantidade": quantidade, "prioridade": prioridade,
-                     "vedacao_compativel": mesma_vedacao}
-        if prioridade == 3:
+
+        candidato = {
+            "codigo": normalizar(codigo_estoque),
+            "quantidade": quantidade, "prioridade": prioridade,
+            "vedacao_compativel": mesma_vedacao}
+        if not mesma_vedacao:
             combinadas.append(candidato)
-        else:
-            doadoras.append(candidato)
+            continue
+
+        # Validação G1 do par A/D ANTES de oferecer como opção utilizável.
+        bases_compativeis = []
+        for base in resultado["base"]:
+            _, divergencias = _g1_validar_permuta(
+                codigo, base["codigo"], candidato["codigo"])
+            if not divergencias:
+                bases_compativeis.append(base["codigo"])
+        if resultado["base"] and not bases_compativeis:
+            bloqueadas_g1 += 1
+            continue
+        candidato["bases_compativeis"] = bases_compativeis
+        doadoras.append(candidato)
+
     resultado["doadores"] = sorted(
         doadoras, key=lambda x: (x["prioridade"], -x["quantidade"], x["codigo"]))
     resultado["doadores_combinadas"] = sorted(
         combinadas, key=lambda x: (-x["quantidade"], x["codigo"]))
     if combinadas:
         resultado["pendencias"].append(
-            "Há doadoras com vedação diferente (prioridade 3), mas a transformação "
-            "Torre + Vedação está bloqueada até a definição do assento e demais componentes.")
+            "Doadoras de vedação diferente exigem operação combinada, não "
+            "autorizada como troca integral G1 simples.")
+    if bloqueadas_g1:
+        resultado["pendencias"].append(
+            "%s doadora(s) descartada(s) porque o G1 não forma os dois "
+            "produtos com as bases disponíveis." % bloqueadas_g1)
     if not doadoras:
         resultado["pendencias"].append(
-            "Não há doadora com a mesma vedação e torre G1 compatível em estoque.")
+            "Não há doadora com conjunto G1 completo compatível e mesma vedação.")
     if resultado["base"] and doadoras:
         resultado["status"] = "SIMULACAO_POSSIVEL"
     elif resultado["base"]:
@@ -254,80 +358,45 @@ def _avaliar_torre(codigo, estoque, resultado):
         resultado["status"] = "DOADORES_LOCALIZADOS"
     return resultado
 
-def calcular_residual_torre(resultado, codigo_doadora):
-    """Permuta construção da torre mantendo a identidade da doadora.
 
-    Somente simulação de torre com vedação igual, com doadora homologada.
-    """
+def calcular_residual_torre(resultado, codigo_doadora, codigo_base=None):
+    """Simula a troca de conjuntos G1 completos B↔C sem movimentar estoque."""
     if resultado.get("tipo") != "TORRE" or resultado.get("status") != "SIMULACAO_POSSIVEL":
         raise ValueError("É necessária uma base e uma doadora compatível.")
     doadora = normalizar(codigo_doadora)
     opcao = next((d for d in resultado["doadores"] if d["codigo"] == doadora), None)
     if not opcao or not opcao["vedacao_compativel"]:
-        raise ValueError("A doadora não está liberada para torre simples.")
-    p = _torre_partes(doadora)
-    destino = _torre_partes(resultado["destino"])
-    base = _torre_partes(resultado["base"][0]["codigo"])
-    if not _torre_compatibilidade(destino, p) or _torre_construcao(base) != "REGULAR":
-        raise ValueError("Conjunto G1 incompatível.")
-    residual = _torre_montar(p, False, False)
-    return {"valvula_base": resultado["base"][0]["codigo"],
-            "valvula_doadora": doadora,
-            "produto_final": resultado["destino"],
-            "produto_residual": residual,
-            "quantidade": 1, "simulacao": True,
-            "observacao": "Código residual previsto, ainda não homologado: a identidade "
-                          "da torre externa não garante a compatibilidade dos componentes "
-                          "internos G1. Conferir a composição antes da execução real.",
-             "residual_sujeito_a_conferencia_g1": True}
+        raise ValueError("Doadora não autorizada para troca integral G1.")
+    bases = opcao.get("bases_compativeis") or []
+    if not bases:
+        raise ValueError("Não existe base validada para essa doadora.")
+    base = normalizar(codigo_base) if codigo_base else bases[0]
+    if base not in bases:
+        raise ValueError("A base selecionada não é compatível com esta doadora.")
+    residual, divergencias = _g1_validar_permuta(
+        resultado["destino"], base, doadora)
+    if divergencias:
+        raise ValueError("Conjuntos G1 incompatíveis: " + "; ".join(divergencias))
+    return {
+        "valvula_base": base,
+        "valvula_doadora": doadora,
+        "produto_final": resultado["destino"],
+        "produto_residual": residual,
+        "quantidade": 1, "simulacao": True,
+        "tipo_troca": "CONJUNTO_G1_COMPLETO",
+        "observacao": "Troca integral G1 validada para produto final e residual; "
+                      "nenhum movimento de estoque realizado.",
+        "residual_sujeito_a_conferencia_g1": False,
+    }
 
 
-
-def diagnosticar_componentes_torre(resultado, codigo_doadora):
-    """Valida a permuta de dois conjuntos G1 INTEIROS, sem desmontar internos.
-
-    A única exceção de identidade admitida é mola inox 303 versus 304.
-    Falhas ou identidades G1 desconhecidas bloqueiam a homologação automática.
-    """
-    simulacao = calcular_residual_torre(resultado, codigo_doadora)
-
-    def identificar(codigo):
-        partes = _torre_partes(codigo)
-        if not partes:
-            raise ValueError("Código G1 não reconhecido: %s." % codigo)
-        material = "LATAO" if partes["material"] == "B" else "INOX"
-        g1 = resolver_g1(
-            familia=partes["familia"], material=material,
-            construcao=_torre_construcao(partes), vedacao=partes["vedacao"],
-            final=partes["final"] or None, bitola=partes["tamanho"])
-        return partes, g1
-
-    partes_destino, destino = identificar(simulacao["produto_final"])
-    _, base = identificar(simulacao["valvula_base"])
-    _, doadora = identificar(simulacao["valvula_doadora"])
-    _, residual = identificar(simulacao["produto_residual"])
-
-    def normalizar_mola(componente, identidade):
-        identidade = dict(identidade)
-        if componente in ("mola_nucleo", "mola_cadeirinha") and identidade.get("material") in ("INOX 303", "INOX 304"):
-            identidade["material"] = "INOX 303/304"
-        return identidade
-
-    divergencias = []
-    comparacoes = (("doadora_destino", doadora, destino),
-                   ("base_residual", base, residual))
-    for nome, origem, esperado in comparacoes:
-        if origem["validacao_pendente"] or esperado["validacao_pendente"]:
-            divergencias.append(nome + ": identidade técnica G1 pendente")
-        if origem["torre_externa"] != esperado["torre_externa"]:
-            divergencias.append(nome + ": torre externa incompatível")
-        nomes = set(origem["componentes_internos"]) | set(esperado["componentes_internos"])
-        for componente in sorted(nomes):
-            x = origem["componentes_internos"].get(componente)
-            y = esperado["componentes_internos"].get(componente)
-            if x is None or y is None or normalizar_mola(componente, x) != normalizar_mola(componente, y):
-                divergencias.append(nome + ": " + componente + " incompatível")
-
+def diagnosticar_componentes_torre(resultado, codigo_doadora, codigo_base=None):
+    """Expõe a validação técnica da troca integral; sem planejar peças avulsas."""
+    simulacao = calcular_residual_torre(resultado, codigo_doadora, codigo_base)
+    _, divergencias = _g1_validar_permuta(
+        simulacao["produto_final"], simulacao["valvula_base"],
+        simulacao["valvula_doadora"])
+    partes_destino = _torre_partes(simulacao["produto_final"])
     return {
         "status_engenharia": "COMPATIVEL_G1" if not divergencias else "BLOQUEADO_G1",
         "produto_residual_previsto": simulacao["produto_residual"],
@@ -336,9 +405,7 @@ def diagnosticar_componentes_torre(resultado, codigo_doadora):
         "tipo_troca": "CONJUNTO_G1_COMPLETO",
         "excecao_mola": "Somente inox 303 e inox 304",
         "divergencias": divergencias,
-        "observacao": ("Permuta integral dos conjuntos G1, sem substituições individuais. "
-                       "Validação baseada nas identidades técnicas G1 cadastradas; "
-                       "não substitui a conferência física."),
+        "observacao": "Permuta integral dos conjuntos G1 validados pelo cadastro técnico.",
     }
 
 
