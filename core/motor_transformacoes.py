@@ -164,12 +164,17 @@ from components.internos.regras_g1 import resolver_g1
 _PADRAO_TORRE = re.compile(
     r"^(?P<z>Z?)(?P<familia>(?:13|20|30)\d{2})"
     r"(?P<material>[BI])(?P<vedacao>[A-Z])(?P<tamanho>\d{2})"
-    r"(?P<final>A?)(?P<npt>T?)(?P<ina>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
+    r"(?P<final>[ACDU]?)(?P<npt>T?)(?P<ina>INA)?(?P<eletrico>-[A-Z0-9]+)?$"
 )
 
 def _torre_partes(codigo):
     m = _PADRAO_TORRE.fullmatch(normalizar(codigo))
-    return m.groupdict() if m else None
+    if not m:
+        return None
+    partes = m.groupdict()
+    if partes["familia"] != "1323" and partes["final"] in ("C", "D", "U"):
+        return None
+    return partes
 
 def _torre_construcao(p):
     return ("Z_INA" if p["z"] and p["ina"] else
