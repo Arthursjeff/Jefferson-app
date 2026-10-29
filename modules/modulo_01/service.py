@@ -3,6 +3,7 @@ from modules.modulo_01.sinalizacoes import enriquecer_pedidos
 from core.pedidos import (
     criar_pedido,
     listar_pedidos,
+    listar_retirados_para_pesquisa,
     mover_pedido,
     editar_pedido,
     registrar_nota_fiscal,
@@ -95,9 +96,10 @@ def obter_pedidos():
     return listar_pedidos(status="ATIVO")
 
 
-def _mapa_retiradas(criado_desde=None):
+def _mapa_retiradas(criado_desde=None, pedido_ids=None):
     movimentacoes = listar_movimentacoes_destino(
-        "RETIRADO", origem="EMBALADO", criado_desde=criado_desde
+        "RETIRADO", origem="EMBALADO", criado_desde=criado_desde,
+        pedido_ids=pedido_ids,
     )
     mapa = {}
 
@@ -213,26 +215,28 @@ def pesquisar_historico_retirados(termo: str):
     if not termo:
         return []
 
-    retiradas = _mapa_retiradas()
-    resultados = []
-
-    for pedido in obter_pedidos():
-        if pedido.get("setor_atual") != "RETIRADO":
-            continue
-
+    # Filtra primeiro os retirados, sem carregar o histórico inteiro de movimentos.
+    candidatos = []
+    for pedido in listar_retirados_para_pesquisa():
         campos = (
             pedido.get("numero_pedido"),
             pedido.get("cliente"),
             pedido.get("nota_fiscal"),
         )
+        if any(termo in str(valor or "").casefold() for valor in campos):
+            candidatos.append(pedido)
 
-        if not any(termo in str(valor or "").casefold() for valor in campos):
-            continue
+    if not candidatos:
+        return []
 
-        mov = retiradas.get(pedido.get("id"))
-        if mov:
-            resultados.append(_enriquecer_retirado(pedido, mov))
-
+    # Busca pontual para pesquisas comuns e evita URLs com centenas de IDs.
+    ids = [p["id"] for p in candidatos]
+    retiradas = (_mapa_retiradas(pedido_ids=ids)
+                 if len(ids) <= 200 else _mapa_retiradas())
+    resultados = [
+        _enriquecer_retirado(pedido, retiradas[pedido["id"]])
+        for pedido in candidatos if pedido["id"] in retiradas
+    ]
     resultados.sort(key=lambda p: p.get("_retirado_em") or "", reverse=True)
     return resultados
 
