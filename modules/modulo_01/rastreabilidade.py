@@ -54,7 +54,7 @@ def consultar_rastreabilidade_pedidos(pedido_ids):
         base = {
             "Código": item.get("codigo") or "-",
             "Tensão": item.get("tensao") or "-",
-            "Qtd. item": item.get("quantidade"),
+            "Qtd. item": str(item.get("quantidade") if item.get("quantidade") is not None else "-"),
         }
         registros = series_por_item.get(item["id"], [])
         if not registros:
@@ -67,7 +67,7 @@ def consultar_rastreabilidade_pedidos(pedido_ids):
                      else str(registro.get("numero_serie") or "").strip() or "Não registrado")
             resultado[item["pedido_id"]].append({
                 **base, "Número de série": serie,
-                "Qtd. série": registro.get("quantidade"),
+                "Qtd. série": str(registro.get("quantidade") if registro.get("quantidade") is not None else "-"),
             })
     return resultado
 
