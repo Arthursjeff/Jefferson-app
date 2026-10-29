@@ -27,7 +27,7 @@ def pagina_cadastro_integrado():
             st.session_state["erp_chave"] = chave
             st.session_state["erp_cliente"] = achado["documento"].get("cliente_nome_erp") or "" if achado else ""
             st.session_state["erp_itens"] = [
-                {"ID origem": str(i.get("id") or ""),
+                {"Excluir": False, "ID origem": str(i.get("id") or ""),
                  "Código ERP (original)": sugerir_codigo(i)["codigo_erp"],
                  "Código sugerido": sugerir_codigo(i)["codigo_sugerido"],
                  "Situação": sugerir_codigo(i)["situacao"],
@@ -52,19 +52,24 @@ def pagina_cadastro_integrado():
     else:
         st.warning("Não localizado nos últimos seis meses. Cadastro manual disponível.")
     cliente = st.text_input("Cliente", key="erp_cliente")
-    origem = st.session_state.get("erp_itens") or [{"Código": "", "Tensão": "", "Quantidade": 1.0, "Valor unitário": 0.0}]
+    origem = st.session_state.get("erp_itens") or [{"Excluir": False, "Código": "", "Tensão": "", "Quantidade": 1.0, "Valor unitário": 0.0}]
+    st.caption("Marque Excluir para retirar do pedido um item do orçamento que não foi vendido. O orçamento original permanece intacto.")
     editados = st.data_editor(origem, num_rows="dynamic", hide_index=True, use_container_width=True,
                               disabled=["ID origem", "Código ERP (original)", "Código sugerido", "Situação",
                                         "Origem da sugestão", "Tipo provável"],
-                              column_config={"ID origem": None, "Código sugerido": None, "Situação": None, "Origem da sugestão": None, "Tipo provável": None},
+                              column_config={"Excluir": st.column_config.CheckboxColumn("Excluir", help="Não incluir este item no pedido", default=False), "ID origem": None, "Código sugerido": None, "Situação": None, "Origem da sugestão": None, "Tipo provável": None},
                               key="erp_editor_" + str(st.session_state.get("erp_versao", 0)))
     linhas = editados.to_dict("records") if hasattr(editados, "to_dict") else editados
-    conflitos = sum(1 for linha in linhas if "CONFLITO" in str(linha.get("Situação") or ""))
+    linhas_ativas = [linha for linha in linhas if not linha.get("Excluir", False)]
+    excluidos = len(linhas) - len(linhas_ativas)
+    if excluidos:
+        st.info(f"{excluidos} item(ns) excluído(s) deste pedido. O orçamento original não será alterado.")
+    conflitos = sum(1 for linha in linhas_ativas if "CONFLITO" in str(linha.get("Situação") or ""))
     if conflitos:
         st.warning(f"{conflitos} item(ns) têm divergência entre regras e referências. Confira o código antes de criar o pedido.")
     itens = []
     ids_validos = {str(i.get("id")) for i in (achado["itens"] if achado else []) if i.get("id") is not None}
-    for i, linha in enumerate(linhas):
+    for i, linha in enumerate(linhas_ativas):
         identificador = str(linha.get("ID origem") or "")
         referencia = identificador if identificador in ids_validos else None
         itens.append({"codigo": linha.get("Código"), "tensao": linha.get("Tensão"),
@@ -75,6 +80,8 @@ def pagina_cadastro_integrado():
         st.metric("Total confirmado", "R$ " + f"{total:,.2f}")
     except Exception:
         st.warning("Revise as quantidades e valores.")
+    if not itens:
+        st.warning("Mantenha pelo menos um item para criar o pedido.")
     tipo = st.selectbox("Tipo do pedido", ["NORMAL", "PROGRAMADO", "IMPORTACAO"])
     previsao = st.date_input("Data prevista de faturamento")
     st.caption("Os códigos técnicos são apenas sugestões não auditadas. Confira cada linha antes de confirmar.")
