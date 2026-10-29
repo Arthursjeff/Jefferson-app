@@ -12,6 +12,66 @@ def listar_series(pedido_id, itens=None):
     return (supabase.table("fila_pedido_series").select("*")
             .in_("pedido_item_id", ids).order("id").execute().data or [])
 
+
+def consultar_rastreabilidade_pedidos(pedido_ids):
+    """Consulta em lote os itens e suas séries para o histórico de pedidos.
+
+    Somente lê os dados já cadastrados, sem criar/alterar rastreabilidade.
+    Cada série gera uma linha com sua própria quantidade; itens sem série
+    registrada continuam visíveis como "Não registrado".
+    """
+    ids = list(dict.fromkeys(pedido_ids))
+    if not ids:
+        return {}
+
+    itens = []
+    for inicio in range(0, len(ids), 200):
+        lote = ids[inicio:inicio + 200]
+        itens.extend(
+            supabase.table("fila_pedido_itens")
+            .select("id,pedido_id,ordem,codigo,tensao,quantidade")
+            .in_("pedido_id", lote)
+            .order("ordem")
+            .execute().data or []
+        )
+
+    series_por_item = {}
+    ids_itens = [item["id"] for item in itens]
+    for inicio in range(0, len(ids_itens), 200):
+        lote = ids_itens[inicio:inicio + 200]
+        registros = (
+            supabase.table("fila_pedido_series")
+            .select("pedido_item_id,numero_serie,quantidade,sem_numero")
+            .in_("pedido_item_id", lote)
+            .order("id")
+            .execute().data or []
+        )
+        for registro in registros:
+            series_por_item.setdefault(registro["pedido_item_id"], []).append(registro)
+
+    resultado = {pedido_id: [] for pedido_id in ids}
+    for item in itens:
+        base = {
+            "Código": item.get("codigo") or "-",
+            "Tensão": item.get("tensao") or "-",
+            "Qtd. item": item.get("quantidade"),
+        }
+        registros = series_por_item.get(item["id"], [])
+        if not registros:
+            resultado[item["pedido_id"]].append({
+                **base, "Número de série": "Não registrado", "Qtd. série": "-",
+            })
+            continue
+        for registro in registros:
+            serie = ("Sem número de série" if registro.get("sem_numero")
+                     else str(registro.get("numero_serie") or "").strip() or "Não registrado")
+            resultado[item["pedido_id"]].append({
+                **base, "Número de série": serie,
+                "Qtd. série": registro.get("quantidade"),
+            })
+    return resultado
+
+
 def validar_rastreabilidade(pedido_id, entradas=None):
     itens = listar_itens_pedido(pedido_id)
     if not itens:
