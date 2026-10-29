@@ -869,59 +869,85 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     )
 
                 if buscar_retirados:
-                    resultados_retirados = pesquisar_historico_retirados(termo_retirados)
-
                     if not str(termo_retirados or "").strip():
+                        st.session_state["historico_retirados_resultados"] = None
                         st.warning("Digite um pedido, cliente ou nota fiscal.")
-                    elif not resultados_retirados:
+                    else:
+                        try:
+                            st.session_state["historico_retirados_resultados"] = (
+                                pesquisar_historico_retirados(termo_retirados)
+                            )
+                            st.session_state["historico_retirados_busca_versao"] = (
+                                st.session_state.get("historico_retirados_busca_versao", 0) + 1
+                            )
+                        except Exception:
+                            logging.exception("Erro ao pesquisar histórico de Retirados")
+                            st.session_state["historico_retirados_resultados"] = None
+                            st.error("Falha ao consultar o histórico. Tente novamente.")
+
+                resultados_retirados = st.session_state.get("historico_retirados_resultados")
+                if resultados_retirados is not None:
+                    if not resultados_retirados:
                         st.info("Nenhum pedido retirado encontrado.")
                     else:
                         st.caption(f"{len(resultados_retirados)} resultado(s) encontrado(s).")
+                        # Mantém o resultado da última busca na sessão. Trocar o pedido
+                        # não repete a pesquisa nem carrega todas as séries.
+                        resultado = st.selectbox(
+                            "Selecione o pedido para consultar seus itens e números de série",
+                            resultados_retirados,
+                            format_func=lambda p: (
+                                f"{p.get('numero_pedido', '')} — "
+                                f"{p.get('cliente', '')} — "
+                                f"NF: {p.get('nota_fiscal') or 'Não informada'}"
+                            ),
+                            key=f"historico_retirados_selecionado_"
+                                f"{st.session_state.get('historico_retirados_busca_versao', 0)}",
+                        )
+
+                        retirado_em = resultado.get("_retirado_em") or ""
+                        retirado_formatado = retirado_em
 
                         try:
-                            rastreabilidade_retirados = consultar_rastreabilidade_pedidos(
-                                [r["id"] for r in resultados_retirados]
+                            from datetime import datetime
+                            data_retirada = datetime.fromisoformat(retirado_em)
+                            retirado_formatado = data_retirada.strftime("%d/%m/%Y às %H:%M")
+                        except (TypeError, ValueError):
+                            pass
+
+                        with st.container(border=True):
+                            st.markdown(
+                                f"**Pedido {resultado.get('numero_pedido', '')} — "
+                                f"{resultado.get('cliente', '')}**"
                             )
-                        except Exception:
-                            logging.exception("Falha na consulta de séries do histórico de Retirados")
-                            rastreabilidade_retirados = None
+                            st.write(f"Nota Fiscal: {resultado.get('nota_fiscal') or 'Não informada'}")
+                            st.write(f"Retirado em: **{retirado_formatado}**")
+                            st.write(
+                                f"Movimentado por: **{resultado.get('_retirado_por') or 'Não identificado'}**"
+                            )
 
-                        for resultado in resultados_retirados:
-                            retirado_em = resultado.get("_retirado_em") or ""
-                            retirado_formatado = retirado_em
-
+                            st.markdown("**Itens e números de série**")
                             try:
-                                from datetime import datetime
-                                data_retirada = datetime.fromisoformat(retirado_em)
-                                retirado_formatado = data_retirada.strftime("%d/%m/%Y às %H:%M")
-                            except (TypeError, ValueError):
-                                pass
-
-                            with st.container(border=True):
-                                st.markdown(
-                                    f"**Pedido {resultado.get('numero_pedido', '')} — "
-                                    f"{resultado.get('cliente', '')}**"
+                                linhas = consultar_rastreabilidade_pedidos(
+                                    [resultado["id"]]
+                                ).get(resultado["id"], [])
+                            except Exception:
+                                logging.exception(
+                                    "Falha na consulta de séries do histórico de Retirados"
                                 )
-                                st.write(f"Nota Fiscal: {resultado.get('nota_fiscal') or 'Não informada'}")
-                                st.write(f"Retirado em: **{retirado_formatado}**")
-                                st.write(
-                                    f"Movimentado por: **{resultado.get('_retirado_por') or 'Não identificado'}**"
+                                st.warning(
+                                    "Não foi possível carregar a rastreabilidade deste pedido."
                                 )
-
-                                st.markdown("**Itens e números de série**")
-                                if rastreabilidade_retirados is None:
-                                    st.warning("Não foi possível carregar a rastreabilidade deste histórico.")
+                            else:
+                                if linhas:
+                                    st.dataframe(
+                                        linhas, hide_index=True, use_container_width=True
+                                    )
                                 else:
-                                    linhas = rastreabilidade_retirados.get(resultado["id"], [])
-                                    if linhas:
-                                        st.dataframe(
-                                            linhas, hide_index=True, use_container_width=True
-                                        )
-                                    else:
-                                        st.caption(
-                                            "Pedido antigo sem itens cadastrados: "
-                                            "não há números de série disponíveis no histórico."
-                                        )
+                                    st.caption(
+                                        "Pedido antigo sem itens cadastrados: "
+                                        "não há números de série disponíveis no histórico."
+                                    )
 
         if minimizada:
             st.caption("Fila minimizada.")
