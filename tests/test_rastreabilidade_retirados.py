@@ -60,10 +60,10 @@ class TestRastreabilidadeRetirados(unittest.TestCase):
 
         self.assertEqual(len(resultado[1]), 2)
         self.assertEqual([r["Número de série"] for r in resultado[1]], ["0012", "0013"])
-        self.assertEqual([r["Qtd. série"] for r in resultado[1]], [1, 2])
-        self.assertEqual(resultado[1][0]["Qtd. item"], 3)
+        self.assertEqual([r["Qtd. série"] for r in resultado[1]], ["1", "2"])
+        self.assertEqual(resultado[1][0]["Qtd. item"], "3")
         self.assertEqual(resultado[2][0]["Número de série"], "Sem número de série")
-        self.assertEqual(resultado[2][0]["Qtd. série"], 4)
+        self.assertEqual(resultado[2][0]["Qtd. série"], "4")
         self.assertEqual(resultado[3][0]["Número de série"], "Não registrado")
         self.assertEqual(resultado[4], [])
         self.assertEqual(len(banco.consultas), 2)
