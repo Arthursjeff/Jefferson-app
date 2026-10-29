@@ -52,6 +52,29 @@ def listar_pedidos(status: str = "ATIVO", excluir_setor: str = None, ids=None):
     return response.data or []
 
 
+
+def listar_retirados_para_pesquisa():
+    """Busca apenas os campos necessários ao histórico, paginando sem truncar resultados."""
+    registros = []
+    pagina = 0
+    tamanho = 1000
+    while True:
+        lote = (
+            supabase.table(TABELA_PEDIDOS)
+            .select("id,numero_pedido,cliente,nota_fiscal")
+            .eq("status", "ATIVO")
+            .eq("setor_atual", "RETIRADO")
+            .order("id", desc=False)
+            .range(pagina * tamanho, (pagina + 1) * tamanho - 1)
+            .execute().data or []
+        )
+        registros.extend(lote)
+        if len(lote) < tamanho:
+            break
+        pagina += 1
+    return registros
+
+
 def mover_pedido(pedido_id: int, origem: str, destino: str, usuario: str):
     response = (
         supabase
@@ -174,7 +197,10 @@ def listar_movimentacoes_tipo(tipo_evento: str, pedido_ids=None):
     return query.order("criado_em", desc=True).execute().data or []
 
 
-def listar_movimentacoes_destino(destino: str, origem: str = None, criado_desde=None):
+def listar_movimentacoes_destino(destino: str, origem: str = None, criado_desde=None, pedido_ids=None):
+    """Opcionalmente filtra os eventos por pedidos, evitando varrer histórico completo."""
+    if pedido_ids is not None and not pedido_ids:
+        return []
     query = (
         supabase
         .table(TABELA_MOVIMENTACOES)
@@ -187,6 +213,8 @@ def listar_movimentacoes_destino(destino: str, origem: str = None, criado_desde=
         query = query.eq("origem", origem)
     if criado_desde:
         query = query.gte("criado_em", criado_desde)
+    if pedido_ids is not None:
+        query = query.in_("pedido_id", list(pedido_ids))
 
     response = query.order("criado_em", desc=True).execute()
     return response.data or []
