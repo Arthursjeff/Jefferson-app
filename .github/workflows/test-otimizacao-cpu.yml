@@ -14,6 +14,7 @@ on:
       - modules/consulta_fotos.py
       - modules/analises.py
       - tests/test_otimizacao_cpu.py
+      - tests/test_rastreabilidade_retirados.py
       - .github/workflows/test-otimizacao-cpu.yml
   pull_request:
     paths:
@@ -21,6 +22,7 @@ on:
       - core/**
       - modules/**
       - tests/test_otimizacao_cpu.py
+      - tests/test_rastreabilidade_retirados.py
       - .github/workflows/test-otimizacao-cpu.yml
 jobs:
   validar:
