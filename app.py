@@ -2,6 +2,7 @@ from modules.modulo_01.rastreabilidade import interface_rastreabilidade, salvar_
 from modules.modulo_01.cadastro_integrado import pagina_cadastro_integrado, mostrar_itens_do_card
 from core.pedido_itens_comerciais import listar_itens_pedido
 from modules.modulo_01.rastreabilidade import listar_series
+from modules.modulo_01.rastreabilidade import consultar_rastreabilidade_pedidos
 import logging
 import httpx
 import streamlit as st
@@ -877,6 +878,14 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                     else:
                         st.caption(f"{len(resultados_retirados)} resultado(s) encontrado(s).")
 
+                        try:
+                            rastreabilidade_retirados = consultar_rastreabilidade_pedidos(
+                                [r["id"] for r in resultados_retirados]
+                            )
+                        except Exception:
+                            logging.exception("Falha na consulta de séries do histórico de Retirados")
+                            rastreabilidade_retirados = None
+
                         for resultado in resultados_retirados:
                             retirado_em = resultado.get("_retirado_em") or ""
                             retirado_formatado = retirado_em
@@ -898,6 +907,21 @@ def render_coluna(coluna, estado, pedidos, contagens_mensagens, contagens_alerta
                                 st.write(
                                     f"Movimentado por: **{resultado.get('_retirado_por') or 'Não identificado'}**"
                                 )
+
+                                st.markdown("**Itens e números de série**")
+                                if rastreabilidade_retirados is None:
+                                    st.warning("Não foi possível carregar a rastreabilidade deste histórico.")
+                                else:
+                                    linhas = rastreabilidade_retirados.get(resultado["id"], [])
+                                    if linhas:
+                                        st.dataframe(
+                                            linhas, hide_index=True, use_container_width=True
+                                        )
+                                    else:
+                                        st.caption(
+                                            "Pedido antigo sem itens cadastrados: "
+                                            "não há números de série disponíveis no histórico."
+                                        )
 
         if minimizada:
             st.caption("Fila minimizada.")
