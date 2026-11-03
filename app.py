@@ -345,8 +345,6 @@ def modal_cancelamento():
                 pedido_id=pedido["id"],
                 usuario=st.session_state.nome,
                 setor_usuario=st.session_state.setor,
-                itens_editados=itens_editados,
-                series_editadas=series_editadas,
             )
 
             if sucesso:
