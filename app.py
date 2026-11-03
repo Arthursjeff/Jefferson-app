@@ -4,6 +4,7 @@ from core.pedido_itens_comerciais import listar_itens_pedido
 from modules.modulo_01.rastreabilidade import listar_series
 from modules.modulo_01.rastreabilidade import consultar_rastreabilidade_pedidos
 import logging
+import time
 import httpx
 import streamlit as st
 from modules.modulo_01.sinalizacoes import registrar_sinalizacao, dados_evento
@@ -215,61 +216,46 @@ def modal_foto_obrigatoria():
     st.write(f"Pedido: **{pedido.get('numero_pedido')} - {pedido.get('cliente')}**")
     st.warning("Para avançar de Faturado para Embalado, é obrigatório tirar uma foto.")
 
+    # A janela de foto deve capturar e confirmar a imagem, sem consultar
+    # itens/séries nem criar editores administrativos em cada rerun do Streamlit.
     foto = st.camera_input("Tirar foto da embalagem")
-
-    itens_atuais = listar_itens_pedido(pedido["id"])
-    itens_editados = None
-    series_editadas = {}
-    if itens_atuais:
-        st.markdown("#### Itens do pedido")
-        linhas_itens = [
-            {"ID": str(i["id"]), "Código": i["codigo"], "Tensão": i.get("tensao") or "",
-             "Quantidade": float(i["quantidade"]), "Preço unitário": float(i["valor_unitario"])}
-            for i in itens_atuais
-        ]
-        tabela = st.data_editor(linhas_itens, num_rows="dynamic", hide_index=True,
-                                disabled=["ID"], use_container_width=True,
-                                key=f"admin_itens_{pedido['id']}")
-        itens_editados = tabela.to_dict("records") if hasattr(tabela, "to_dict") else list(tabela)
-        st.caption("Para excluir um item, remova sua linha. Novas linhas adicionam itens.")
-        series_atuais = listar_series(pedido["id"])
-        for item in itens_atuais:
-            with st.expander(f"Séries — {item['codigo']}"):
-                registros = [s for s in series_atuais if s["pedido_item_id"] == item["id"]]
-                sem = st.checkbox("Sem número de série", value=bool(registros and registros[0].get("sem_numero")),
-                                  key=f"admin_sem_serie_{pedido['id']}_{item['id']}")
-                if sem:
-                    series_editadas[str(item["id"])] = [{"sem_numero": True, "numero_serie": None,
-                        "quantidade": next((x["Quantidade"] for x in itens_editados if str(x.get("ID")) == str(item["id"])), float(item["quantidade"]))}]
-                else:
-                    base = [{"Número de série": s.get("numero_serie") or "", "Quantidade": float(s["quantidade"])}
-                            for s in registros if not s.get("sem_numero")]
-                    editor = st.data_editor(base, num_rows="dynamic", hide_index=True,
-                                            key=f"admin_series_{pedido['id']}_{item['id']}")
-                    series_editadas[str(item["id"])] = [
-                        {"sem_numero": False, "numero_serie": x.get("Número de série"),
-                         "quantidade": x.get("Quantidade")} for x in (editor.to_dict("records") if hasattr(editor, "to_dict") else list(editor))]
-    else:
-        st.info("Pedido sem itens cadastrados: os dados gerais continuam editáveis.")
 
     c1, c2 = st.columns(2)
 
     with c1:
-        if st.button("Cancelar"):
+        if st.button("Cancelar", key=f"cancelar_foto_{pedido['id']}"):
             fechar_modal_foto()
             st.rerun()
 
     with c2:
-        if st.button("Confirmar e avançar", type="primary"):
+        if st.button("Confirmar e avançar", type="primary",
+                     key=f"confirmar_foto_{pedido['id']}"):
             if not foto:
                 st.warning("Tire uma foto antes de avançar.")
                 return
 
-            sucesso, mensagem = salvar_foto_e_avancar(
-                pedido=pedido,
-                foto=foto,
-                usuario=st.session_state.nome,
-                setor_usuario=st.session_state.setor,
+            inicio = time.perf_counter()
+            try:
+                with st.spinner("Salvando foto e atualizando o pedido..."):
+                    sucesso, mensagem = salvar_foto_e_avancar(
+                        pedido=pedido,
+                        foto=foto,
+                        usuario=st.session_state.nome,
+                        setor_usuario=st.session_state.setor,
+                    )
+            except Exception:
+                logger.exception("Falha ao salvar foto e avançar pedido %s", pedido["id"])
+                st.error(
+                    "Não foi possível concluir a operação. Verifique o status "
+                    "do pedido antes de tentar novamente."
+                )
+                return
+
+            logger.info(
+                "Foto/avanço do pedido %s: %.2f s; sucesso=%s",
+                pedido["id"],
+                time.perf_counter() - inicio,
+                sucesso,
             )
             if sucesso:
                 fechar_modal_foto()
