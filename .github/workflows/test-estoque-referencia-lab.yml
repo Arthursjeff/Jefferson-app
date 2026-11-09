@@ -1,0 +1,28 @@
+name: Validar estoque historico do Laboratorio
+
+on:
+  push:
+    branches:
+      - feature/estoque-referencia-laboratorio
+  pull_request:
+    paths:
+      - "core/estoque_referencia.py"
+      - "core/catalogo_transformacoes.py"
+      - "core/permissoes.py"
+      - "modules/laboratorio_transformacoes.py"
+      - "modules/laboratorio_catalogo_ui.py"
+      - "tests/test_estoque_referencia_lab.py"
+      - ".github/workflows/test-estoque-referencia-lab.yml"
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Sintaxe dos modulos alterados
+        run: python -m compileall -q core/estoque_referencia.py core/catalogo_transformacoes.py core/permissoes.py modules/laboratorio_transformacoes.py modules/laboratorio_catalogo_ui.py tests/test_estoque_referencia_lab.py
+      - name: Testes sem gravacao no Supabase
+        run: python -m unittest discover -s tests -p "test_estoque_referencia_lab.py" -v
