@@ -8,5 +8,7 @@ PERMISSOES_EXTRAS = {
 def tem_acesso_modulo(usuario: str, setor: str, modulo: str) -> bool:
     if setor == "ADMINISTRADOR":
         return True
+    if setor == "MONTAGEM" and modulo == "Laboratório de Transformações":
+        return True
     login = (usuario or "").strip().lower()
     return modulo in PERMISSOES_EXTRAS.get(login, set())

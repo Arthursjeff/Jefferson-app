@@ -11,6 +11,10 @@ from core.catalogo_transformacoes import (
     listar_receitas, disponibilidade_receita, registrar_receita,
 )
 from core.permissoes import tem_acesso_modulo
+from core.estoque_referencia import carregar_estoque_referencia
+from modules.laboratorio_catalogo_ui import (
+    interface_cadastro_manual, interface_homologacao,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,50 +62,57 @@ def _mostrar_receitas(receitas, saldos=None):
             "Doadora": por_papel.get("DOADORA", ""),
             "Residual": por_papel.get("RESIDUAL", ""),
             "Validações": r.get("total_validacoes", 0),
-            "Saldos no arquivo": ("Disponíveis" if disponivel else "Insuficientes")
-                                 if disponivel is not None else "Não consultados",
+            "Quantidade na referência": ("Consta no levantamento" if disponivel else "Sem saldo registrado")
+                                         if disponivel is not None else "Não consultado",
             "_disponivel": bool(disponivel),
         })
     linhas.sort(key=lambda x: (not x["_disponivel"], -(x["Validações"] or 0)))
     st.dataframe(pd.DataFrame([{k: v for k, v in linha.items() if k != "_disponivel"}
                                for linha in linhas]), hide_index=True, use_container_width=True)
-    st.caption("Receitas cadastradas são precedentes técnicos, não movimentações de estoque. "
-               "Os saldos exibidos vêm somente do arquivo ERP carregado.")
+    st.caption("A quantidade exibida é apenas a da referência histórica ou do arquivo importado. "
+               "Não garante disponibilidade atual nem movimenta estoque.")
 
 
 def _salvar_possibilidade(resultado, simulacao, saldos, demonstracao, chave):
-    """Exige validação do operador, saldo atual e arquivo ERP real para gravar."""
+    """A confirmação técnica cadastra receita, nunca movimenta estoque."""
     if demonstracao:
         st.warning("O estoque fictício é apenas para testes; não pode alimentar a biblioteca.")
         return
-    base = normalizar(simulacao.get("valvula_base"))
-    doadora = normalizar(simulacao.get("valvula_doadora") or simulacao.get("origem"))
-    necessidades = {base: 1}
-    necessidades[doadora] = necessidades.get(doadora, 0) + 1
-    if not all(saldos.get(cod, 0) >= qtd for cod, qtd in necessidades.items()):
-        st.warning("Os saldos carregados mudaram ou são insuficientes. Refaça a análise antes de gravar.")
-        return
-    if st.button("Salvar transformação validada no Supabase", key=chave):
+    if st.button("Salvar possibilidade no Supabase", key=chave):
         usuario = st.session_state.get("usuario")
         setor = st.session_state.get("setor")
         if not tem_acesso_modulo(usuario, setor, "Laboratório de Transformações"):
             st.error("Seu usuário não tem permissão para cadastrar possibilidades.")
             return
+        estado = "VALIDADA" if setor == "ADMINISTRADOR" else "PENDENTE"
         try:
-            receita, nova = registrar_receita(resultado, simulacao, usuario)
+            receita, nova = registrar_receita(
+                resultado, simulacao, usuario, estado=estado,
+                origem="LABORATORIO",
+                observacao=("Proposta técnica conferida pelo operador no motor; "
+                            "estoque de referência não representa disponibilidade atual."),
+            )
         except ValueError as erro:
             st.warning(str(erro))
         except Exception:
             logger.exception("Falha ao registrar receita técnica no Supabase")
             st.error("Não foi possível salvar no Supabase. Consulte o log do aplicativo.")
         else:
-            st.success("Receita salva na biblioteca." if nova
-                       else "Esta receita já estava cadastrada; nenhuma duplicação foi criada.")
+            if nova:
+                st.success("Receita homologada no Supabase." if estado == "VALIDADA"
+                           else "Proposta registrada como PENDENTE para homologação.")
+            else:
+                st.info("Esta combinação já está no Supabase; não foi duplicada.")
             atualizadas = _buscar_receitas(resultado["destino"], receita["grau"])
             if atualizadas is not None:
                 st.session_state["laboratorio_catalogo_resultado"] = (
                     resultado["destino"], receita["grau"], atualizadas
                 )
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _obter_estoque_referencia_cache():
+    return carregar_estoque_referencia()
 
 
 def _chave_estoque(saldos):
@@ -122,55 +133,80 @@ def pagina_laboratorio_transformacoes():
         busca = st.session_state.get("laboratorio_catalogo_busca")
         if busca and busca[0] == normalizar(codigo_busca) and busca[1] is not None:
             _mostrar_receitas(busca[1])
+    interface_cadastro_manual()
+    interface_homologacao()
     demonstracao = False
-    with st.expander("Estoque de teste", expanded=True):
-        arquivo = st.file_uploader(
-            "Carregar relatório ERP (.csv ou .xlsx)", type=["csv", "xlsx"],
-            key="transformacoes_arquivo")
-        if arquivo is None:
-            st.info("Para iniciar, carregue seu estoque provisório do ERP ou use o exemplo fictício abaixo.")
-            usar_demo = st.checkbox("Usar estoque fictício de demonstração", value=False)
-            if not usar_demo:
-                st.stop()
-            demonstracao = True
-            dados = pd.DataFrame([
-                {"codigo": "1335BE04", "quantidade": 5, "numero_serie": ""},
-                {"codigo": "Z1335BA04", "quantidade": 2, "numero_serie": ""},
-            ])
-        else:
+    with st.expander("Estoque para simulação", expanded=True):
+        fonte = st.radio(
+            "Fonte dos códigos e quantidades",
+            ("Supabase — referência histórica", "Importar arquivo ERP", "Estoque fictício"),
+            key="laboratorio_fonte_estoque", horizontal=True,
+        )
+        if fonte == "Supabase — referência histórica":
             try:
-                dados = _ler_estoque(arquivo)
-            except Exception as exc:
-                st.error(f"Não foi possível ler o relatório: {exc}")
+                inventario, saldos = _obter_estoque_referencia_cache()
+            except Exception:
+                logger.exception("Falha ao carregar o estoque historico do laboratorio")
+                st.error("Estoque histórico indisponível no Supabase. "
+                         "Use Importar arquivo ERP ou tente novamente.")
                 st.stop()
-        st.caption(f"{len(dados)} linhas recebidas. Informe quais colunas representam código e quantidade.")
-        colunas = list(dados.columns)
-        c1, c2, c3 = st.columns(3)
-        def sugestao(palavras, padrao=0):
-            return next((i for i, c in enumerate(colunas)
-                         if any(p in str(c).lower() for p in palavras)), padrao)
-        with c1:
-            col_codigo = st.selectbox("Coluna do código", colunas,
-                                    index=sugestao(("cód", "cod", "item", "produto")))
-        with c2:
-            col_qtd = st.selectbox("Coluna da quantidade", colunas,
-                                 index=sugestao(("quant", "qtd", "saldo")))
-        with c3:
-            opcoes_serie = ["(sem série)"] + colunas
-            col_serie = st.selectbox("Coluna da série (opcional)", opcoes_serie,
-                                    index=next((i+1 for i, c in enumerate(colunas)
-                                                if "série" in str(c).lower() or "serie" in str(c).lower()), 0))
-        registros = [{
-            "codigo": linha[col_codigo],
-            "quantidade": linha[col_qtd],
-            "numero_serie": linha[col_serie] if col_serie != "(sem série)" else "",
-        } for _, linha in dados.iterrows()]
-        saldos, series, rejeitados = consolidar_estoque(registros)
-        if rejeitados:
-            st.warning(f"{len(rejeitados)} linhas ignoradas por código ou quantidade inválidos.")
-        st.metric("Códigos distintos no teste", len(saldos))
-        if col_serie != "(sem série)":
-            st.caption("Séries são lidas para estrutura futura, mas ainda não são consumidas ou movimentadas.")
+            st.warning("SALDOS HISTÓRICOS, NÃO ATUALIZADOS. Referência de 03/11/2026; "
+                       "não usar para confirmar atendimento de pedidos.")
+            st.caption("Base compartilhada: " + inventario["referencia_externa"])
+            st.metric("Códigos técnicos na referência", len(saldos))
+        else:
+            if fonte == "Estoque fictício":
+                demonstracao = True
+                dados = pd.DataFrame([
+                    {"codigo": "1335BE04", "quantidade": 5, "numero_serie": ""},
+                    {"codigo": "Z1335BA04", "quantidade": 2, "numero_serie": ""},
+                ])
+            else:
+                arquivo = st.file_uploader(
+                    "Carregar relatório ERP (.csv ou .xlsx)", type=["csv", "xlsx"],
+                    key="transformacoes_arquivo")
+                if arquivo is None:
+                    st.info("Selecione um arquivo de estoque ou volte para a referência compartilhada.")
+                    st.stop()
+                try:
+                    dados = _ler_estoque(arquivo)
+                except Exception as exc:
+                    st.error(f"Não foi possível ler o relatório: {exc}")
+                    st.stop()
+            st.caption(f"{len(dados)} linhas recebidas. Indique as colunas de código e quantidade.")
+            colunas = list(dados.columns)
+            c1, c2, c3 = st.columns(3)
+
+            def sugestao(palavras, padrao=0):
+                return next((i for i, c in enumerate(colunas)
+                             if any(p in str(c).lower() for p in palavras)), padrao)
+
+            with c1:
+                col_codigo = st.selectbox("Coluna do código", colunas,
+                                          index=sugestao(("cód", "cod", "item", "produto")))
+            with c2:
+                col_qtd = st.selectbox("Coluna da quantidade", colunas,
+                                       index=sugestao(("quant", "qtd", "saldo")))
+            with c3:
+                opcoes_serie = ["(sem série)"] + colunas
+                col_serie = st.selectbox(
+                    "Coluna da série (opcional)", opcoes_serie,
+                    index=next((i + 1 for i, x in enumerate(colunas)
+                                if "série" in str(x).lower() or "serie" in str(x).lower()), 0),
+                )
+            registros = [{
+                "codigo": linha[col_codigo],
+                "quantidade": linha[col_qtd],
+                "numero_serie": linha[col_serie] if col_serie != "(sem série)" else "",
+            } for _, linha in dados.iterrows()]
+            saldos, _, rejeitados = consolidar_estoque(registros)
+            if rejeitados:
+                st.warning(f"{len(rejeitados)} linhas ignoradas por código ou quantidade inválidos.")
+            st.metric("Códigos distintos na simulação", len(saldos))
+            if col_serie != "(sem série)":
+                st.caption("Séries são lidas apenas como referência, sem movimentação.")
+            if not demonstracao:
+                st.warning("Os saldos do arquivo importado não são confirmados em tempo real.")
 
     st.subheader("Simular transformação")
     codigo = st.text_input("Código técnico vendido", value="Z1335BE04")
@@ -199,6 +235,7 @@ def pagina_laboratorio_transformacoes():
     chave_atual = _chave_estoque(saldos)
     if st.button("Analisar possibilidades", type="primary"):
         st.session_state["laboratorio_estoque_analisado"] = chave_atual
+        st.session_state["laboratorio_fonte_analisada"] = fonte
         st.session_state["laboratorio_carretel_analisado"] = dict(carreteis)
         if tipo == "Kit de Reparo":
             st.session_state["laboratorio_transformacoes_resultado"] = avaliar_kit_2030(
@@ -219,6 +256,7 @@ def pagina_laboratorio_transformacoes():
             or tipo_atual != resultado["tipo"]
             or (tipo_atual == "KIT" and op_kit != resultado.get("operacao"))
             or chave_atual != st.session_state.get("laboratorio_estoque_analisado")
+            or fonte != st.session_state.get("laboratorio_fonte_analisada")
             or (tipo_atual == "KIT" and carreteis != st.session_state.get("laboratorio_carretel_analisado"))):
         st.info("A seleção ou os saldos mudaram. Clique em Analisar possibilidades para atualizar a simulação.")
         return
