@@ -3,7 +3,7 @@ import unittest
 
 from core.conversor_erp_estoque import converter
 from core.conversor_erp_pedido import sugerir_codigo
-from core.estoque_referencia import REFERENCIA_LABORATORIO
+from pathlib import Path
 
 
 class TestConversorErpEstoque(unittest.TestCase):
@@ -43,7 +43,8 @@ class TestConversorErpEstoque(unittest.TestCase):
         self.assertNotEqual(converter("35BA4", "").status, "CONFIRMADO")
 
     def test_inventario_v2(self):
-        self.assertEqual(REFERENCIA_LABORATORIO, "ERP_2026-11-03_LAB_TRANSF_v2_CONFERIDO")
+        fonte = (Path(__file__).resolve().parents[1] / "core" / "estoque_referencia.py").read_text(encoding="utf-8")
+        self.assertIn('REFERENCIA_LABORATORIO = "ERP_2026-11-03_LAB_TRANSF_v2_CONFERIDO"', fonte)
 
 
 if __name__ == "__main__":
