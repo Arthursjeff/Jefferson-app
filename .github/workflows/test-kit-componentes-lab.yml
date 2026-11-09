@@ -1,0 +1,28 @@
+name: Validar cadastro de kits por componentes
+
+on:
+  push:
+    branches:
+      - feature/kit-componentes-cadastro-montagem
+  pull_request:
+    paths:
+      - 'core/catalogo_kit_componentes.py'
+      - 'core/catalogo_transformacoes.py'
+      - 'modules/laboratorio_catalogo_ui.py'
+      - 'modules/laboratorio_kit_componentes_ui.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'tests/test_catalogo_kit_componentes.py'
+      - '.github/workflows/test-kit-componentes-lab.yml'
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compilar sem conexao ao banco
+        run: python -m compileall -q core/catalogo_kit_componentes.py core/catalogo_transformacoes.py modules/laboratorio_catalogo_ui.py modules/laboratorio_kit_componentes_ui.py modules/laboratorio_transformacoes.py tests/test_catalogo_kit_componentes.py
+      - name: Rodar testes de composicao
+        run: python -m unittest discover -s tests -p 'test_catalogo_kit_componentes.py' -v
