@@ -210,7 +210,17 @@ def pagina_laboratorio_transformacoes():
                 codigo_bruto = linha[col_codigo]
                 codigo_final = codigo_bruto
                 if interpretar_erp:
+                    # Relatório ERP costuma conter milhares de produtos sem saldo
+                    # ou fora do escopo; não gastar CPU convertendo esses registros.
+                    try:
+                        qtd_erp = float(str(linha[col_qtd] or "0").replace(",", "."))
+                    except (TypeError, ValueError):
+                        qtd_erp = 0
+                    if qtd_erp <= 0:
+                        continue
                     descricao = str(linha[desc_col] or "")
+                    if "VALV" not in descricao.upper() and "KIT" not in descricao.upper():
+                        continue
                     convertido = converter_codigo_erp(codigo_bruto, descricao)
                     if convertido.status != "CONFIRMADO":
                         pendentes_conversao.append({
