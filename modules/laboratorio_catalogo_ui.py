@@ -2,6 +2,10 @@
 import logging
 
 import streamlit as st
+import pandas as pd
+
+from core.catalogo_kit_componentes import pode_homologar_composicao
+from modules.laboratorio_kit_componentes_ui import interface_corrigir_kit_pendente
 
 from core.catalogo_transformacoes import (
     registrar_receita, listar_pendentes, homologar_pendente,
@@ -13,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def interface_cadastro_manual():
-    with st.expander("Cadastrar transformação conhecida — sem depender do saldo", expanded=False):
+    with st.expander("Cadastrar transformação simples (A + B + C + D)", expanded=False):
         st.caption("Use para uma combinação tecnicamente conhecida, mesmo fora do estoque histórico. "
                    "As propostas manuais ficam PENDENTES até a homologação administrativa.")
         with st.form("form_transf_manual", clear_on_submit=True):
@@ -91,14 +95,28 @@ def interface_homologacao():
         st.write("**Entradas:**", registro["entradas"])
         st.write("**Saídas:**", registro["saidas"])
         st.write("**Justificativa:**", registro.get("observacao") or "Sem observação")
+        parametros = registro.get("parametros_tecnicos") or {}
+        if parametros.get("metodo") == "CADASTRO_MANUAL_COMPONENTES":
+            st.markdown("**Peças da composição proposta**")
+            st.dataframe(pd.DataFrame(parametros.get("componentes") or []),
+                         hide_index=True, use_container_width=True)
+            st.write("**Destino das sobras:**", parametros.get("destino_residual", "Não informado"))
+            interface_corrigir_kit_pendente(registro)
+        pode_homologar, motivo = pode_homologar_composicao(registro)
+        if not pode_homologar:
+            st.error(motivo)
         confirmado = st.checkbox(
-            "Conferi tecnicamente a base, a doadora, o produto e o residual.",
+            "Conferi a compatibilidade técnica, os componentes, códigos, quantidades e o residual.",
+            disabled=not pode_homologar,
             key=f"homologar_confirma_{escolha}")
-        if st.button("Homologar receita selecionada", disabled=not confirmado,
+        if st.button("Homologar receita selecionada",
+                     disabled=not (pode_homologar and confirmado),
                      key=f"homologar_receita_{escolha}"):
             try:
                 homologar_pendente(
                     escolha, st.session_state.get("usuario"), st.session_state.get("setor"))
+            except ValueError as erro:
+                st.warning(str(erro))
             except Exception:
                 logger.exception("Falha ao homologar possibilidade técnica")
                 st.error("Não foi possível homologar. Atualize a lista e confira o registro.")
