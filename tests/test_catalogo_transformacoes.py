@@ -33,7 +33,7 @@ class TestCatalogoTransformacoes(unittest.TestCase):
         self.assertEqual(registro["total_validacoes"], 1)
         self.assertEqual(registro["entradas"][0]["papel"], "BASE")
         self.assertEqual(registro["entradas"][1]["codigo"], "Z1335BA04")
-        self.assertEqual(registro["saidas"][1]["papel"], "RESIDUAL")
+        self.assertEqual(registro["saidas"][0]["papel"], "PRODUTO")\n        self.assertEqual(registro["saidas"][1]["papel"], "RESIDUAL")
         self.assertEqual(registro["validada_por"], "ricardo")
         self.assertEqual(registro["assinatura"],
                          catalogo.preparar_receita(resultado, simulacao, "arthur")["assinatura"])
@@ -63,12 +63,27 @@ class TestCatalogoTransformacoes(unittest.TestCase):
         busca = fake.table.return_value.select.return_value
         busca.eq.return_value = busca
         busca.limit.return_value = busca
-        busca.execute.return_value.data = [{"id": "ja-existe", "estado": "VALIDADA"}]
+        busca.execute.return_value.data = [
+            dict(catalogo.preparar_receita(resultado, simulacao, "ricardo"),
+                 id="ja-existe")
+        ]
         with patch.object(catalogo, "supabase", fake):
             receita, nova = catalogo.registrar_receita(resultado, simulacao, "arthur")
         self.assertFalse(nova)
         self.assertEqual(receita["id"], "ja-existe")
         fake.table.return_value.insert.assert_not_called()
+
+
+    def test_comparacao_respeita_canonizacao_do_trigger(self):
+        resultado, simulacao = exemplo()
+        dados = catalogo.preparar_receita(resultado, simulacao, "arthur")
+        existente = dict(dados)
+        existente["entradas"] = list(reversed(dados["entradas"]))
+        existente["saidas"] = [
+            dict(x, quantidade=1.0) for x in reversed(dados["saidas"])
+        ]
+        existente["assinatura"] = "SHA256-GERADO-PELO-POSTGRES"
+        self.assertTrue(catalogo._mesma_receita(existente, dados))
 
     def test_insercao_com_campos_corretos(self):
         resultado, simulacao = exemplo()
