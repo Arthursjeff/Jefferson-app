@@ -12,7 +12,7 @@ from core.catalogo_transformacoes import (
 )
 from core.permissoes import tem_acesso_modulo
 from core.estoque_referencia import carregar_estoque_referencia
-from core.conversor_erp_jefferson import converter as converter_codigo_erp
+from core.conversor_erp_estoque import converter as converter_codigo_erp
 from modules.laboratorio_catalogo_ui import (
     interface_cadastro_manual, interface_homologacao,
 )
