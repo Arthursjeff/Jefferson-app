@@ -16,6 +16,7 @@ from core.conversor_erp_estoque import converter as converter_codigo_erp
 from modules.laboratorio_catalogo_ui import (
     interface_cadastro_manual, interface_homologacao,
 )
+from modules.laboratorio_kit_componentes_ui import interface_kit_componentes
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,12 @@ def _mostrar_receitas(receitas, saldos=None):
         entradas = r.get("entradas") or []
         saidas = r.get("saidas") or []
         por_papel = {e.get("papel"): e.get("codigo") for e in entradas + saidas}
+        parametros = r.get("parametros_tecnicos") or {}
+        pecas = parametros.get("componentes") or []
+        resumo_pecas = ", ".join(
+            f"{p.get('grupo')}: {p.get('descricao') or p.get('codigo')} x{p.get('quantidade')}"
+            for p in pecas
+        )
         disponivel = disponibilidade_receita(r, saldos) if saldos is not None else None
         linhas.append({
             "Grau": r.get("grau"),
@@ -62,6 +69,7 @@ def _mostrar_receitas(receitas, saldos=None):
             "Base": por_papel.get("BASE", ""),
             "Doadora": por_papel.get("DOADORA", ""),
             "Residual": por_papel.get("RESIDUAL", ""),
+            "Composição de peças": resumo_pecas,
             "Validações": r.get("total_validacoes", 0),
             "Quantidade na referência": ("Consta no levantamento" if disponivel else "Sem saldo registrado")
                                          if disponivel is not None else "Não consultado",
@@ -134,6 +142,7 @@ def pagina_laboratorio_transformacoes():
         busca = st.session_state.get("laboratorio_catalogo_busca")
         if busca and busca[0] == normalizar(codigo_busca) and busca[1] is not None:
             _mostrar_receitas(busca[1])
+    interface_kit_componentes()
     interface_cadastro_manual()
     interface_homologacao()
     demonstracao = False
