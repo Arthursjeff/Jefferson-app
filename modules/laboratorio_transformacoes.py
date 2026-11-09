@@ -1,9 +1,18 @@
 """Laboratório administrativo/operacional para simular transformações."""
 import io
+import hashlib
+import json
+import logging
 import pandas as pd
 import streamlit as st
 from core.motor_transformacoes import avaliar, consolidar_estoque, normalizar, calcular_residual_corpo, calcular_residual_torre, diagnosticar_componentes_torre
 from core.transformacoes_kit_2030 import OPCOES, parse as parse_kit_2030, avaliar as avaliar_kit_2030, calcular_residual as calcular_residual_kit_2030
+from core.catalogo_transformacoes import (
+    listar_receitas, disponibilidade_receita, registrar_receita,
+)
+from core.permissoes import tem_acesso_modulo
+
+logger = logging.getLogger(__name__)
 
 
 def _ler_estoque(arquivo):
@@ -21,9 +30,99 @@ def _ler_estoque(arquivo):
     return df.fillna("")
 
 
+
+def _buscar_receitas(destino, grau=None):
+    try:
+        receitas = listar_receitas(destino, grau)
+    except Exception:
+        logger.exception("Falha na consulta do catálogo de transformações")
+        st.warning("A biblioteca do Supabase não pôde ser consultada. A simulação continua disponível.")
+        return None
+    return receitas
+
+
+def _mostrar_receitas(receitas, saldos=None):
+    if not receitas:
+        st.info("Nenhuma receita técnica validada encontrada para este produto.")
+        return
+    linhas = []
+    for r in receitas:
+        entradas = r.get("entradas") or []
+        saidas = r.get("saidas") or []
+        por_papel = {e.get("papel"): e.get("codigo") for e in entradas + saidas}
+        disponivel = disponibilidade_receita(r, saldos) if saldos is not None else None
+        linhas.append({
+            "Grau": r.get("grau"),
+            "Operação": r.get("subtipo"),
+            "Base": por_papel.get("BASE", ""),
+            "Doadora": por_papel.get("DOADORA", ""),
+            "Residual": por_papel.get("RESIDUAL", ""),
+            "Validações": r.get("total_validacoes", 0),
+            "Saldos no arquivo": ("Disponíveis" if disponivel else "Insuficientes")
+                                 if disponivel is not None else "Não consultados",
+            "_disponivel": bool(disponivel),
+        })
+    linhas.sort(key=lambda x: (not x["_disponivel"], -(x["Validações"] or 0)))
+    st.dataframe(pd.DataFrame([{k: v for k, v in linha.items() if k != "_disponivel"}
+                               for linha in linhas]), hide_index=True, use_container_width=True)
+    st.caption("Receitas cadastradas são precedentes técnicos, não movimentações de estoque. "
+               "Os saldos exibidos vêm somente do arquivo ERP carregado.")
+
+
+def _salvar_possibilidade(resultado, simulacao, saldos, demonstracao, chave):
+    """Exige validação do operador, saldo atual e arquivo ERP real para gravar."""
+    if demonstracao:
+        st.warning("O estoque fictício é apenas para testes; não pode alimentar a biblioteca.")
+        return
+    base = normalizar(simulacao.get("valvula_base"))
+    doadora = normalizar(simulacao.get("valvula_doadora") or simulacao.get("origem"))
+    necessidades = {base: 1}
+    necessidades[doadora] = necessidades.get(doadora, 0) + 1
+    if not all(saldos.get(cod, 0) >= qtd for cod, qtd in necessidades.items()):
+        st.warning("Os saldos carregados mudaram ou são insuficientes. Refaça a análise antes de gravar.")
+        return
+    if st.button("Salvar transformação validada no Supabase", key=chave):
+        usuario = st.session_state.get("usuario")
+        setor = st.session_state.get("setor")
+        if not tem_acesso_modulo(usuario, setor, "Laboratório de Transformações"):
+            st.error("Seu usuário não tem permissão para cadastrar possibilidades.")
+            return
+        try:
+            receita, nova = registrar_receita(resultado, simulacao, usuario)
+        except ValueError as erro:
+            st.warning(str(erro))
+        except Exception:
+            logger.exception("Falha ao registrar receita técnica no Supabase")
+            st.error("Não foi possível salvar no Supabase. Consulte o log do aplicativo.")
+        else:
+            st.success("Receita salva na biblioteca." if nova
+                       else "Esta receita já estava cadastrada; nenhuma duplicação foi criada.")
+            atualizadas = _buscar_receitas(resultado["destino"], receita["grau"])
+            if atualizadas is not None:
+                st.session_state["laboratorio_catalogo_resultado"] = (
+                    resultado["destino"], receita["grau"], atualizadas
+                )
+
+
+def _chave_estoque(saldos):
+    serializado = json.dumps(sorted(saldos.items()), separators=(",", ":"))
+    return hashlib.sha256(serializado.encode("utf-8")).hexdigest()
+
+
 def pagina_laboratorio_transformacoes():
     st.title("Laboratório de Transformações")
-    st.caption("Simulador de regras e estoque provisório. Sem movimentações, reservas ou gravações no Supabase.")
+    st.caption("Simule com estoque ERP provisório e salve receitas validadas no Supabase. "
+               "Salvar uma possibilidade nunca movimenta ou reserva estoque.")
+    with st.expander("Biblioteca de transformações já validadas", expanded=False):
+        codigo_busca = st.text_input("Código desejado para consultar a biblioteca", key="busca_codigo_catalogo")
+        if st.button("Consultar receitas", key="consultar_catalogo"):
+            st.session_state["laboratorio_catalogo_busca"] = (
+                normalizar(codigo_busca), _buscar_receitas(codigo_busca)
+            )
+        busca = st.session_state.get("laboratorio_catalogo_busca")
+        if busca and busca[0] == normalizar(codigo_busca) and busca[1] is not None:
+            _mostrar_receitas(busca[1])
+    demonstracao = False
     with st.expander("Estoque de teste", expanded=True):
         arquivo = st.file_uploader(
             "Carregar relatório ERP (.csv ou .xlsx)", type=["csv", "xlsx"],
@@ -33,6 +132,7 @@ def pagina_laboratorio_transformacoes():
             usar_demo = st.checkbox("Usar estoque fictício de demonstração", value=False)
             if not usar_demo:
                 st.stop()
+            demonstracao = True
             dados = pd.DataFrame([
                 {"codigo": "1335BE04", "quantidade": 5, "numero_serie": ""},
                 {"codigo": "Z1335BA04", "quantidade": 2, "numero_serie": ""},
@@ -96,22 +196,37 @@ def pagina_laboratorio_transformacoes():
         metodo = "Válvula–Válvula"
     else:
         metodo = "Válvula–Válvula"
+    chave_atual = _chave_estoque(saldos)
     if st.button("Analisar possibilidades", type="primary"):
+        st.session_state["laboratorio_estoque_analisado"] = chave_atual
+        st.session_state["laboratorio_carretel_analisado"] = dict(carreteis)
         if tipo == "Kit de Reparo":
             st.session_state["laboratorio_transformacoes_resultado"] = avaliar_kit_2030(
                 codigo, op_kit, saldos, carreteis)
         else:
             st.session_state["laboratorio_transformacoes_resultado"] = avaliar(
                 codigo, tipo.upper(), "VALVULA_VALVULA", saldos)
+        grau_consulta = "KIT_REPARO" if tipo == "Kit de Reparo" else tipo.upper()
+        cadastradas = _buscar_receitas(codigo, grau_consulta)
+        st.session_state["laboratorio_catalogo_resultado"] = (
+            normalizar(codigo), grau_consulta, cadastradas
+        )
     resultado = st.session_state.get("laboratorio_transformacoes_resultado")
     if not resultado:
         return
     tipo_atual = "KIT" if tipo == "Kit de Reparo" else tipo.upper()
     if (normalizar(codigo) != resultado["destino"]
             or tipo_atual != resultado["tipo"]
-            or (tipo_atual == "KIT" and op_kit != resultado.get("operacao"))):
-        st.info("A seleção mudou. Clique em Analisar possibilidades para atualizar a simulação.")
+            or (tipo_atual == "KIT" and op_kit != resultado.get("operacao"))
+            or chave_atual != st.session_state.get("laboratorio_estoque_analisado")
+            or (tipo_atual == "KIT" and carreteis != st.session_state.get("laboratorio_carretel_analisado"))):
+        st.info("A seleção ou os saldos mudaram. Clique em Analisar possibilidades para atualizar a simulação.")
         return
+    catalogo = st.session_state.get("laboratorio_catalogo_resultado")
+    grau_catalogo = "KIT_REPARO" if tipo_atual == "KIT" else tipo_atual
+    if catalogo and catalogo[0:2] == (resultado["destino"], grau_catalogo) and catalogo[2]:
+        st.subheader("Receitas já validadas — prioridade de consulta")
+        _mostrar_receitas(catalogo[2], saldos)
     st.subheader("Resultado da análise")
     st.write("Destino:", resultado["destino"])
     st.write("Saldo exato informado:", resultado["estoque_exato"])
@@ -155,6 +270,7 @@ def pagina_laboratorio_transformacoes():
                     st.session_state["residual_kit_validado"] = assinatura
                 if st.session_state.get("residual_kit_validado") == assinatura:
                     st.success("Códigos validados pelo operador nesta simulação.")
+                    _salvar_possibilidade(resultado, simu, saldos, demonstracao, "salvar_kit_catalogo")
                 else:
                     st.info("Confirme produto final e residual antes de validar.")
         for pendencia in resultado["pendencias"]:
@@ -225,6 +341,7 @@ def pagina_laboratorio_transformacoes():
                         st.session_state["residual_torre_validado"] = assinatura_torre
                     if st.session_state.get("residual_torre_validado") == assinatura_torre:
                         st.success("Troca integral G1 validada nesta simulação, sem movimentação de estoque.")
+                        _salvar_possibilidade(resultado, simulacao_torre, saldos, demonstracao, "salvar_torre_catalogo")
                     else:
                         st.info("Confira os códigos da válvula vendida e do residual.")
         if resultado["tipo"] == "CORPO":
@@ -255,6 +372,7 @@ def pagina_laboratorio_transformacoes():
                         st.session_state["residual_corpo_validado"] = assinatura
                     if st.session_state.get("residual_corpo_validado") == assinatura:
                         st.success("Códigos validados pelo operador nesta simulação.")
+                        _salvar_possibilidade(resultado, simulacao, saldos, demonstracao, "salvar_corpo_catalogo")
                     else:
                         st.info("Confirme os códigos da válvula vendida e da válvula residual.")
             else:
