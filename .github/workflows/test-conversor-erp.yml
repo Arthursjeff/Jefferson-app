@@ -7,6 +7,9 @@ on:
       - 'core/data/erp_equivalencias_455.csv'
       - 'core/data/erp_equivalencias_historicas.tsv'
       - 'tests/test_conversor_erp_pedido.py'
+      - 'tests/test_validacao_importacao_prn.py'
+      - 'core/validacao_importacao_prn.py'
+      - 'modules/atualizacao_erp.py'
       - '.github/workflows/test-conversor-erp.yml'
   pull_request:
     paths:
@@ -14,6 +17,9 @@ on:
       - 'core/motor_erp_regras.py'
       - 'core/data/**'
       - 'tests/test_conversor_erp_pedido.py'
+      - 'tests/test_validacao_importacao_prn.py'
+      - 'core/validacao_importacao_prn.py'
+      - 'modules/atualizacao_erp.py'
 jobs:
   testes:
     runs-on: ubuntu-latest
@@ -23,6 +29,8 @@ jobs:
         with:
           python-version: '3.11'
       - name: Validar sintaxe
-        run: python -m compileall -q core/motor_erp_regras.py core/conversor_erp_pedido.py tests/test_conversor_erp_pedido.py
+        run: python -m compileall -q core/motor_erp_regras.py core/conversor_erp_pedido.py core/validacao_importacao_prn.py modules/atualizacao_erp.py tests/test_conversor_erp_pedido.py tests/test_validacao_importacao_prn.py
       - name: Executar testes de conversao
         run: python -m unittest discover -s tests -p 'test_conversor_erp_pedido.py' -v
+      - name: Testar regras de diferença financeira PRN
+        run: python -m unittest discover -s tests -p 'test_validacao_importacao_prn.py' -v
