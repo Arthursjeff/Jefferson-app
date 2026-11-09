@@ -10,7 +10,7 @@ TABELA_POSSIBILIDADES = "transformacoes_possiveis"
 # Tabelas de execução futura: estoque_operacoes, estoque_movimentacoes.
 VERSAO_CATALOGO = "laboratorio-2026-11-v1"
 CAMPOS_CONSULTA = (
-    "id,grau,subtipo,produto_final,entradas,saidas,estado,"
+    "id,grau,subtipo,produto_final,entradas,saidas,estado,parametros_tecnicos,"
     "total_validacoes,ultima_validacao_em,validada_por"
 )
 
