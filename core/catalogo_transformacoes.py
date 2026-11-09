@@ -10,7 +10,7 @@ TABELA_POSSIBILIDADES = "transformacoes_possiveis"
 # Tabelas de execução futura: estoque_operacoes, estoque_movimentacoes.
 VERSAO_CATALOGO = "laboratorio-2026-11-v1"
 CAMPOS_CONSULTA = (
-    "id,grau,subtipo,produto_final,entradas,saidas,estado,"
+    "id,grau,subtipo,produto_final,entradas,saidas,estado,parametros_tecnicos,"
     "total_validacoes,ultima_validacao_em,validada_por"
 )
 
@@ -196,11 +196,88 @@ def registrar_receita(resultado, simulacao, usuario, estado="VALIDADA",
         raise RuntimeError("O Supabase não confirmou o cadastro da receita.")
     return inserido.data[0], True
 
+
+def registrar_proposta_componentes_kit(dados):
+    """Somente registra a hipótese PENDENTE; não aprova nem movimenta estoque."""
+    if dados.get("grau") != "KIT_REPARO" or dados.get("estado") != "PENDENTE" or (
+            dados.get("parametros_tecnicos") or {}).get("metodo") != "CADASTRO_MANUAL_COMPONENTES":
+        raise ValueError("Cadastro de componentes exige proposta de kit pendente.")
+    existente = _localizar_equivalente(dados)
+    if existente:
+        if existente["estado"] == "BLOQUEADA":
+            raise ValueError("Esta composição foi bloqueada; solicite revisão administrativa.")
+        return existente, False
+    try:
+        inserido = supabase.table(TABELA_POSSIBILIDADES).insert(dados).execute()
+    except Exception as erro:
+        if str(getattr(erro, "code", "")) != "23505":
+            raise
+        repetida = _localizar_equivalente(dados)
+        if repetida and repetida["estado"] != "BLOQUEADA":
+            return repetida, False
+        raise
+    if not inserido.data:
+        raise RuntimeError("Supabase não confirmou o cadastro de componentes.")
+    return inserido.data[0], True
+
+
+def corrigir_referencias_kit_pendente(receita_id, atualizacoes, usuario, setor):
+    """Administrador pode substituir marcadores provisórios por códigos reais ERP.
+
+    Atualiza apenas proposta pendente; trigger do banco recalcula a assinatura.
+    """
+    if setor != "ADMINISTRADOR":
+        raise PermissionError("Somente o administrador pode corrigir referências de propostas.")
+    if not str(usuario or "").strip() or not receita_id:
+        raise ValueError("Identifique administrador e proposta.")
+    from core.catalogo_kit_componentes import eh_referencia_pendente, _codigo
+    selecionados = (
+        supabase.table(TABELA_POSSIBILIDADES)
+        .select("id,estado,grau,entradas,parametros_tecnicos")
+        .eq("id", receita_id).eq("estado", "PENDENTE").limit(1).execute()
+    ).data or []
+    if not selecionados:
+        raise ValueError("A proposta não está mais pendente.")
+    registro = selecionados[0]
+    params = dict(registro.get("parametros_tecnicos") or {})
+    if registro.get("grau") != "KIT_REPARO" or params.get("metodo") != "CADASTRO_MANUAL_COMPONENTES":
+        raise ValueError("Este registro não é uma proposta de kit por componentes.")
+    pendentes = set(params.get("codigos_sem_erp") or [])
+    if not pendentes:
+        raise ValueError("Esta composição já possui todas as referências ERP.")
+    atualizacoes = {normalizar(k): _codigo(v, "Código de substituição")
+                    for k, v in (atualizacoes or {}).items() if str(v or "").strip()}
+    if not atualizacoes or not set(atualizacoes).issubset(pendentes):
+        raise ValueError("Informe os códigos reais apenas para as referências pendentes.")
+    entradas = [dict(item) for item in registro.get("entradas") or []]
+    for entrada in entradas:
+        antigo = normalizar(entrada.get("codigo"))
+        if antigo in atualizacoes:
+            entrada["codigo"] = atualizacoes[antigo]
+    detalhes = [dict(item) for item in params.get("componentes") or []]
+    for detalhe in detalhes:
+        antigo = normalizar(detalhe.get("codigo"))
+        if antigo in atualizacoes:
+            detalhe["codigo"] = atualizacoes[antigo]
+            detalhe["sem_codigo_erp"] = False
+    params["componentes"] = detalhes
+    params["codigos_sem_erp"] = sorted(
+        {normalizar(item["codigo"]) for item in entradas if eh_referencia_pendente(item.get("codigo"))}
+    )
+    atualizacao = (
+        supabase.table(TABELA_POSSIBILIDADES)
+        .update({"entradas": entradas, "parametros_tecnicos": params})
+        .eq("id", receita_id).eq("estado", "PENDENTE").execute()
+    )
+    if not atualizacao.data:
+        raise RuntimeError("Proposta mudou; atualize a fila antes de corrigir.")
+    return atualizacao.data[0]
+
 def listar_pendentes(limite=100):
     """Fila de homologação exclusivamente para uso na área administrativa."""
     resposta = (
         supabase.table(TABELA_POSSIBILIDADES)
-        .select("id,grau,subtipo,produto_final,entradas,saidas,"
+        .select("id,grau,subtipo,produto_final,entradas,saidas,parametros_tecnicos,"
                 "registrada_por,criado_em,observacao")
         .eq("estado", "PENDENTE")
         .order("criado_em", desc=False)
@@ -216,6 +293,17 @@ def homologar_pendente(receita_id, usuario, setor):
     usuario = str(usuario or "").strip().lower()
     if not usuario or not receita_id:
         raise ValueError("Informe operador e receita para homologação.")
+    from core.catalogo_kit_componentes import pode_homologar_composicao
+    consulta = (
+        supabase.table(TABELA_POSSIBILIDADES)
+        .select("grau,subtipo,entradas,parametros_tecnicos")
+        .eq("id", receita_id).eq("estado", "PENDENTE").limit(1).execute()
+    ).data or []
+    if not consulta:
+        raise ValueError("A receita não está mais pendente.")
+    liberada, motivo = pode_homologar_composicao(consulta[0])
+    if not liberada:
+        raise ValueError(motivo)
     agora = datetime.now(timezone.utc).isoformat()
     resposta = (
         supabase.table(TABELA_POSSIBILIDADES)
