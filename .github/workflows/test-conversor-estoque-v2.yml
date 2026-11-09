@@ -1,0 +1,26 @@
+name: Conversor ERP no estoque historico
+
+on:
+  push:
+    branches:
+      - feature/conversor-erp-estoque-historico-v2
+  pull_request:
+    paths:
+      - 'core/conversor_erp_estoque.py'
+      - 'core/estoque_referencia.py'
+      - 'modules/laboratorio_transformacoes.py'
+      - 'tests/test_conversor_erp_jefferson.py'
+      - '.github/workflows/test-conversor-estoque-v2.yml'
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Checar sintaxe
+        run: python -m compileall -q core/conversor_erp_estoque.py core/conversor_erp_pedido.py core/motor_erp_regras.py core/estoque_referencia.py modules/laboratorio_transformacoes.py tests/test_conversor_erp_jefferson.py
+      - name: Testar motor ERP com a referencia historica
+        run: python -m unittest discover -s tests -p 'test_conversor_erp_jefferson.py' -v

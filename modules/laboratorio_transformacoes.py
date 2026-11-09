@@ -12,6 +12,7 @@ from core.catalogo_transformacoes import (
 )
 from core.permissoes import tem_acesso_modulo
 from core.estoque_referencia import carregar_estoque_referencia
+from core.conversor_erp_estoque import converter as converter_codigo_erp
 from modules.laboratorio_catalogo_ui import (
     interface_cadastro_manual, interface_homologacao,
 )
@@ -194,11 +195,54 @@ def pagina_laboratorio_transformacoes():
                     index=next((i + 1 for i, x in enumerate(colunas)
                                 if "série" in str(x).lower() or "serie" in str(x).lower()), 0),
                 )
-            registros = [{
-                "codigo": linha[col_codigo],
-                "quantidade": linha[col_qtd],
-                "numero_serie": linha[col_serie] if col_serie != "(sem série)" else "",
-            } for _, linha in dados.iterrows()]
+            desc_col = next((x for x in colunas if "descri" in str(x).lower()), None)
+            interpretar_erp = (st.checkbox(
+                "Interpretar códigos ERP e conferir com a descrição",
+                value=desc_col is not None,
+                disabled=desc_col is None,
+                help="Somente equivalências CONFIRMADAS entram na simulação; "
+                     "as demais ficam na revisão e não somam ao saldo.",
+                key="converter_erp_no_laboratorio"
+            ) if not demonstracao else False)
+            registros = []
+            pendentes_conversao = []
+            for _, linha in dados.iterrows():
+                codigo_bruto = linha[col_codigo]
+                codigo_final = codigo_bruto
+                if interpretar_erp:
+                    # Relatório ERP costuma conter milhares de produtos sem saldo
+                    # ou fora do escopo; não gastar CPU convertendo esses registros.
+                    try:
+                        qtd_erp = float(str(linha[col_qtd] or "0").replace(",", "."))
+                    except (TypeError, ValueError):
+                        qtd_erp = 0
+                    if qtd_erp <= 0:
+                        continue
+                    descricao = str(linha[desc_col] or "")
+                    if "VALV" not in descricao.upper() and "KIT" not in descricao.upper():
+                        continue
+                    convertido = converter_codigo_erp(codigo_bruto, descricao)
+                    if convertido.status != "CONFIRMADO":
+                        pendentes_conversao.append({
+                            "ERP": codigo_bruto,
+                            "Status": convertido.status,
+                            "Código sugerido": convertido.codigo_tecnico or "",
+                            "Motivo": convertido.motivo,
+                        })
+                        continue
+                    codigo_final = convertido.codigo_tecnico
+                registros.append({
+                    "codigo": codigo_final,
+                    "quantidade": linha[col_qtd],
+                    "numero_serie": linha[col_serie] if col_serie != "(sem série)" else "",
+                })
+            if interpretar_erp:
+                st.caption(f"Conversor ERP: {len(registros)} linhas confirmadas; "
+                           f"{len(pendentes_conversao)} não incluídas no saldo de simulação.")
+                if pendentes_conversao:
+                    with st.expander("Conferir conversões não confirmadas"):
+                        st.dataframe(pd.DataFrame(pendentes_conversao),
+                                     hide_index=True, use_container_width=True)
             saldos, _, rejeitados = consolidar_estoque(registros)
             if rejeitados:
                 st.warning(f"{len(rejeitados)} linhas ignoradas por código ou quantidade inválidos.")
