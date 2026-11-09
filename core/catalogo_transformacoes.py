@@ -44,7 +44,7 @@ def preparar_receita(resultado, simulacao, usuario):
         {"papel": "DOADORA", "codigo": doadora, "quantidade": 1},
     ]
     saidas = [
-        {"papel": "PRODUTO_FINAL", "codigo": final, "quantidade": 1},
+        {"papel": "PRODUTO", "codigo": final, "quantidade": 1},
         {"papel": "RESIDUAL", "codigo": residual, "quantidade": 1},
     ]
     # A ordem e o papel de cada item importam: base e doadora não são intercambiáveis.
@@ -109,49 +109,80 @@ def disponibilidade_receita(receita, saldos):
     return bool(consumo) and all(saldos.get(codigo, 0) >= qtd for codigo, qtd in consumo.items())
 
 
-def registrar_receita(resultado, simulacao, usuario):
-    """Grava só receitas validadas; assinatura única evita duplicação ao clicar de novo."""
-    dados = preparar_receita(resultado, simulacao, usuario)
-    assinatura = dados["assinatura"]
-    encontrados = (
+
+def _itens_comparaveis(itens):
+    """Normalização equivalente à função SQL canonizar_itens_transformacao."""
+    somas = {}
+    for item in itens or []:
+        chave = (normalizar(item.get("codigo")), str(item.get("papel") or "").strip().upper())
+        somas[chave] = somas.get(chave, 0) + float(item.get("quantidade", 0))
+    return sorted((codigo, papel, quantidade)
+                  for (codigo, papel), quantidade in somas.items())
+
+
+def _mesma_receita(existente, dados):
+    """A assinatura real é recalculada pelo trigger do PostgreSQL."""
+    return (
+        existente.get("grau") == dados["grau"]
+        and existente.get("subtipo") == dados["subtipo"]
+        and existente.get("produto_final") == dados["produto_final"]
+        and _itens_comparaveis(existente.get("entradas")) == _itens_comparaveis(dados["entradas"])
+        and _itens_comparaveis(existente.get("saidas")) == _itens_comparaveis(dados["saidas"])
+        and (existente.get("parametros_tecnicos") or {}) == dados["parametros_tecnicos"]
+    )
+
+
+def _localizar_equivalente(dados):
+    # A consulta usa o índice existente (produto_final, estado); o trigger
+    # calcula SHA256 com jsonb canônico e sobrescreve a assinatura do cliente.
+    resposta = (
         supabase.table(TABELA_POSSIBILIDADES)
-        .select("id,estado")
-        .eq("assinatura", assinatura).limit(1).execute()
-    ).data or []
-    if encontrados:
-        anterior = encontrados[0]
-        if anterior["estado"] == "VALIDADA":
-            return anterior, False
-        if anterior["estado"] == "BLOQUEADA":
+        .select("id,estado,grau,subtipo,produto_final,entradas,saidas,parametros_tecnicos")
+        .eq("produto_final", dados["produto_final"])
+        .eq("grau", dados["grau"])
+        .limit(1000).execute()
+    )
+    return next((r for r in (resposta.data or []) if _mesma_receita(r, dados)), None)
+
+
+def registrar_receita(resultado, simulacao, usuario):
+    """Cadastra receita uma só vez, respeitando a normalização SQL do Supabase."""
+    dados = preparar_receita(resultado, simulacao, usuario)
+    existente = _localizar_equivalente(dados)
+    if existente:
+        if existente["estado"] == "VALIDADA":
+            return existente, False
+        if existente["estado"] == "BLOQUEADA":
             raise ValueError("Esta receita está bloqueada e requer revisão administrativa.")
-        # Um rascunho com a mesma assinatura pode ser homologado pelo operador.
+        # Rascunhos equivalentes podem ser validados; receitas já aprovadas
+        # nunca têm parâmetros técnicos alterados, conforme trigger do banco.
         agora = datetime.now(timezone.utc).isoformat()
         atualizado = (
             supabase.table(TABELA_POSSIBILIDADES)
             .update({
                 "estado": "VALIDADA", "validada_por": dados["validada_por"],
                 "primeira_validacao_em": agora, "ultima_validacao_em": agora,
-                "total_validacoes": 1, "atualizado_em": agora,
+                "total_validacoes": 1,
             })
-            .eq("id", anterior["id"]).eq("estado", "PENDENTE")
-            .execute()
+            .eq("id", existente["id"]).eq("estado", "PENDENTE").execute()
         )
         if atualizado.data:
             return atualizado.data[0], True
-        return registrar_receita(resultado, simulacao, usuario)
+        atual = _localizar_equivalente(dados)
+        if atual and atual["estado"] == "VALIDADA":
+            return atual, False
+        raise RuntimeError("A receita foi alterada por outro usuário. Consulte novamente.")
     try:
         inserido = supabase.table(TABELA_POSSIBILIDADES).insert(dados).execute()
     except Exception as erro:
-        # Proteção adicional se dois usuários tentarem registrar a mesma receita juntos.
         if str(getattr(erro, "code", "")) != "23505":
             raise
-        repetida = (
-            supabase.table(TABELA_POSSIBILIDADES)
-            .select("id,estado")
-            .eq("assinatura", assinatura).limit(1).execute()
-        ).data or []
-        if repetida and repetida[0]["estado"] == "VALIDADA":
-            return repetida[0], False
+        # O trigger calcula outra assinatura; não consultar pelo hash do cliente.
+        repetida = _localizar_equivalente(dados)
+        if repetida and repetida["estado"] == "VALIDADA":
+            return repetida, False
+        if repetida and repetida["estado"] == "BLOQUEADA":
+            raise ValueError("Receita bloqueada. Solicite revisão administrativa.") from erro
         raise
     if not inserido.data:
         raise RuntimeError("O Supabase não confirmou o cadastro da receita.")
