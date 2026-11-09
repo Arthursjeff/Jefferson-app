@@ -29,6 +29,10 @@ DESCRICAO_TECNICA = re.compile(
     r"(?<![A-Z0-9])((?:(?:ZC|Z|YC|RC|LP|E|PA))?(?:13|20|30)\d{2})"
     r"[\s-]*([A-Z]{1,5})\s*(\d{1,3})([A-Z0-9/\-]*)"
 )
+KITS_INTERNOS = {
+    "202-0509": "K030AR2",
+    "202-0515": "K30A2",
+}
 KITS_LAB = frozenset((
     "K030A2", "K030AR2", "K030V2", "K030VR2",
     "K30A2", "K30AR2", "K30V2", "K30VR2",
@@ -122,6 +126,16 @@ def converter(codigo_erp, descricao="", mapa=None):
     if origem.startswith("EXP") or "EM CORTE" in desc:
         return Resultado(origem, None, "PENDENTE", "nao_operacional",
                          "Código de exposição/peça em corte; não usar como estoque de transformação")
+    if origem in KITS_INTERNOS:
+        # Identidade cotejada com a descrição do produto ERP.
+        codigo_kit = KITS_INTERNOS[origem]
+        descr_normalizada = normalizar(desc)
+        equivalente = codigo_kit.replace("A2", "A02")
+        if "KIT" in desc and (codigo_kit in descr_normalizada or equivalente in descr_normalizada):
+            return Resultado(origem, codigo_kit, "CONFIRMADO", "kit_interno_descricao",
+                             "Código interno do kit confrontado com a descrição")
+        return Resultado(origem, None, "PENDENTE", "kit_interno",
+                         "Kit interno sem confirmação inequívoca na descrição")
     if origem in KITS_LAB:
         # Identificadores de kit são próprios e não são expandidos como válvula.
         if "KIT" in desc:
