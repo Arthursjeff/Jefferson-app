@@ -1,0 +1,25 @@
+name: Validar biblioteca de transformacoes
+
+on:
+  push:
+    branches:
+      - feature/catalogo-transformacoes-supabase
+  pull_request:
+    paths:
+      - "core/catalogo_transformacoes.py"
+      - "modules/laboratorio_transformacoes.py"
+      - "tests/test_catalogo_transformacoes.py"
+      - ".github/workflows/test-catalogo-transformacoes.yml"
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verificar sintaxe sem tocar no banco
+        run: python -m compileall -q core/catalogo_transformacoes.py modules/laboratorio_transformacoes.py tests/test_catalogo_transformacoes.py
+      - name: Testar catalogo com Supabase simulado
+        run: python -m unittest discover -s tests -p "test_catalogo_transformacoes.py" -v
