@@ -33,7 +33,8 @@ class TestCatalogoTransformacoes(unittest.TestCase):
         self.assertEqual(registro["total_validacoes"], 1)
         self.assertEqual(registro["entradas"][0]["papel"], "BASE")
         self.assertEqual(registro["entradas"][1]["codigo"], "Z1335BA04")
-        self.assertEqual(registro["saidas"][0]["papel"], "PRODUTO")\n        self.assertEqual(registro["saidas"][1]["papel"], "RESIDUAL")
+        self.assertEqual(registro["saidas"][0]["papel"], "PRODUTO")
+        self.assertEqual(registro["saidas"][1]["papel"], "RESIDUAL")
         self.assertEqual(registro["validada_por"], "ricardo")
         self.assertEqual(registro["assinatura"],
                          catalogo.preparar_receita(resultado, simulacao, "arthur")["assinatura"])
