@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 from core.database import supabase
 from modules.leitor_prn_v5 import run
+from core.validacao_importacao_prn import classificar_ocorrencias
 
 def _csv(path):
     with path.open(encoding="utf-8-sig", newline="") as f:
@@ -97,21 +98,23 @@ def preparar(arquivo):
         velho=existentes.get(numero)
         status="Novo" if not velho else "Atualizar"
         if velho and _igual(doc,velho,novos,itens_existentes[velho["id"]]):status="Igual"
-        # Falha de sugestão técnica não invalida o documento comercial.
-        # Mantemos o código ERP original e a ocorrência visível na auditoria.
-        avisos_tecnicos=[p for p in problemas.get(chave,[]) if p == "Código técnico não reconhecido"]
-        erro=[p for p in problemas.get(chave,[]) if p != "Código técnico não reconhecido"]
+        # Diferença entre total do ERP e itens pode refletir frete, tributos,
+        # descontos ou outros ajustes comerciais não discriminados no PRN.
+        # Preservamos ambos os valores; a diferença é aviso, não bloqueio.
+        erro,avisos=classificar_ocorrencias(problemas.get(chave,[]),d["diferenca"])
         if contagem[numero]>1:erro.append("Número repetido no PRN")
         if not its:erro.append("Documento sem itens")
-        if abs(_num(d["diferenca"]))>Decimal("0.02"):erro.append("Divergência de valores")
         if d["situacao_erp"] not in ("P","E","F"):erro.append("Situação não suportada")
         if velho and {"P":1,"E":2,"F":3}.get(velho.get("situacao_erp"),0)>{"P":1,"E":2,"F":3}.get(d["situacao_erp"],0):
             erro.append("Regressão de situação")
         if erro:status="Revisar"
-        observacoes=sorted(set(erro)) + (["Código técnico não reconhecido (ERP preservado)"] if avisos_tecnicos else [])
+        observacoes=sorted(set(erro)) + avisos
         linhas.append({"Número ERP":numero,"Cliente":doc["cliente_nome_erp"],
                        "Situação ERP":doc["situacao_erp"],"Resultado":status,
-                       "Itens":len(novos),"Valor (R$)":float(_num(doc["valor_total_cabecalho"])),
+                       "Itens":len(novos),
+                       "Valor itens (R$)":float(_num(doc["valor_itens_calculado"])),
+                       "Valor total ERP (R$)":float(_num(doc["valor_total_cabecalho"])),
+                       "Diferença (R$)":float(_num(d["diferenca"])),
                        "Observações":"; ".join(observacoes)})
         if status in ("Novo","Atualizar"):payload.append((doc,novos))
     return resumo,linhas,payload,auditoria
@@ -144,7 +147,7 @@ def pagina_atualizacao_erp():
     if auditoria:
         with st.expander("Auditoria do conversor V5"):
             st.dataframe(pd.DataFrame(auditoria),use_container_width=True)
-    st.warning("Documentos com inconsistências ficam bloqueados. Atualizações preservam a versão anterior em histórico.")
+    st.warning("Erros estruturais continuam bloqueados. Diferenças entre o total ERP e a soma dos itens são avisos e não impedem a gravação. Atualizações preservam a versão anterior em histórico.")
     if not payload:
         st.info("Nenhum documento seguro para inserir ou atualizar.")
         return
