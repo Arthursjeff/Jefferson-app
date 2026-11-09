@@ -7,7 +7,7 @@ from core.motor_transformacoes import normalizar
 
 TABELA_INVENTARIOS = "estoque_inventarios"
 TABELA_ITENS = "estoque_inventario_itens"
-REFERENCIA_LABORATORIO = "ERP_2026-11-03_LAB_TRANSF_v1"
+REFERENCIA_LABORATORIO = "ERP_2026-11-03_LAB_TRANSF_v2_CONFERIDO"
 
 
 def carregar_estoque_referencia():
