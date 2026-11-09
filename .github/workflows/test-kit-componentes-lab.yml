@@ -25,4 +25,6 @@ jobs:
       - name: Compilar sem conexao ao banco
         run: python -m compileall -q core/catalogo_kit_componentes.py core/catalogo_transformacoes.py modules/laboratorio_catalogo_ui.py modules/laboratorio_kit_componentes_ui.py modules/laboratorio_transformacoes.py tests/test_catalogo_kit_componentes.py
       - name: Rodar testes de composicao
-        run: python -m unittest discover -s tests -p 'test_catalogo_kit_componentes.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_catalogo_kit_componentes.py' -v
+          python -m unittest discover -s tests -p 'test_componentes_kit_supabase.py' -v
