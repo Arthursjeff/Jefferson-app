@@ -15,7 +15,7 @@ CAMPOS_CONSULTA = (
 )
 
 
-def preparar_receita(resultado, simulacao, usuario):
+def preparar_receita(resultado, simulacao, usuario, estado="VALIDADA", origem="LABORATORIO", observacao=None):
     """Mapeia a simulação A/B/C/D para as colunas EXISTENTES do Supabase."""
     tipo = resultado.get("tipo")
     grau = {"CORPO": "CORPO", "TORRE": "TORRE", "KIT": "KIT_REPARO"}.get(tipo)
@@ -55,6 +55,8 @@ def preparar_receita(resultado, simulacao, usuario):
     assinatura = hashlib.sha256(
         json.dumps(identidade, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+    if estado not in ("VALIDADA", "PENDENTE"):
+        raise ValueError("Estado de cadastro inválido.")
     agora = datetime.now(timezone.utc).isoformat()
     return {
         "assinatura": assinatura,
@@ -71,15 +73,17 @@ def preparar_receita(resultado, simulacao, usuario):
             "construcao_torre": resultado.get("construcao_torre"),
             "tipo_residual": simulacao.get("tipo_residual") or "VALVULA",
             "validacao_manual": True,
+            "origem_avaliacao": "DECLARADA" if origem == "LABORATORIO_MANUAL" else "MOTOR_TECNICO",
         },
         "versao_regra": VERSAO_CATALOGO,
-        "estado": "VALIDADA",
-        "origem_cadastro": "LABORATORIO",
+        "estado": estado,
+        "origem_cadastro": origem,
         "registrada_por": usuario,
-        "validada_por": usuario,
-        "primeira_validacao_em": agora,
-        "ultima_validacao_em": agora,
-        "total_validacoes": 1,
+        "validada_por": usuario if estado == "VALIDADA" else None,
+        "primeira_validacao_em": agora if estado == "VALIDADA" else None,
+        "ultima_validacao_em": agora if estado == "VALIDADA" else None,
+        "total_validacoes": 1 if estado == "VALIDADA" else 0,
+        "observacao": (str(observacao).strip() or None) if observacao else None,
     }
 
 
@@ -145,15 +149,19 @@ def _localizar_equivalente(dados):
     return next((r for r in (resposta.data or []) if _mesma_receita(r, dados)), None)
 
 
-def registrar_receita(resultado, simulacao, usuario):
-    """Cadastra receita uma só vez, respeitando a normalização SQL do Supabase."""
-    dados = preparar_receita(resultado, simulacao, usuario)
+def registrar_receita(resultado, simulacao, usuario, estado="VALIDADA",
+                     origem="LABORATORIO", observacao=None):
+    """Registra hipótese pendente ou receita validada, sem alterar estoque."""
+    dados = preparar_receita(resultado, simulacao, usuario, estado=estado,
+                            origem=origem, observacao=observacao)
     existente = _localizar_equivalente(dados)
     if existente:
         if existente["estado"] == "VALIDADA":
             return existente, False
         if existente["estado"] == "BLOQUEADA":
             raise ValueError("Esta receita está bloqueada e requer revisão administrativa.")
+        if estado == "PENDENTE":
+            return existente, False
         # Rascunhos equivalentes podem ser validados; receitas já aprovadas
         # nunca têm parâmetros técnicos alterados, conforme trigger do banco.
         agora = datetime.now(timezone.utc).isoformat()
@@ -187,3 +195,41 @@ def registrar_receita(resultado, simulacao, usuario):
     if not inserido.data:
         raise RuntimeError("O Supabase não confirmou o cadastro da receita.")
     return inserido.data[0], True
+
+def listar_pendentes(limite=100):
+    """Fila de homologação exclusivamente para uso na área administrativa."""
+    resposta = (
+        supabase.table(TABELA_POSSIBILIDADES)
+        .select("id,grau,subtipo,produto_final,entradas,saidas,"
+                "registrada_por,criado_em,observacao")
+        .eq("estado", "PENDENTE")
+        .order("criado_em", desc=False)
+        .limit(min(max(int(limite), 1), 100)).execute()
+    )
+    return resposta.data or []
+
+
+def homologar_pendente(receita_id, usuario, setor):
+    """Homologação explícita; só o perfil administrador pode liberar para recomendação."""
+    if setor != "ADMINISTRADOR":
+        raise PermissionError("Somente o administrador pode homologar receitas.")
+    usuario = str(usuario or "").strip().lower()
+    if not usuario or not receita_id:
+        raise ValueError("Informe operador e receita para homologação.")
+    agora = datetime.now(timezone.utc).isoformat()
+    resposta = (
+        supabase.table(TABELA_POSSIBILIDADES)
+        .update({
+            "estado": "VALIDADA",
+            "validada_por": usuario,
+            "primeira_validacao_em": agora,
+            "ultima_validacao_em": agora,
+            "total_validacoes": 1,
+        })
+        .eq("id", receita_id)
+        .eq("estado", "PENDENTE")
+        .execute()
+    )
+    if not resposta.data:
+        raise RuntimeError("A receita não está pendente ou foi atualizada por outro operador.")
+    return resposta.data[0]
