@@ -1,4 +1,4 @@
-"""Importação incremental de PRN ERP — exclusiva da Administração."""
+"""Importação incremental de PRN ERP — acesso por permissão de módulo."""
 import csv
 import io
 import json
@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from core.database import supabase
+from core.permissoes import tem_acesso_modulo
 from modules.leitor_prn_v5 import run
 from core.validacao_importacao_prn import classificar_ocorrencias
 
@@ -120,8 +121,8 @@ def preparar(arquivo):
     return resumo,linhas,payload,auditoria
 
 def pagina_atualizacao_erp():
-    if st.session_state.get("setor")!="ADMINISTRADOR":
-        st.error("Acesso exclusivo da Administração.")
+    if not tem_acesso_modulo(st.session_state.get("usuario"), st.session_state.get("setor"), "Atualização ERP"):
+        st.error("Você não possui permissão para acessar esta página.")
         st.stop()
     st.title("Atualização ERP · PRN")
     st.caption("Conversor V5 · comparação por número completo do ERP · prévia antes da gravação.")
