@@ -1286,6 +1286,10 @@ with st.sidebar:
     if tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Laboratório de Transformações") and "Laboratório de Transformações" not in paginas:
         paginas.append("Laboratório de Transformações")
 
+    for modulo_extra in ("Consertos", "Atualização ERP"):
+        if tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, modulo_extra) and modulo_extra not in paginas:
+            paginas.append(modulo_extra)
+
     pagina = st.radio(
         "Navegação",
         paginas,
@@ -1329,8 +1333,8 @@ elif pagina == "Importar Clientes":
 
 
 elif pagina == "Atualização ERP":
-    if st.session_state.setor != "ADMINISTRADOR":
-        st.error("Acesso exclusivo da Administração.")
+    if not tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Atualização ERP"):
+        st.error("Você não possui permissão para acessar esta página.")
         st.stop()
     pagina_atualizacao_erp()
 
@@ -1370,7 +1374,7 @@ elif pagina == "Laboratório de Transformações":
 
 elif pagina == "Consertos":
 
-    if st.session_state.setor not in ["ADMINISTRADOR", "MONTAGEM"]:
+    if not tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Consertos"):
         st.error("Você não possui permissão para acessar esta página.")
         st.stop()
 
