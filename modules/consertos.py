@@ -1,5 +1,7 @@
 import streamlit as st
 
+from core.permissoes import tem_acesso_modulo
+
 from core.consertos import (
     ESTAGIOS,
     adicionar_nota_cliente,
@@ -310,7 +312,7 @@ def _render_card(conserto):
 def pagina_consertos():
     _init()
 
-    if st.session_state.setor not in ["ADMINISTRADOR", "MONTAGEM"]:
+    if not tem_acesso_modulo(st.session_state.usuario, st.session_state.setor, "Consertos"):
         st.error("Você não possui permissão para acessar Consertos.")
         return
 
