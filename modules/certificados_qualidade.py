@@ -699,13 +699,13 @@ def pagina_certificados_qualidade():
                             f"Revisado ({fonte['escopo'].lower()}) por "
                             f"{fonte['usuario']}."
                         )
-            _editor_correcao(item, pedido, correcoes)
             st.caption(
                 "Campos fixos herdados do certificado Excel: torre AISI 316, "
                 "mola de retorno AISI 302, estanqueidade 100% e garantia 12 meses."
             )
             for erro in item["erros"]:
                 st.warning(erro)
+        _editor_correcao(item, pedido, correcoes)
 
     modelo = st.radio(
         "Modelo do documento",
