@@ -17,6 +17,7 @@ from modules.analises import pagina_analises
 from modules.inteligencia_comercial import pagina_inteligencia_comercial
 from modules.atualizacao_erp import pagina_atualizacao_erp
 from modules.laboratorio_codigos import pagina_laboratorio_codigos
+from modules.certificados_qualidade import pagina_certificados_qualidade
 from modules.laboratorio_transformacoes import pagina_laboratorio_transformacoes
 from modules.consertos import pagina_consertos
 from modules.consulta_fotos import pagina_consulta_pedidos
@@ -1254,6 +1255,7 @@ with st.sidebar:
             "Laboratório de Transformações",
             "Consertos",
             "Consulta de Pedidos",
+            "Certificados de Qualidade",
         ]
 
     elif st.session_state.setor == "VENDAS":
@@ -1355,6 +1357,14 @@ elif pagina == "Inteligência Comercial":
 
     pagina_inteligencia_comercial()
 
+
+elif pagina == "Certificados de Qualidade":
+
+    if st.session_state.setor != "ADMINISTRADOR":
+        st.error("Esta página é exclusiva para administradores.")
+        st.stop()
+
+    pagina_certificados_qualidade()
 
 elif pagina == "Laboratório de Códigos":
 
