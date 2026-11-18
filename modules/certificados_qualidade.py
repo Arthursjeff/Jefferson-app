@@ -376,22 +376,26 @@ def gerar_pdf_certificados(pedido, data_faturamento, itens, com_marca=True):
         ], estilo))
 
         elementos.append(Paragraph("Dados de processo", estilo["secao"]))
-        elementos.append(_tabela([
-            ("Pressão de trabalho:", 
+        processo = [
+            ("Pressão de trabalho:",
                 f"{_texto(v.get('V10'))} a {_texto(v.get('V11'))}"),
             ("Estanqueidade:", "100%"),
             ("Temperatura:", _texto(v.get("V12"))),
             ("Operação:", " / ".join(
-                x for x in (
-                    _texto(v.get("V03")), _texto(v.get("V04")),
-                ) if x
+                x for x in (_texto(v.get("V03")), _texto(v.get("V04"))) if x
             )),
             ("Conexão:", " ".join(
-                x for x in (
-                    _texto(v.get("V07")), _texto(v.get("V08")),
-                ) if x
+                x for x in (_texto(v.get("V07")), _texto(v.get("V08"))) if x
             )),
-        ], estilo))
+        ]
+        for chave, rotulo in (
+            ("V01", "Tipo de produto:"), ("V02", "Acionamento:"),
+            ("V09", "Orifício:"), ("V14", "Potência da bobina:"),
+            ("V16", "Vazão (Kv):"),
+        ):
+            if not _ausente(v.get(chave)):
+                processo.append((rotulo, _texto(v.get(chave))))
+        elementos.append(_tabela(processo, estilo))
 
         elementos.append(Spacer(1, 8*mm))
         elementos.append(_p(
@@ -499,6 +503,7 @@ def _editor_correcao(item, pedido, correcoes):
                         "e a conexão com o banco."
                     )
                 else:
+                    st.session_state["cert_pdf_confirmado"] = False
                     st.success("Correção homologada e registrada no histórico.")
                     st.rerun()
 
@@ -547,6 +552,7 @@ def _editor_correcao(item, pedido, correcoes):
                         )
                         st.error("A revogação não foi registrada.")
                     else:
+                        st.session_state["cert_pdf_confirmado"] = False
                         st.success("Revogação registrada, sem apagar o histórico.")
                         st.rerun()
 
@@ -717,6 +723,7 @@ def pagina_certificados_qualidade():
         "do modelo e as inspeções de qualidade foram verificados "
         "para os itens selecionados.",
         value=False,
+        key="cert_pdf_confirmado",
     )
     if not habilitados:
         st.error(
