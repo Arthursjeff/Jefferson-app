@@ -58,7 +58,7 @@ def _desenhar(c, x, topo, texto, negrito=False, tamanho=10, largura=None):
     c.drawString(x, H - topo, texto)
 
 
-def _centro(c, topo, texto, negrito=True, tamanho=11.5):
+def _centro(c, topo, texto, negrito=True, tamanho=11.5, sublinhar=False):
     fonte = "Times-Bold" if negrito else "Times-Roman"
     texto = _texto(texto)
     while stringWidth(texto, fonte, tamanho) > 440 and tamanho > 8:
@@ -67,6 +67,11 @@ def _centro(c, topo, texto, negrito=True, tamanho=11.5):
         raise ValueError("Nome do cliente excede o espaço disponível no certificado.")
     c.setFont(fonte, tamanho)
     c.drawCentredString(341, H - topo, texto)
+    if sublinhar:
+        metade = stringWidth(texto, fonte, tamanho) / 2
+        c.setLineWidth(.7)
+        c.line(341 - metade, H - topo - 1.8,
+               341 + metade, H - topo - 1.8)
 
 
 def _pontilhado(c, rotulo, valor, topo, x_valor=337.5,
@@ -148,8 +153,9 @@ def _desenhar_pagina(c, pedido, item, com_marca):
         f"{MESES[hoje.month - 1]} de {hoje.year}"
     )
     _desenhar(c, 362.2, 76.2, data, tamanho=10, largura=226)
-    _centro(c, 116.1, "CERTIFICADO DE QUALIDADE")
-    _centro(c, 141.6, pedido.get("cliente") or "CLIENTE NÃO INFORMADO")
+    _centro(c, 116.1, "CERTIFICADO DE QUALIDADE", sublinhar=True)
+    _centro(c, 141.6, pedido.get("cliente") or "CLIENTE NÃO INFORMADO",
+            sublinhar=True)
     _desenhar(
         c, 124.1, 167.5,
         "Estamos especificando os materiais e faixas de trabalho das válvulas "
@@ -208,9 +214,13 @@ def _desenhar_pagina(c, pedido, item, com_marca):
 
     _desenhar(c, 124.1, 451, "Dados de processo:", negrito=True)
     c.line(124, H - 451.9, 206.5, H - 451.9)
+    pressao_min = _texto(v.get("V10"))
+    pressao_max = _texto(v.get("V11"))
+    if pressao_min.lower().endswith(" bar") and pressao_max.lower().endswith(" bar"):
+        pressao_min = pressao_min[:-4]
     _pontilhado(
         c, "Pressão de Trabalho:",
-        f"{_texto(v.get('V10'))} a {_texto(v.get('V11'))}",
+        f"{pressao_min} a {pressao_max}",
         478.7, x_valor=329,
     )
     _pontilhado(c, "Estanqueidade:", "100%", 492.4, x_valor=329)
@@ -222,6 +232,8 @@ def _desenhar_pagina(c, pedido, item, com_marca):
     )
 
     _desenhar(c, 124.1, 566.5, "* Garantia:", negrito=True)
+    c.setLineWidth(.65)
+    c.line(136, H - 568.2, 185, H - 568.2)
     _desenhar(
         c, 187, 566.5,
         "12 meses, exceto partes elétricas (bobinas).",
@@ -233,6 +245,8 @@ def _desenhar_pagina(c, pedido, item, com_marca):
         "em nosso manual de controle de qualidade.",
         largura=436, tamanho=10, distancia=13.7,
     )
+    c.setLineWidth(.7)
+    c.line(124, H - 674.4, 240, H - 674.4)
     _desenhar(c, 124.1, 685.2, "Jefferson Solenoidbras Ltda", True, 9)
     _desenhar(c, 124.1, 696.9, "Arthur Henrique Rosa", True, 9)
     _desenhar(c, 124.1, 708.7, "Área Técnica", True, 9)
