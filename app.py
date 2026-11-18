@@ -1265,6 +1265,7 @@ with st.sidebar:
             "Orçamentos",
             "Clientes",
             "Consulta de Pedidos",
+            "Certificados de Qualidade",
         ]
 
     elif st.session_state.setor == "MONTAGEM":
@@ -1360,8 +1361,8 @@ elif pagina == "Inteligência Comercial":
 
 elif pagina == "Certificados de Qualidade":
 
-    if st.session_state.setor != "ADMINISTRADOR":
-        st.error("Esta página é exclusiva para administradores.")
+    if st.session_state.setor not in ("ADMINISTRADOR", "VENDAS"):
+        st.error("Esta página é exclusiva para o Comercial e administradores.")
         st.stop()
 
     pagina_certificados_qualidade()
