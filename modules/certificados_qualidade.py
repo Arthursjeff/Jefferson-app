@@ -1,7 +1,7 @@
 """Certificados de Qualidade: emissão somente com dados da Fila de Pedidos.
 
-Este módulo é somente leitura. Não consulta o ERP, não altera registros e
-não emite declarações com informações técnicas ou séries inconsistentes.
+O módulo não consulta o ERP e não modifica dados de pedidos ou o motor.
+Aprovações técnicas ficam em um histórico próprio, com acesso ADMIN.
 """
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -24,6 +24,10 @@ from core.database import supabase
 from core.pedido_itens_comerciais import listar_itens_pedido
 from modules.modulo_01.rastreabilidade import listar_series
 from motor_descricao import processar_produto
+from modules.certificados_correcao_service import (
+    CAMPOS_EDITAVEIS, CAMPOS_POR_TENSAO, carregar_correcoes, aplicar_correcoes,
+    registrar_correcao, normalizar_codigo,
+)
 
 
 VERDE = colors.HexColor("#2B8B5C")
@@ -39,7 +43,7 @@ CAMPOS_TECNICOS = {
     "V07": "Conexão", "V08": "Tipo de rosca",
     "V09": "Orifício", "V10": "Pressão mínima",
     "V11": "Pressão máxima", "V12": "Temperatura",
-    "V13": "Bobina", "V14": "Potência",
+    "V13": "Bobina", "V14": "Potência", "V16": "Coeficiente de vazão (Kv)",
 }
 
 
@@ -153,8 +157,8 @@ def _ausente(valor):
     }
 
 
-def preparar_item(item, series):
-    """Monta dados do pedido sem atualizar a fila ou criar certificados."""
+def preparar_item(item, series, correcoes=None):
+    """Interpreta o motor e aplica SOMENTE as correções aprovadas ao certificado."""
     codigo = str(item.get("codigo") or "").strip().upper()
     tensao = str(item.get("tensao") or "").strip()
     quantidade = _decimal(item.get("quantidade"))
@@ -193,6 +197,7 @@ def preparar_item(item, series):
         )
 
     variaveis = {}
+    origens = {}
     try:
         resultado = processar_produto(codigo, tensao)
         if not resultado.get("sucesso"):
@@ -201,7 +206,9 @@ def preparar_item(item, series):
                 + str(resultado.get("erro") or "verifique o modelo")
             )
         else:
-            variaveis = resultado.get("variaveis") or {}
+            variaveis, origens = aplicar_correcoes(
+                resultado.get("variaveis") or {}, item, correcoes or {}
+            )
             if variaveis.get("CLASSE_PRODUTO") == "BOBINA":
                 erros.append("Bobina avulsa: este modelo de certificado é para válvulas.")
             for chave in ("V05", "V06", "V10", "V11", "V12"):
@@ -212,16 +219,15 @@ def preparar_item(item, series):
                     )
     except Exception as exc:
         erros.append("Falha na interpretação técnica do código.")
-        # Detalhe técnico para logs; não publicar stack trace no certificado.
         import logging
         logging.getLogger(__name__).exception(
-            "Falha do motor para o código %s: %s", codigo, exc
+            "Falha do motor de certificados para %s: %s", codigo, exc
         )
-
     return {
         "id": item.get("id"), "codigo": codigo, "tensao": tensao,
         "quantidade": quantidade, "series": numero_series,
-        "variaveis": variaveis, "erros": list(dict.fromkeys(erros)),
+        "variaveis": variaveis, "origens": origens,
+        "erros": list(dict.fromkeys(erros)),
     }
 
 
@@ -410,6 +416,164 @@ def gerar_pdf_certificados(pedido, data_faturamento, itens, com_marca=True):
     return arquivo.getvalue()
 
 
+def _editor_correcao(item, pedido, correcoes):
+    """Admin homologa um campo de cada vez; alterações sempre auditadas."""
+    codigo = normalizar_codigo(item["codigo"])
+    item_id = item["id"]
+    campos = [campo for campo in CAMPOS_EDITAVEIS if campo in CAMPOS_TECNICOS]
+    faltantes = [
+        c for c in ("V05", "V06", "V10", "V11", "V12")
+        if _ausente(item["variaveis"].get(c))
+    ]
+    with st.expander("Corrigir característica técnica", expanded=bool(faltantes)):
+        campo = st.selectbox(
+            "Qual característica precisa de correção?",
+            options=campos,
+            index=campos.index(faltantes[0]) if faltantes else 0,
+            format_func=lambda c: f"{CAMPOS_TECNICOS[c]} ({c})",
+            key=f"cert_campo_{item_id}",
+        )
+        valor_atual = _texto(item["variaveis"].get(campo))
+        origem = item.get("origens", {}).get(campo)
+        st.caption(
+            "Valor usado no certificado: "
+            + (valor_atual or "Não identificado")
+            + (
+                f" | Correção {origem['escopo'].lower()} aprovada por "
+                f"{origem['usuario']}"
+                if origem else " | Motor de descrição"
+            )
+        )
+        if campo in CAMPOS_POR_TENSAO:
+            st.info(
+                "Para bobina/potência, a correção permanente só será aplicada "
+                "à mesma tensão registrada neste item."
+            )
+        with st.form(f"cert_form_corr_{item_id}", clear_on_submit=False):
+            valor_novo = st.text_input(
+                "Novo valor técnico homologado",
+                value=valor_atual, max_chars=500,
+                key=f"cert_valor_{item_id}_{campo}",
+            )
+            escopo = st.radio(
+                "Abrangência da correção",
+                ["PONTUAL", "PERMANENTE"],
+                format_func=lambda x: (
+                    "Somente este item deste pedido/NF" if x == "PONTUAL"
+                    else "Todos os certificados do mesmo código exato"
+                ),
+                key=f"cert_escopo_{item_id}",
+            )
+            justificativa = st.text_area(
+                "Fonte ou justificativa técnica da especificação",
+                placeholder="Ex.: catálogo Jefferson revisado, ficha técnica aprovada...",
+                max_chars=2000,
+                key=f"cert_justificativa_{item_id}",
+            )
+            conferir = st.checkbox(
+                "Conferi a especificação técnica e autorizo o registro "
+                "desta correção.",
+                key=f"cert_aprovar_{item_id}_{campo}",
+            )
+            salvar = st.form_submit_button("Validar e salvar correção")
+        if salvar:
+            if not conferir:
+                st.warning("Confirme a validação técnica antes de salvar.")
+            else:
+                try:
+                    registrar_correcao(
+                        pedido_id=pedido["id"], item_id=item_id,
+                        codigo=codigo, campo=campo, tensao=item["tensao"],
+                        escopo=escopo, valor_anterior=valor_atual,
+                        valor_corrigido=valor_novo,
+                        justificativa=justificativa,
+                        usuario=st.session_state.get("usuario"),
+                    )
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).exception(
+                        "Não foi possível registrar correção: %s", exc
+                    )
+                    st.error(
+                        "Correção não registrada. Confira o valor, a justificativa "
+                        "e a conexão com o banco."
+                    )
+                else:
+                    st.success("Correção homologada e registrada no histórico.")
+                    st.rerun()
+
+    ativas = item.get("origens", {})
+    if ativas:
+        with st.expander("Revogar uma correção vigente deste item"):
+            campo_revogar = st.selectbox(
+                "Correção aplicada",
+                options=list(ativas),
+                format_func=lambda c: (
+                    f"{CAMPOS_TECNICOS.get(c, c)} | "
+                    f"{ativas[c]['escopo']} | {ativas[c]['valor_corrigido']}"
+                ),
+                key=f"cert_reversao_campo_{item_id}",
+            )
+            atual = ativas[campo_revogar]
+            with st.form(f"cert_reversao_form_{item_id}"):
+                motivo = st.text_area(
+                    "Motivo da revogação (obrigatório)",
+                    max_chars=2000,
+                )
+                confirmacao = st.checkbox(
+                    "Confirmo a revogação da correção selecionada."
+                )
+                revogar = st.form_submit_button("Revogar correção")
+            if revogar:
+                if not confirmacao:
+                    st.warning("Confirme a revogação.")
+                else:
+                    try:
+                        registrar_correcao(
+                            pedido_id=pedido["id"], item_id=item_id,
+                            codigo=codigo, campo=campo_revogar,
+                            tensao=item["tensao"],
+                            escopo=atual["escopo"],
+                            valor_anterior=atual["valor_corrigido"],
+                            valor_corrigido="",
+                            justificativa=motivo,
+                            usuario=st.session_state.get("usuario"),
+                            acao="REVOGAR",
+                        )
+                    except Exception as exc:
+                        import logging
+                        logging.getLogger(__name__).exception(
+                            "Erro ao revogar correção: %s", exc
+                        )
+                        st.error("A revogação não foi registrada.")
+                    else:
+                        st.success("Revogação registrada, sem apagar o histórico.")
+                        st.rerun()
+
+    eventos = [
+        e for e in correcoes.get("historico", [])
+        if e["codigo"] == codigo and (
+            e["escopo"] == "PERMANENTE" or e["pedido_item_id"] == item_id
+        )
+    ]
+    if eventos:
+        with st.expander("Histórico de aprovações e revogações"):
+            st.dataframe(
+                [{
+                    "Quando": str(e.get("criado_em") or "")[:19],
+                    "Escopo": e["escopo"],
+                    "Ação": e["acao"],
+                    "Característica": CAMPOS_TECNICOS.get(e["campo"], e["campo"]),
+                    "Anterior": e.get("valor_anterior") or "-",
+                    "Valor aprovado": e.get("valor_corrigido") or "-",
+                    "Responsável": e.get("usuario") or "-",
+                    "Justificativa": e.get("justificativa") or "-",
+                } for e in eventos[:50]],
+                hide_index=True,
+                use_container_width=True,
+            )
+
+
 def pagina_certificados_qualidade():
     """Visível somente ao ADMINISTRADOR, independentemente da navegação."""
     if st.session_state.get("setor") != "ADMINISTRADOR":
@@ -418,8 +582,9 @@ def pagina_certificados_qualidade():
 
     st.title("Certificados de Qualidade")
     st.caption(
-        "Emissão a partir da Fila de Pedidos. Não utiliza dados do ERP "
-        "nem altera NF, pedido, séries ou características técnicas."
+        "Emissão a partir da Fila de Pedidos, sem consulta ao ERP. "
+        "Correções técnicas aprovadas são registradas separadamente "
+        "e não alteram os dados da fila ou o motor de descrição."
     )
     with st.form("cert_buscar_nf", clear_on_submit=False):
         consulta = st.text_input(
@@ -499,8 +664,20 @@ def pagina_certificados_qualidade():
         st.info("Selecione ao menos um item.")
         return
 
+    try:
+        correcoes = carregar_correcoes(
+            pedido_id, [por_id[ident] for ident in selecionados]
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Erro ao consultar correções técnicas: %s", exc
+        )
+        st.error("Não foi possível consultar a base de correções técnicas.")
+        return
     preparados = [
-        preparar_item(por_id[ident], series) for ident in selecionados
+        preparar_item(por_id[ident], series, correcoes)
+        for ident in selecionados
     ]
     habilitados = bool(data_faturamento) and all(
         not item["erros"] for item in preparados
@@ -516,6 +693,13 @@ def pagina_certificados_qualidade():
                 valor = _texto(item["variaveis"].get(chave))
                 if valor:
                     st.write(f"**{nome}:** {valor}")
+                    if chave in item["origens"]:
+                        fonte = item["origens"][chave]
+                        st.caption(
+                            f"Revisado ({fonte['escopo'].lower()}) por "
+                            f"{fonte['usuario']}."
+                        )
+            _editor_correcao(item, pedido, correcoes)
             st.caption(
                 "Campos fixos herdados do certificado Excel: torre AISI 316, "
                 "mola de retorno AISI 302, estanqueidade 100% e garantia 12 meses."
@@ -537,7 +721,8 @@ def pagina_certificados_qualidade():
     if not habilitados:
         st.error(
             "A emissão está bloqueada até regularizar os dados "
-            "indicados acima na própria fila ou no motor de descrição."
+            "indicados acima. Use 'Corrigir característica técnica' para "
+            "campos de descrição, ou ajuste rastreabilidade na fila."
         )
         return
     if not confirmacao:
@@ -565,4 +750,7 @@ def pagina_certificados_qualidade():
         ),
         type="primary",
     )
-    st.caption("PDF gerado em memória. Nenhuma tabela foi modificada.")
+    st.caption(
+        "PDF gerado em memória. A emissão não altera a fila nem o motor. "
+        "Apenas aprovações e revogações técnicas são gravadas separadamente."
+    )
