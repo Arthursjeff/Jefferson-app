@@ -329,7 +329,9 @@ def gerar_pdf_certificados(pedido, data_faturamento, itens, com_marca=True):
 
 
 def _editor_correcao(item, pedido, correcoes):
-    """Admin homologa um campo de cada vez; alterações sempre auditadas."""
+    """Somente ADMIN pode aprovar ou revogar correções técnicas."""
+    if st.session_state.get("setor") != "ADMINISTRADOR":
+        raise PermissionError("Aprovação técnica restrita a administradores.")
     codigo = normalizar_codigo(item["codigo"])
     item_id = item["id"]
     campos = [campo for campo in CAMPOS_EDITAVEIS if campo in CAMPOS_TECNICOS]
@@ -489,9 +491,10 @@ def _editor_correcao(item, pedido, correcoes):
 
 
 def pagina_certificados_qualidade():
-    """Visível somente ao ADMINISTRADOR, independentemente da navegação."""
-    if st.session_state.get("setor") != "ADMINISTRADOR":
-        st.error("Acesso exclusivo para administradores.")
+    """Consulta e emissão para VENDAS e ADMIN; homologação técnica apenas ADMIN."""
+    setor = st.session_state.get("setor")
+    if setor not in ("ADMINISTRADOR", "VENDAS"):
+        st.error("Acesso exclusivo para o Comercial e administradores.")
         st.stop()
 
     st.title("Certificados de Qualidade")
@@ -619,7 +622,16 @@ def pagina_certificados_qualidade():
             )
             for erro in item["erros"]:
                 st.warning(erro)
-        _editor_correcao(item, pedido, correcoes)
+        if setor == "ADMINISTRADOR":
+            _editor_correcao(item, pedido, correcoes)
+        elif item["erros"] and any(
+            erro.startswith("Característica técnica ausente:")
+            for erro in item["erros"]
+        ):
+            st.info(
+                "A correção de características técnicas exige aprovação do "
+                "administrador. Solicite a homologação para emitir o certificado."
+            )
 
     modelo = st.radio(
         "Modelo do documento",
@@ -634,11 +646,18 @@ def pagina_certificados_qualidade():
         key="cert_pdf_confirmado",
     )
     if not habilitados:
-        st.error(
-            "A emissão está bloqueada até regularizar os dados "
-            "indicados acima. Use 'Corrigir característica técnica' para "
-            "campos de descrição, ou ajuste rastreabilidade na fila."
-        )
+        if setor == "ADMINISTRADOR":
+            st.error(
+                "A emissão está bloqueada até regularizar os dados indicados. "
+                "Use 'Corrigir característica técnica' para campos de descrição "
+                "ou ajuste a rastreabilidade na fila."
+            )
+        else:
+            st.error(
+                "A emissão está bloqueada até regularizar os dados indicados. "
+                "Solicite ao administrador a correção técnica; problemas de "
+                "rastreabilidade devem ser corrigidos na fila."
+            )
         return
     if not confirmacao:
         st.info("Confirme a verificação técnica para habilitar a emissão.")
