@@ -321,103 +321,11 @@ def _moldura(canvas, doc, com_marca):
 
 
 def gerar_pdf_certificados(pedido, data_faturamento, itens, com_marca=True):
-    """Gera PDF em memória. Nenhuma escrita no Supabase ou no disco."""
-    if not itens or any(i["erros"] for i in itens):
-        raise ValueError("Há itens sem validação técnica ou rastreabilidade.")
-    if data_faturamento is None:
-        raise ValueError("Data do faturamento não encontrada na fila.")
-
-    arquivo = BytesIO()
-    doc = SimpleDocTemplate(
-        arquivo, pagesize=A4,
-        topMargin=37*mm, bottomMargin=37*mm,
-        leftMargin=20*mm, rightMargin=20*mm,
-        title=f"Certificado de Qualidade - NF {pedido['nota_fiscal']}",
-        author="Jefferson Solenoidbras Ltda.",
+    """Mantém a API original, usando o modelo visual Jefferson homologável."""
+    from modules.certificados_layout import gerar_pdf_certificados_layout
+    return gerar_pdf_certificados_layout(
+        pedido, data_faturamento, itens, com_marca=com_marca
     )
-    estilo = _estilos()
-    elementos = []
-    for idx, item in enumerate(itens):
-        if idx:
-            elementos.append(PageBreak())
-        v = item["variaveis"]
-        emissao = date.today()
-        texto_data = (
-            f"São Bernardo do Campo, {emissao.day} de "
-            f"{NOMES_MESES[emissao.month-1]} de {emissao.year}."
-        )
-        elementos.append(Spacer(1, 8*mm))
-        elementos.append(Paragraph("CERTIFICADO DE QUALIDADE", estilo["titulo"]))
-        elementos.append(_p(texto_data, estilo["normal"]))
-        elementos.append(_p(
-            "Estamos especificando os materiais e faixas de trabalho das "
-            "válvulas solenoides de nossa fabricação, marca JEFFERSON, "
-            "que se identificam como:",
-            estilo["normal"],
-        ))
-        elementos.append(_tabela([
-            ("CATÁLOGO Nº:", item["codigo"]),
-            ("Nota fiscal:", pedido.get("nota_fiscal")),
-            ("Pedido:", pedido.get("numero_pedido")),
-            ("Cliente:", pedido.get("cliente")),
-            ("Data de faturamento:", data_faturamento.strftime("%d/%m/%Y")),
-            ("Quantidade:", _qtd(item["quantidade"])),
-            ("Nº de série:", ", ".join(item["series"])),
-        ], estilo))
-
-        elementos.append(Paragraph("Materiais", estilo["secao"]))
-        elementos.append(_tabela([
-            ("Corpo:", _texto(v.get("V05"))),
-            ("Torre:", "AISI 316 (padrão do certificado original)"),
-            ("Mola de retorno:", "AISI 302 (padrão do certificado original)"),
-            ("Vedações:", _texto(v.get("V06"))),
-            ("Bobina:", _texto(v.get("V13")) or "Não aplicável"),
-            ("Tensão de acionamento:", item["tensao"]),
-        ], estilo))
-
-        elementos.append(Paragraph("Dados de processo", estilo["secao"]))
-        processo = [
-            ("Pressão de trabalho:",
-                f"{_texto(v.get('V10'))} a {_texto(v.get('V11'))}"),
-            ("Estanqueidade:", "100%"),
-            ("Temperatura:", _texto(v.get("V12"))),
-            ("Operação:", " / ".join(
-                x for x in (_texto(v.get("V03")), _texto(v.get("V04"))) if x
-            )),
-            ("Conexão:", " ".join(
-                x for x in (_texto(v.get("V07")), _texto(v.get("V08"))) if x
-            )),
-        ]
-        for chave, rotulo in (
-            ("V01", "Tipo de produto:"), ("V02", "Acionamento:"),
-            ("V09", "Orifício:"), ("V14", "Potência da bobina:"),
-            ("V16", "Vazão (Kv):"),
-        ):
-            if not _ausente(v.get(chave)):
-                processo.append((rotulo, _texto(v.get(chave))))
-        elementos.append(_tabela(processo, estilo))
-
-        elementos.append(Spacer(1, 8*mm))
-        elementos.append(_p(
-            "* Garantia: 12 meses, exceto partes elétricas (bobinas).",
-            estilo["normal"],
-        ))
-        elementos.append(_p(
-            "Certificamos que os dados informados se cumprem em cada uma "
-            "das unidades fabricadas e que foram cumpridos todos os "
-            "requisitos de prova em nosso manual de controle de qualidade.",
-            estilo["normal"],
-        ))
-        elementos.append(Spacer(1, 10*mm))
-        elementos.append(_p("Jefferson Solenoidbras Ltda.", estilo["rotulo"]))
-        elementos.append(_p("Arthur Henrique Rosa | Área Técnica", estilo["pequeno"]))
-
-    doc.build(
-        elementos,
-        onFirstPage=lambda canv, obj: _moldura(canv, obj, com_marca),
-        onLaterPages=lambda canv, obj: _moldura(canv, obj, com_marca),
-    )
-    return arquivo.getvalue()
 
 
 def _editor_correcao(item, pedido, correcoes):
